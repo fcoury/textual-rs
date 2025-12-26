@@ -1,17 +1,24 @@
-use crate::{Canvas, KeyCode, Message, Region, Size, Widget};
+use crate::{Canvas, KeyCode, Region, Size, Widget};
 
-pub struct Switch {
-    pub id: &'static str,
+/// A toggle switch widget that produces messages via a callback.
+pub struct Switch<M, F>
+where
+    F: Fn(bool) -> M,
+{
     pub focused: bool,
-    pub on: bool,
+    pub value: bool,
+    on_change: F,
 }
 
-impl Switch {
-    pub fn new(id: &'static str, on: bool) -> Self {
+impl<M, F> Switch<M, F>
+where
+    F: Fn(bool) -> M,
+{
+    pub fn new(value: bool, on_change: F) -> Self {
         Self {
-            id,
-            on,
+            value,
             focused: false,
+            on_change,
         }
     }
 
@@ -21,31 +28,43 @@ impl Switch {
     }
 }
 
-impl Widget for Switch {
+impl<M, F> Widget<M> for Switch<M, F>
+where
+    F: Fn(bool) -> M,
+{
     fn desired_size(&self) -> Size {
         Size {
-            width: 8,
+            width: 10,
             height: 3,
-        } // Fixed size for the switch widget
+        }
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
         let style_bracket_l = if self.focused { ">[" } else { " [" };
         let style_bracket_r = if self.focused { " ]<" } else { " ] " };
-        let state_text = if self.on { "  ON " } else { " OFF " };
+        let state_text = if self.value { "  ON " } else { " OFF " };
 
         let display = format!("{}{}{}", style_bracket_l, state_text, style_bracket_r);
 
         canvas.put_str(region.x, region.y, &display);
     }
 
-    fn on_event(&mut self, key: KeyCode) -> Option<Message> {
+    fn on_event(&mut self, key: KeyCode) -> Option<M> {
+        if !self.focused {
+            return None;
+        }
+
         match key {
-            KeyCode::Char(' ') | KeyCode::Enter => Some(Message::SwitchChanged {
-                id: self.id,
-                on: !self.on,
-            }),
+            KeyCode::Char(' ') | KeyCode::Enter => Some((self.on_change)(!self.value)),
             _ => None,
         }
+    }
+
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    fn set_focus(&mut self, is_focused: bool) {
+        self.focused = is_focused;
     }
 }

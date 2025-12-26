@@ -1,5 +1,5 @@
-use crossterm::{cursor, execute, style::Print};
-use std::io::{self, Write};
+use crossterm::{cursor, execute};
+use std::io::Write;
 
 /// The physical dimensions of a widget or terminal.
 #[derive(Clone, Copy, Debug)]
