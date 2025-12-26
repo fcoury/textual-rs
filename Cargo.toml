@@ -1,11 +1,31 @@
 [package]
-name = "textual"
+name = "textual-rs"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+resolver = "2"
+members = [
+    "crates/tcss",
+    "crates/textual",
+]
+
 [dependencies]
-crossterm = { version = "0.29.0", features = ["event-stream"] }
-futures = "0.3.31"
-futures-time = "3.0.1"
-thiserror = "2.0.17"
-tokio = { version = "1.48.0", features = ["full"] }
+textual = { path = "crates/textual" }
+tcss = { path = "crates/tcss" }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Felipe Coury <felipe.coury@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/fcoury/textual-rs"
+
+[workspace.dependencies]
+tcss = { path = "crates/tcss" }
+textual = { path = "crates/textual" }
+
+# Shared external dependencies
+nom = "7.1"           # Suggested for the CSS parser
+bitflags = "2.4"      # Useful for style modifiers (Bold, Italic, etc)
+thiserror = "1.0"     # For clean error handling in both crates
