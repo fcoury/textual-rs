@@ -1,6 +1,5 @@
 use textual::{App, Compose, Horizontal, KeyCode, Result, Switch, Vertical, Widget, ui};
 
-/// Application-specific messages - fully typed, no string IDs!
 enum Message {
     WifiToggled(bool),
     BluetoothToggled(bool),

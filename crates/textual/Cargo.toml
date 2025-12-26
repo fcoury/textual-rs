@@ -1,0 +1,12 @@
+[package]
+name = "textual"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+tcss.workspace = true
+
+thiserror.workspace = true
+crossterm = "0.27"
