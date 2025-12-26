@@ -1,16 +1,16 @@
-use crate::{Canvas, KeyCode, Message, Region, Size, Widget};
+use crate::{Canvas, KeyCode, Region, Size, Widget};
 
-pub struct Vertical {
-    pub children: Vec<Box<dyn Widget>>,
+pub struct Vertical<M> {
+    pub children: Vec<Box<dyn Widget<M>>>,
 }
 
-impl Vertical {
-    pub fn new(children: Vec<Box<dyn Widget>>) -> Self {
+impl<M> Vertical<M> {
+    pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
         Self { children }
     }
 }
 
-impl Widget for Vertical {
+impl<M> Widget<M> for Vertical<M> {
     fn desired_size(&self) -> Size {
         let mut width = 0;
         let mut height = 0;
@@ -37,9 +37,8 @@ impl Widget for Vertical {
         }
     }
 
-    fn on_event(&mut self, key: KeyCode) -> Option<Message> {
-        // For now, we pass the event to ALL children.
-        // (We will fix this with Focus in the next step!)
+    fn on_event(&mut self, key: KeyCode) -> Option<M> {
+        // Pass event to children until one handles it
         for child in &mut self.children {
             if let Some(msg) = child.on_event(key) {
                 return Some(msg);
