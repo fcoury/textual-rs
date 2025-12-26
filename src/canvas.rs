@@ -51,15 +51,17 @@ impl Canvas {
     }
 
     /// Renders the entire buffer to the terminal.
-    pub fn flush(&self) -> io::Result<()> {
-        let mut stdout = io::stdout();
-        for y in 0..self.size.height {
-            execute!(stdout, cursor::MoveTo(0, y))?;
-            let start = (y * self.size.width) as usize;
-            let end = start + self.size.width as usize;
-            let line: String = self.cells[start..end].iter().collect();
-            execute!(stdout, Print(line))?;
+    pub fn flush(&mut self) -> std::io::Result<()> {
+        let mut out = std::io::stdout();
+        execute!(out, cursor::MoveTo(0, 0))?;
+
+        // .chunks(width) gives us a slice for each row
+        for row in self.cells.chunks(self.size.width as usize) {
+            let line: String = row.iter().collect();
+            write!(out, "{}\r\n", line)?;
         }
-        stdout.flush()
+
+        out.flush()?;
+        Ok(())
     }
 }
