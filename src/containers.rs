@@ -1,13 +1,16 @@
+pub mod vertical;
+
 use crate::canvas::{Canvas, Region, Size};
 use crate::widget::Widget;
+use crate::{KeyCode, Message};
 
 /// Centered horizontally
 pub struct Center {
-    pub child: Box<dyn Widget>,
+    child: Box<dyn Widget>,
 }
 
 impl Center {
-    pub fn new(child: Box<dyn Widget>) -> Self {
+    pub fn new(child: Box<dyn Widget + 'static>) -> Self {
         Self { child }
     }
 }
@@ -33,6 +36,11 @@ impl Widget for Center {
         };
 
         self.child.render(canvas, centered_region);
+    }
+
+    fn on_event(&mut self, key: KeyCode) -> Option<Message> {
+        // Pass the event down to the child
+        self.child.on_event(key)
     }
 }
 
@@ -67,5 +75,10 @@ impl Widget for Middle {
         };
 
         self.child.render(canvas, middled_region);
+    }
+
+    fn on_event(&mut self, key: KeyCode) -> Option<Message> {
+        // Pass the event down to the child
+        self.child.on_event(key)
     }
 }
