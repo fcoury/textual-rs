@@ -1,27 +1,36 @@
 use textual::{
-    App, Compose, KeyCode, Result, Switch, Widget,
+    App, Compose, KeyCode, Message, Result, Switch, Vertical, Widget,
     containers::{Center, Middle},
     ui,
 };
 
 struct SwitchTestApp {
-    should_exit: bool,
+    running: bool,
+    focus_index: usize,
+    wifi_on: bool,
+    bt_on: bool,
 }
 
 impl SwitchTestApp {
     fn new() -> Self {
-        Self { should_exit: false }
+        Self {
+            running: true,
+            focus_index: 0,
+            wifi_on: false,
+            bt_on: false,
+        }
     }
 }
 
 impl Compose for SwitchTestApp {
-    // Replicating the compose() method
     fn compose(&self) -> Box<dyn Widget + 'static> {
-        // We use a macro (ui!) to handle the nesting of components
         ui! {
             Middle {
                 Center {
-                    Switch::new()
+                    Vertical {
+                        Switch::new("wifi", self.wifi_on).with_focus(self.focus_index == 0),
+                        Switch::new("bt", self.bt_on).with_focus(self.focus_index == 1)
+                    }
                 }
             }
         }
@@ -39,12 +48,23 @@ impl App for SwitchTestApp {
     // Replicating the on_key handler
     fn on_key(&mut self, key: KeyCode) {
         if key == KeyCode::Char('q') {
-            self.should_exit = true;
+            self.running = true;
         }
     }
 
     fn should_quit(&self) -> bool {
-        self.should_exit
+        !self.running
+    }
+
+    fn handle_message(&mut self, message: Message) {
+        match message {
+            Message::Quit => self.running = false,
+            Message::SwitchChanged { id, on } => match id {
+                "wifi" => self.wifi_on = on,
+                "bluetooth" => self.bt_on = on,
+                _ => {}
+            },
+        }
     }
 }
 
