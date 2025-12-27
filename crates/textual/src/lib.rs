@@ -4,6 +4,8 @@ pub mod context;
 pub mod error;
 mod log_init;
 pub mod message;
+pub mod scroll;
+pub mod scrollbar;
 pub mod style_resolver;
 pub mod tree;
 pub mod widget;
@@ -15,17 +17,19 @@ use futures::StreamExt;
 use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
-pub use containers::{Center, Middle, horizontal::Horizontal, vertical::Vertical};
+pub use containers::{Center, Middle, horizontal::Horizontal, scrollable::ScrollableContainer, vertical::Vertical};
 pub use context::{AppContext, IntervalHandle};
 pub use error::Result;
 pub use log_init::init_logger;
 pub use message::MessageEnvelope;
+pub use scroll::{ScrollMessage, ScrollState};
+pub use scrollbar::{ScrollBarRender, ScrollbarGlyphs};
 pub use tcss::TcssError;
 
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
-pub use widget::{Compose, Widget, switch::Switch};
+pub use widget::{Compose, Widget, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch};
 
 use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}, tree::WidgetTree};
 
@@ -265,12 +269,7 @@ where
                     resolve_dirty_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors, false);
 
                     canvas.clear();
-                    let region = Region {
-                        x: 0,
-                        y: 0,
-                        width: cols,
-                        height: rows,
-                    };
+                    let region = Region::from_u16(0, 0, cols, rows);
                     tree.root().render(&mut canvas, region);
                     canvas.flush()?;
 
@@ -312,12 +311,7 @@ where
                             }
                             Some(Ok(Event::Mouse(mouse_event))) => {
                                 // Compute the full-screen region for mouse event routing
-                                let region = Region {
-                                    x: 0,
-                                    y: 0,
-                                    width: cols,
-                                    height: rows,
-                                };
+                                let region = Region::from_u16(0, 0, cols, rows);
 
                                 // Route mouse event through widget tree hit-testing
                                 // NOTE: Mouse events use hit-testing, not focus path.
