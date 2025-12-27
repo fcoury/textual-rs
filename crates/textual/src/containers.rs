@@ -1,4 +1,5 @@
 pub mod horizontal;
+pub mod scrollable;
 pub mod vertical;
 
 use crate::KeyCode;
@@ -33,14 +34,15 @@ impl<M> Widget<M> for Center<M> {
         if !self.child.is_visible() {
             return;
         }
-        let child_size = self.child.desired_size();
 
-        let x_offset = region.width.saturating_sub(child_size.width) / 2;
+        let child_size = self.child.desired_size();
+        let child_width = child_size.width as i32;
+        let x_offset = (region.width - child_width).max(0) / 2;
 
         let centered_region = Region {
             x: region.x + x_offset,
             y: region.y,
-            width: child_size.width,
+            width: child_width,
             height: region.height,
         };
 
@@ -94,15 +96,18 @@ impl<M> Widget<M> for Center<M> {
         if !self.child.is_visible() {
             return None;
         }
-        // Compute child region (same as render) and delegate
+
         let child_size = self.child.desired_size();
-        let x_offset = region.width.saturating_sub(child_size.width) / 2;
+        let child_width = child_size.width as i32;
+        let x_offset = (region.width - child_width).max(0) / 2;
+
         let centered_region = Region {
             x: region.x + x_offset,
             y: region.y,
-            width: child_size.width,
+            width: child_width,
             height: region.height,
         };
+
         self.child.on_mouse(event, centered_region)
     }
 
@@ -153,15 +158,16 @@ impl<M> Widget<M> for Middle<M> {
         if !self.child.is_visible() {
             return;
         }
-        let child_size = self.child.desired_size();
 
-        let y_offset = region.height.saturating_sub(child_size.height) / 2;
+        let child_size = self.child.desired_size();
+        let child_height = child_size.height as i32;
+        let y_offset = (region.height - child_height).max(0) / 2;
 
         let middled_region = Region {
             x: region.x,
             y: region.y + y_offset,
             width: region.width,
-            height: child_size.height,
+            height: child_height,
         };
 
         self.child.render(canvas, middled_region);
@@ -214,15 +220,18 @@ impl<M> Widget<M> for Middle<M> {
         if !self.child.is_visible() {
             return None;
         }
-        // Compute child region (same as render) and delegate
+
         let child_size = self.child.desired_size();
-        let y_offset = region.height.saturating_sub(child_size.height) / 2;
+        let child_height = child_size.height as i32;
+        let y_offset = (region.height - child_height).max(0) / 2;
+
         let middled_region = Region {
             x: region.x,
             y: region.y + y_offset,
             width: region.width,
-            height: child_size.height,
+            height: child_height,
         };
+
         self.child.on_mouse(event, middled_region)
     }
 

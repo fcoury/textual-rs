@@ -1,3 +1,5 @@
+pub mod scrollbar;
+pub mod scrollbar_corner;
 pub mod switch;
 
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};

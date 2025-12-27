@@ -30,21 +30,29 @@ impl<M> Widget<M> for Vertical<M> {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        canvas.push_clip(region);
+
         let mut current_y = region.y;
         for child in &self.children {
             if !child.is_visible() {
                 continue;
             }
+
             let size = child.desired_size();
+            let child_height = size.height as i32;
+
             let child_region = Region {
                 x: region.x,
                 y: current_y,
                 width: region.width,
-                height: size.height,
+                height: child_height,
             };
+
             child.render(canvas, child_region);
-            current_y += size.height;
+            current_y += child_height;
         }
+
+        canvas.pop_clip();
     }
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
@@ -110,25 +118,35 @@ impl<M> Widget<M> for Vertical<M> {
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
-        // Compute child regions (same logic as render) and delegate
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        if !region.contains_point(mx, my) {
+            return None;
+        }
+
         let mut current_y = region.y;
         for child in &mut self.children {
             if !child.is_visible() {
                 continue;
             }
+
             let size = child.desired_size();
+            let child_height = size.height as i32;
+
             let child_region = Region {
                 x: region.x,
                 y: current_y,
                 width: region.width,
-                height: size.height,
+                height: child_height,
             };
 
-            // Delegate to child - it will handle its own hit testing
-            if let Some(msg) = child.on_mouse(event, child_region) {
-                return Some(msg);
+            if child_region.contains_point(mx, my) {
+                if let Some(msg) = child.on_mouse(event, child_region) {
+                    return Some(msg);
+                }
             }
-            current_y += size.height;
+            current_y += child_height;
         }
         None
     }
