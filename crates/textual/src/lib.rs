@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
 pub use containers::{Center, Middle, horizontal::Horizontal, vertical::Vertical};
-pub use context::{AppContext, IntervalHandle, WidgetId};
+pub use context::{AppContext, IntervalHandle};
 pub use error::Result;
 pub use log_init::init_logger;
 pub use message::MessageEnvelope;
