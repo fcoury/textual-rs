@@ -286,26 +286,26 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 
         let content_region = self.content_region(region);
 
-        // Debug logging
+        // Verbose render diagnostics (use RUST_LOG=trace to enable)
         let scroll = self.scroll.borrow();
-        log::debug!(
+        log::trace!(
             "ScrollableContainer::render - region: ({}, {}, {}, {}), content_region: ({}, {}, {}, {})",
             region.x, region.y, region.width, region.height,
             content_region.x, content_region.y, content_region.width, content_region.height
         );
-        log::debug!(
+        log::trace!(
             "  scroll offset: ({}, {}), content_size: ({}, {})",
             scroll.offset_x, scroll.offset_y,
             content_size.width, content_size.height
         );
-        log::debug!(
+        log::trace!(
             "  show_vertical: {}, show_horizontal: {}, style.scrollbar.size: ({}, {})",
             self.show_vertical_scrollbar(),
             self.show_horizontal_scrollbar(),
             self.style.scrollbar.size.horizontal,
             self.style.scrollbar.size.vertical
         );
-        log::debug!(
+        log::trace!(
             "  overflow_x: {:?}, overflow_y: {:?}",
             self.style.overflow_x,
             self.style.overflow_y
@@ -324,7 +324,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             height: content_size.height as i32,
         };
 
-        log::debug!(
+        log::trace!(
             "  content_render_region: ({}, {}, {}, {})",
             content_render_region.x, content_render_region.y,
             content_render_region.width, content_render_region.height
