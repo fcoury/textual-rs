@@ -109,23 +109,39 @@ fn test_all_visible_lines_are_rendered() {
 
 #[test]
 fn test_scrollbar_hidden_by_default_overflow() {
+    // With default overflow:hidden, no scrollbar should be rendered even when
+    // content exceeds viewport. Content is simply clipped.
     let content = TestLines::new(50);
     let container = ScrollableContainer::<Msg>::new(Box::new(content));
 
-    // Default overflow is Hidden, so show_vertical_scrollbar should be false
-    // We can't directly call show_vertical_scrollbar (it's private),
-    // but we can check via rendering to a small viewport
     let mut canvas = Canvas::new(30, 10);
     let region = Region::new(0, 0, 30, 10);
     container.render(&mut canvas, region);
 
-    // With default overflow:hidden, the rightmost column should NOT have scrollbar
-    // Check that content extends to column 29 (full width)
+    // Verify content renders - "Line 01" should be at row 0
     let first_row = canvas.row_str(0);
-    // This test documents current (broken?) behavior
     assert!(
-        !first_row.is_empty(),
-        "Content should render even with overflow:hidden"
+        first_row.contains("Line 01"),
+        "Content should render with overflow:hidden, got: '{}'",
+        first_row
+    );
+
+    // Verify NO scrollbar in rightmost column (column 29)
+    // With no scrollbar, the rightmost column should be empty (space) or part of content
+    // but NOT a scrollbar glyph. Since TestLines only writes 7 chars ("Line 01"),
+    // column 29 should be empty.
+    let char_at_col_29 = canvas.get_char(29, 0);
+    assert_eq!(
+        char_at_col_29, ' ',
+        "Column 29 should be empty (no scrollbar) with overflow:hidden, got: '{}'",
+        char_at_col_29
+    );
+
+    // Also verify no scrollbar background color at rightmost column
+    // (scrollbar tracks have background color, empty cells don't)
+    assert!(
+        !canvas.has_bg_at(29, 0),
+        "Column 29 should have no background color (no scrollbar track) with overflow:hidden"
     );
 }
 
@@ -142,13 +158,6 @@ fn test_scrollbar_visible_with_overflow_auto() {
     let mut canvas = Canvas::new(30, 10);
     let region = Region::new(0, 0, 30, 10);
     container.render(&mut canvas, region);
-
-    // Debug: print all rows to see what's rendered
-    println!("Canvas contents:");
-    for i in 0..10 {
-        let row = canvas.row_str(i);
-        println!("Row {}: '{}' (len={})", i, row, row.trim_end().len());
-    }
 
     // With overflow:auto and 50 lines in 10 row viewport, scrollbar should be visible
     // Content region should be 29 columns (30 - 1 for scrollbar)
@@ -204,13 +213,6 @@ fn test_line_01_visible_with_overflow_y_scroll() {
     let region = Region::new(0, 0, 80, 20);
     container.render(&mut canvas, region);
 
-    // Debug: Print the first few rows
-    println!("First 5 rows with overflow-y: scroll:");
-    for i in 0..5 {
-        let row = canvas.row_str(i);
-        println!("  Row {}: '{}'", i, row);
-    }
-
     // Line 01 should be at row 0
     let first_row = canvas.row_str(0);
     assert!(
@@ -234,10 +236,6 @@ fn test_no_horizontal_scrollbar_when_overflow_hidden() {
     let mut canvas = Canvas::new(80, 20);
     let region = Region::new(0, 0, 80, 20);
     container.render(&mut canvas, region);
-
-    // Debug: Print the last row
-    let last_row = canvas.row_str(19);
-    println!("Last row (should have no scrollbar): '{}'", last_row);
 
     // With overflow-x: hidden, there should be no horizontal scrollbar
     // The vertical scrollbar is at column 79 (width - 1)
@@ -282,10 +280,6 @@ fn test_scroll_demo_css_parsing() {
     assert_eq!(stylesheet.rules.len(), 1, "Should have 1 rule");
 
     let rule = &stylesheet.rules[0];
-    println!("Declarations:");
-    for decl in rule.declarations() {
-        println!("  {:?}", decl);
-    }
 
     // Verify scrollbar-size-horizontal: 0 is parsed
     let has_horizontal_size_0 = rule.declarations().iter().any(|d| {
@@ -327,16 +321,10 @@ fn test_css_style_application() {
 
     // Get widget meta for CSS matching
     let meta = container.get_meta();
-    println!("Widget type_name: {}", meta.type_name);
 
     // Compute style from CSS
     let ancestors: Vec<WidgetMeta> = Vec::new();
     let style = compute_style(&meta, &ancestors, &stylesheet, &theme);
-
-    println!("Computed overflow_y: {:?}", style.overflow_y);
-    println!("Computed overflow_x: {:?}", style.overflow_x);
-    println!("Computed scrollbar.size.vertical: {}", style.scrollbar.size.vertical);
-    println!("Computed scrollbar.size.horizontal: {}", style.scrollbar.size.horizontal);
 
     // Apply style
     container.set_style(style.clone());
@@ -348,7 +336,6 @@ fn test_css_style_application() {
 
     // Verify Line 01 is visible at Row 0
     let first_row = canvas.row_str(0);
-    println!("First row with CSS-applied style: '{}'", first_row);
 
     assert!(
         first_row.contains("Line 01"),

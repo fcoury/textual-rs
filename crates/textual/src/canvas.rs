@@ -42,11 +42,12 @@ impl Region {
 
     /// Returns the intersection of this region with another.
     /// If there is no overlap, returns an empty region.
+    /// Uses saturating arithmetic to prevent overflow with large coordinates.
     pub fn intersection(&self, other: &Region) -> Region {
         let x1 = self.x.max(other.x);
         let y1 = self.y.max(other.y);
-        let x2 = (self.x + self.width).min(other.x + other.width);
-        let y2 = (self.y + self.height).min(other.y + other.height);
+        let x2 = self.x.saturating_add(self.width).min(other.x.saturating_add(other.width));
+        let y2 = self.y.saturating_add(self.height).min(other.y.saturating_add(other.height));
 
         if x2 > x1 && y2 > y1 {
             Region {

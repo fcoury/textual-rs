@@ -16,7 +16,7 @@ Implement scrollbars matching **Textual Python's architecture exactly**, includi
 
 ### Architecture (from scrollbar.py)
 
-```
+```text
 ScrollBar widget
 ├── Handles mouse capture for drag
 ├── Emits: ScrollUp, ScrollDown, ScrollLeft, ScrollRight, ScrollTo messages
