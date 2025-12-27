@@ -3,12 +3,14 @@ pub mod color;
 pub mod geometry;
 pub mod layout;
 pub mod text;
+pub mod theme;
 
 pub use border::{Border, BorderEdge, BorderKind};
 pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing};
 pub use layout::{Display, Overflow, Visibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
+pub use theme::Theme;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
