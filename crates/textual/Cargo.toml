@@ -10,4 +10,6 @@ tcss.workspace = true
 log.workspace = true
 
 thiserror.workspace = true
-crossterm = "0.27"
+crossterm.workspace = true
+tokio.workspace = true
+futures.workspace = true

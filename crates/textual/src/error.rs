@@ -13,6 +13,9 @@ pub enum TextualError {
 
     #[error("The application was already running")]
     AlreadyRunning,
+
+    #[error("Failed to initialize async runtime: {0}")]
+    RuntimeInit(String),
 }
 
 // Create a type alias for convenience
