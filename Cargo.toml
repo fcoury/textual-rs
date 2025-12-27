@@ -31,3 +31,8 @@ bitflags = "2.4"      # Useful for style modifiers (Bold, Italic, etc)
 thiserror = "1.0"     # For clean error handling in both crates
 log = { version = "0.4.29", features = ["std"] }  # For logging
 
+# Async runtime and utilities (for message pump)
+tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "sync", "time", "macros"] }
+futures = "0.3"
+crossterm = { version = "0.27", features = ["event-stream"] }
+
