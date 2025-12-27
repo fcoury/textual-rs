@@ -12,7 +12,7 @@ use textual::{
     Widget, log, ui,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Message {
     /// Periodic tick from the interval timer
     Tick,
@@ -27,6 +27,9 @@ struct TimerApp {
     /// Handle to the interval timer - must be stored to keep the timer alive.
     /// Dropping or taking this handle cancels the interval.
     interval_handle: Option<IntervalHandle>,
+    /// Stored context for spawning timers outside of on_mount.
+    /// AppContext is cheap to clone (just wraps an mpsc::UnboundedSender).
+    ctx: Option<AppContext<Message>>,
 }
 
 impl TimerApp {
@@ -36,6 +39,26 @@ impl TimerApp {
             tick_count: 0,
             timer_enabled: true,
             interval_handle: None,
+            ctx: None,
+        }
+    }
+
+    /// Start or stop the interval timer based on current state.
+    fn toggle_timer(&mut self) {
+        if self.timer_enabled {
+            // Start the interval if we have a context and no active handle
+            if self.interval_handle.is_none() {
+                if let Some(ctx) = &self.ctx {
+                    let handle = ctx.set_interval(Duration::from_secs(1), || Message::Tick);
+                    self.interval_handle = Some(handle);
+                    log::info!("Timer started");
+                }
+            }
+        } else {
+            // Stop the interval by dropping the handle (RAII cancellation)
+            if self.interval_handle.take().is_some() {
+                log::info!("Timer cancelled");
+            }
         }
     }
 }
@@ -67,13 +90,14 @@ impl App for TimerApp {
     ///
     /// This is where you set up timers, intervals, and other async tasks.
     fn on_mount(&mut self, ctx: &AppContext<Message>) {
-        log::info!("App mounted! Starting 1-second interval...");
+        log::info!("App mounted!");
 
-        // Start a repeating interval that sends Tick messages.
-        // IMPORTANT: Store the handle to keep the timer alive!
-        // Dropping the handle automatically cancels the interval.
-        let handle = ctx.set_interval(Duration::from_secs(1), || Message::Tick);
-        self.interval_handle = Some(handle);
+        // Store the context for later use (e.g., restarting timers).
+        // AppContext is cheap to clone - it's just an mpsc::UnboundedSender wrapper.
+        self.ctx = Some(ctx.clone());
+
+        // Start the initial timer
+        self.toggle_timer();
 
         // You could also set a one-shot timer:
         // ctx.set_timer(Duration::from_secs(5), Message::Timeout);
@@ -108,22 +132,11 @@ impl App for TimerApp {
             }
             Message::SwitchToggled(enabled) => {
                 self.timer_enabled = enabled;
-
-                if !enabled {
-                    // Cancel the interval by dropping the handle
-                    self.interval_handle.take();
-                    log::info!(
-                        "Timer cancelled (from: {:?})",
-                        envelope.sender_id.as_deref().unwrap_or("unknown")
-                    );
-                } else {
-                    // Note: Can't restart here without storing AppContext.
-                    // In a real app, you'd store ctx in the struct or use a different pattern.
-                    log::info!(
-                        "Timer enabled but can't restart without AppContext (from: {:?})",
-                        envelope.sender_id.as_deref().unwrap_or("unknown")
-                    );
-                }
+                self.toggle_timer();
+                log::info!(
+                    "Timer toggled by {:?}",
+                    envelope.sender_id.as_deref().unwrap_or("unknown")
+                );
             }
         }
     }
