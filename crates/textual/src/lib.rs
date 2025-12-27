@@ -9,6 +9,7 @@ use crossterm::{cursor, event, execute, terminal};
 pub use canvas::{Canvas, Region, Size};
 pub use containers::{Center, Middle, horizontal::Horizontal, vertical::Vertical};
 pub use error::Result;
+pub use tcss::TcssError;
 pub use widget::{Compose, Widget, switch::Switch};
 
 /// The main application trait. Implement this to create a TUI application.
