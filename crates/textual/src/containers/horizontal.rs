@@ -19,6 +19,9 @@ impl<M> Widget<M> for Horizontal<M> {
         let mut width = 0;
         let mut height = 0;
         for child in &self.children {
+            if !child.is_visible() {
+                continue;
+            }
             let size = child.desired_size();
             width += size.width;
             height = height.max(size.height);
@@ -29,6 +32,9 @@ impl<M> Widget<M> for Horizontal<M> {
     fn render(&self, canvas: &mut Canvas, region: Region) {
         let mut current_x = region.x;
         for child in &self.children {
+            if !child.is_visible() {
+                continue;
+            }
             let size = child.desired_size();
             let child_region = Region {
                 x: current_x,
@@ -60,7 +66,11 @@ impl<M> Widget<M> for Horizontal<M> {
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
+        // Pass event to visible children until one handles it
         for child in &mut self.children {
+            if !child.is_visible() {
+                continue;
+            }
             if let Some(msg) = child.on_event(key) {
                 return Some(msg);
             }
@@ -69,17 +79,27 @@ impl<M> Widget<M> for Horizontal<M> {
     }
 
     fn count_focusable(&self) -> usize {
-        self.children.iter().map(|c| c.count_focusable()).sum()
+        self.children
+            .iter()
+            .filter(|c| c.is_visible())
+            .map(|c| c.count_focusable())
+            .sum()
     }
 
     fn clear_focus(&mut self) {
         for child in &mut self.children {
+            if !child.is_visible() {
+                continue;
+            }
             child.clear_focus();
         }
     }
 
     fn focus_nth(&mut self, mut n: usize) -> bool {
         for child in &mut self.children {
+            if !child.is_visible() {
+                continue;
+            }
             let count = child.count_focusable();
             if n < count {
                 return child.focus_nth(n);
@@ -93,6 +113,9 @@ impl<M> Widget<M> for Horizontal<M> {
         // Compute child regions (same logic as render) and delegate
         let mut current_x = region.x;
         for child in &mut self.children {
+            if !child.is_visible() {
+                continue;
+            }
             let size = child.desired_size();
             let child_region = Region {
                 x: current_x,
@@ -112,10 +135,14 @@ impl<M> Widget<M> for Horizontal<M> {
 
     fn clear_hover(&mut self) {
         for child in &mut self.children {
+            if !child.is_visible() {
+                continue;
+            }
             child.clear_hover();
         }
     }
 
+    // Note: child_count and get_child_mut return ALL children for tree traversal
     fn child_count(&self) -> usize {
         self.children.len()
     }

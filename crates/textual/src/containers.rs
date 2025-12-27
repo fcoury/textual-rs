@@ -23,10 +23,16 @@ impl<M> Center<M> {
 
 impl<M> Widget<M> for Center<M> {
     fn desired_size(&self) -> Size {
+        if !self.child.is_visible() {
+            return Size { width: 0, height: 0 };
+        }
         self.child.desired_size()
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if !self.child.is_visible() {
+            return;
+        }
         let child_size = self.child.desired_size();
 
         let x_offset = region.width.saturating_sub(child_size.width) / 2;
@@ -58,22 +64,36 @@ impl<M> Widget<M> for Center<M> {
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
+        if !self.child.is_visible() {
+            return None;
+        }
         self.child.on_event(key)
     }
 
     fn count_focusable(&self) -> usize {
+        if !self.child.is_visible() {
+            return 0;
+        }
         self.child.count_focusable()
     }
 
     fn clear_focus(&mut self) {
-        self.child.clear_focus();
+        if self.child.is_visible() {
+            self.child.clear_focus();
+        }
     }
 
     fn focus_nth(&mut self, n: usize) -> bool {
+        if !self.child.is_visible() {
+            return false;
+        }
         self.child.focus_nth(n)
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        if !self.child.is_visible() {
+            return None;
+        }
         // Compute child region (same as render) and delegate
         let child_size = self.child.desired_size();
         let x_offset = region.width.saturating_sub(child_size.width) / 2;
@@ -87,9 +107,12 @@ impl<M> Widget<M> for Center<M> {
     }
 
     fn clear_hover(&mut self) {
-        self.child.clear_hover();
+        if self.child.is_visible() {
+            self.child.clear_hover();
+        }
     }
 
+    // Note: child_count and get_child_mut return child for tree traversal
     fn child_count(&self) -> usize {
         1
     }
@@ -120,10 +143,16 @@ impl<M> Middle<M> {
 
 impl<M> Widget<M> for Middle<M> {
     fn desired_size(&self) -> Size {
+        if !self.child.is_visible() {
+            return Size { width: 0, height: 0 };
+        }
         self.child.desired_size()
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if !self.child.is_visible() {
+            return;
+        }
         let child_size = self.child.desired_size();
 
         let y_offset = region.height.saturating_sub(child_size.height) / 2;
@@ -155,22 +184,36 @@ impl<M> Widget<M> for Middle<M> {
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
+        if !self.child.is_visible() {
+            return None;
+        }
         self.child.on_event(key)
     }
 
     fn count_focusable(&self) -> usize {
+        if !self.child.is_visible() {
+            return 0;
+        }
         self.child.count_focusable()
     }
 
     fn clear_focus(&mut self) {
-        self.child.clear_focus();
+        if self.child.is_visible() {
+            self.child.clear_focus();
+        }
     }
 
     fn focus_nth(&mut self, n: usize) -> bool {
+        if !self.child.is_visible() {
+            return false;
+        }
         self.child.focus_nth(n)
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        if !self.child.is_visible() {
+            return None;
+        }
         // Compute child region (same as render) and delegate
         let child_size = self.child.desired_size();
         let y_offset = region.height.saturating_sub(child_size.height) / 2;
@@ -184,9 +227,12 @@ impl<M> Widget<M> for Middle<M> {
     }
 
     fn clear_hover(&mut self) {
-        self.child.clear_hover();
+        if self.child.is_visible() {
+            self.child.clear_hover();
+        }
     }
 
+    // Note: child_count and get_child_mut return child for tree traversal
     fn child_count(&self) -> usize {
         1
     }
