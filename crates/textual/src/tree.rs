@@ -141,6 +141,7 @@ impl<M> WidgetTree<M> {
 
         // Walk the path in reverse (from focused widget's parent up to root)
         // Skip the focused widget itself (it produced the message)
+        // When depth=0, ancestor_path is empty [], so navigate_and_handle calls root directly
         for depth in (0..path.len()).rev() {
             if !envelope.is_bubbling() {
                 break;
@@ -149,13 +150,6 @@ impl<M> WidgetTree<M> {
             // Navigate to the ancestor at this depth and call handle_message
             let ancestor_path = &path[..depth];
             if let Some(new_msg) = navigate_and_handle(self.root.as_mut(), ancestor_path, &mut envelope) {
-                envelope.message = new_msg;
-            }
-        }
-
-        // Finally, let root handle it if still bubbling
-        if envelope.is_bubbling() && !path.is_empty() {
-            if let Some(new_msg) = self.root.handle_message(&mut envelope) {
                 envelope.message = new_msg;
             }
         }
