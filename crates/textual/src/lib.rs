@@ -1,22 +1,26 @@
 pub mod canvas;
 pub mod containers;
 pub mod error;
-pub mod log;
+mod log_init;
 pub mod style_resolver;
 pub mod widget;
 
-pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseEvent};
+pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::{cursor, event, execute, terminal};
 
 pub use canvas::{Canvas, Region, Size};
 pub use containers::{Center, Middle, horizontal::Horizontal, vertical::Vertical};
 pub use error::Result;
-pub use log::init_logger;
+pub use log_init::init_logger;
 pub use tcss::TcssError;
+
+// Re-export the log crate so users can use textual::log::info!, etc.
+pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
 pub use widget::{Compose, Widget, switch::Switch};
 
-use crate::{error::TextualError, style_resolver::resolve_styles};
+use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}};
 
 /// The main application trait. Implement this to create a TUI application.
 ///
@@ -36,12 +40,27 @@ pub trait App: Compose {
     /// Return true when the application should exit.
     fn should_quit(&self) -> bool;
 
+    /// Returns the current focus index for the widget tree.
+    /// The run loop uses this to set focus on the nth focusable widget.
+    fn focus_index(&self) -> usize {
+        0
+    }
+
     /// Run the application event loop.
+    ///
+    /// This uses a **persistent widget tree** - the tree is built once at startup
+    /// and mutated in place. Events go to the existing widgets, which update their
+    /// own state and mark themselves dirty for restyling.
     fn run(&mut self) -> Result<()> {
         let mut stdout = std::io::stdout();
-        // Enable raw mode and enter alternate screen to take control of the terminal
+        // Enable raw mode, mouse capture, and enter alternate screen
         terminal::enable_raw_mode()?;
-        execute!(stdout, terminal::EnterAlternateScreen, cursor::Hide)?;
+        execute!(
+            stdout,
+            terminal::EnterAlternateScreen,
+            cursor::Hide,
+            EnableMouseCapture
+        )?;
 
         // 1. Initial Setup: Parse CSS and define the theme
         let stylesheet = tcss::parser::parse_stylesheet(Self::CSS)
@@ -51,22 +70,37 @@ pub trait App: Compose {
         let (mut cols, mut rows) = terminal::size()?;
         let mut canvas = Canvas::new(cols, rows);
 
-        // Flag to prevent redundant re-renders and eliminate jitter
+        // 2. Build the widget tree ONCE (persistent tree)
+        let mut root = self.compose();
+
+        // Set initial focus
+        root.clear_focus();
+        root.focus_nth(self.focus_index());
+
+        // Initial style resolution for all widgets
+        let mut ancestors = Vec::new();
+        resolve_styles(root.as_mut(), &stylesheet, &theme, &mut ancestors);
+
+        // Track the previous focus index to detect changes
+        let mut last_focus_index = self.focus_index();
+
+        // Flag to prevent redundant re-renders
         let mut needs_render = true;
 
         while !self.should_quit() {
-            if needs_render {
-                // 2. Render Phase: Compose, Style, and Draw
-                let mut root = self.compose();
+            // Check if focus changed
+            let current_focus = self.focus_index();
+            if current_focus != last_focus_index {
+                root.clear_focus();
+                root.focus_nth(current_focus);
+                last_focus_index = current_focus;
+                needs_render = true;
+            }
 
-                // Resolve CSS styles recursively for the entire widget tree
+            if needs_render {
+                // Resolve styles only for dirty widgets (Phase 5 optimization)
                 let mut ancestors = Vec::new();
-                crate::style_resolver::resolve_styles(
-                    root.as_mut(),
-                    &stylesheet,
-                    &theme,
-                    &mut ancestors,
-                );
+                resolve_dirty_styles(root.as_mut(), &stylesheet, &theme, &mut ancestors, false);
 
                 canvas.clear();
                 let region = Region {
@@ -85,11 +119,9 @@ pub trait App: Compose {
             if event::poll(std::time::Duration::from_millis(10))? {
                 match event::read()? {
                     Event::Key(key_event) => {
-                        // Re-compose temporary tree to find the widget handling the event
-                        let mut root = self.compose();
+                        // Send event to the PERSISTENT tree
                         if let Some(msg) = root.on_event(key_event.code) {
                             self.handle_message(msg);
-                            needs_render = true;
                         }
                         self.on_key(key_event.code);
                         needs_render = true;
@@ -101,13 +133,33 @@ pub trait App: Compose {
                         canvas = Canvas::new(cols, rows);
                         needs_render = true;
                     }
+                    Event::Mouse(mouse_event) => {
+                        // Compute the full-screen region for mouse event routing
+                        let region = Region {
+                            x: 0,
+                            y: 0,
+                            width: cols,
+                            height: rows,
+                        };
+
+                        // Route mouse event to widget tree
+                        if let Some(msg) = root.on_mouse(mouse_event, region) {
+                            self.handle_message(msg);
+                        }
+                        needs_render = true;
+                    }
                     _ => {}
                 }
             }
         }
 
         // Cleanup: Restore terminal state on exit
-        execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)?;
+        execute!(
+            stdout,
+            DisableMouseCapture,
+            cursor::Show,
+            terminal::LeaveAlternateScreen
+        )?;
         terminal::disable_raw_mode()?;
         Ok(())
     }

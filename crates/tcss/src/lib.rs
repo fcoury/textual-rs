@@ -53,12 +53,15 @@
 //! - Fraction: `1fr`, `2fr`
 //! - Auto: `auto`
 //!
+//! ### Pseudo-classes
+//! - `:focus` - Widget has keyboard focus
+//! - `:hover` - Mouse is over widget
+//! - `:active` - Widget is being pressed
+//! - `:disabled` - Widget is not interactive
+//!
 //! ## Not Yet Implemented
 //!
-//! - Pseudo-classes (`:hover`, `:focus`)
-//! - CSS nesting with `&` parent selector
 //! - CSS comments (`/* */`)
-//! - Theme variables (`$primary`, `$panel`)
 //!
 //! ## Modules
 //!
@@ -71,4 +74,5 @@ pub mod parser;
 pub mod types;
 
 pub use error::TcssError;
+pub use parser::cascade::{WidgetMeta, WidgetStates};
 pub use types::ComputedStyle;

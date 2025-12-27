@@ -4,6 +4,7 @@
 //!
 //! - [`compute_style`]: Main entry point for computing a widget's final styles
 //! - [`WidgetMeta`]: Widget metadata for selector matching
+//! - [`WidgetStates`]: Bitflags for widget pseudo-class states
 //!
 //! ## Cascade Algorithm
 //!
@@ -19,7 +20,10 @@
 //! - Type selectors match `widget.type_name`
 //! - Class selectors match any class in `widget.classes`
 //! - ID selectors match `widget.id`
+//! - Pseudo-class selectors match `widget.states` (`:focus`, `:hover`, etc.)
 //! - Combinators traverse the ancestor chain
+
+use bitflags::bitflags;
 
 use crate::{
     parser::{
@@ -27,6 +31,38 @@ use crate::{
     },
     types::{Border, ComputedStyle, RgbaColor, Theme},
 };
+
+bitflags! {
+    /// Bitflags representing widget pseudo-class states.
+    ///
+    /// These states are used for matching CSS pseudo-class selectors like
+    /// `:focus`, `:hover`, `:active`, and `:disabled`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tcss::parser::cascade::WidgetStates;
+    ///
+    /// let mut states = WidgetStates::empty();
+    /// states |= WidgetStates::FOCUS;
+    /// states |= WidgetStates::HOVER;
+    ///
+    /// assert!(states.contains(WidgetStates::FOCUS));
+    /// assert!(states.contains(WidgetStates::HOVER));
+    /// assert!(!states.contains(WidgetStates::ACTIVE));
+    /// ```
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub struct WidgetStates: u16 {
+        /// Widget has keyboard focus
+        const FOCUS    = 0b0000_0001;
+        /// Mouse is hovering over widget
+        const HOVER    = 0b0000_0010;
+        /// Widget is being actively pressed/clicked
+        const ACTIVE   = 0b0000_0100;
+        /// Widget is disabled and not interactive
+        const DISABLED = 0b0000_1000;
+    }
+}
 
 /// Metadata about a widget used for selector matching.
 ///
@@ -40,6 +76,8 @@ pub struct WidgetMeta {
     pub id: Option<String>,
     /// The widget's CSS classes (e.g., ["primary", "active"]).
     pub classes: Vec<String>,
+    /// The widget's current pseudo-class states (focus, hover, active, disabled).
+    pub states: WidgetStates,
 }
 
 /// A rule that matched a widget, bundled with its priority information.
@@ -58,8 +96,14 @@ impl WidgetMeta {
             Selector::Id(id) => self.id.as_ref() == Some(id),
             Selector::Class(class) => self.classes.contains(class),
             Selector::Universal => true,
-            Selector::PseudoClass(_name) => false, // Requires runtime state (hover/focus)
-            Selector::Parent => false,             // Will be handled by the nesting flattener
+            Selector::PseudoClass(name) => match name.as_str() {
+                "focus" => self.states.contains(WidgetStates::FOCUS),
+                "hover" => self.states.contains(WidgetStates::HOVER),
+                "active" => self.states.contains(WidgetStates::ACTIVE),
+                "disabled" => self.states.contains(WidgetStates::DISABLED),
+                _ => false,
+            },
+            Selector::Parent => false, // Will be handled by the nesting flattener
             Selector::Attribute(_name, _value) => {
                 // Placeholder: In a real TUI engine, we'd check the widget's
                 // internal attribute map (e.g., widget.get_attr("type") == "text")
