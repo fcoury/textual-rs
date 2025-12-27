@@ -147,6 +147,11 @@ impl App for ApiApp {
         self.focus_idx
     }
 
+    /// Use Elm-style recomposition: rebuild tree after every state change
+    fn needs_recompose(&self) -> bool {
+        true
+    }
+
     fn handle_message(&mut self, envelope: MessageEnvelope<Message>) {
         match envelope.message {
             Message::SpinnerTick => {

@@ -77,6 +77,26 @@ where
         // Default: do nothing
     }
 
+    /// Return true to rebuild the widget tree via `compose()`.
+    ///
+    /// **Default behavior (false)**: Persistent tree model - widgets own their state.
+    /// The tree is built once and widgets update themselves. Use this when widgets
+    /// like Switch manage their own toggle state.
+    ///
+    /// **Override to return true**: Elm-style model - app owns all state.
+    /// The tree is rebuilt after every message, reading state from the App.
+    /// Use this when App fields drive widget state (e.g., loading indicators).
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn needs_recompose(&self) -> bool {
+    ///     true // Elm-style: rebuild tree after every state change
+    /// }
+    /// ```
+    fn needs_recompose(&self) -> bool {
+        false
+    }
+
     /// Run the application event loop.
     ///
     /// This uses a **persistent widget tree** - the tree is built once at startup
@@ -230,8 +250,8 @@ where
 
                                     // App is always the final handler (even if bubbling was stopped)
                                     self.handle_message(bubbled);
-                                    // Recompose tree since app state may have changed
-                                    needs_recompose = true;
+                                    // Check if app wants tree rebuild (Elm-style)
+                                    needs_recompose = self.needs_recompose();
                                 }
                                 self.on_key(key_event.code);
                                 needs_render = true;
@@ -259,8 +279,8 @@ where
                                 if let Some(msg) = tree.root_mut().on_mouse(mouse_event, region) {
                                     let envelope = MessageEnvelope::new(msg, None, "Widget");
                                     self.handle_message(envelope);
-                                    // Recompose tree since app state may have changed
-                                    needs_recompose = true;
+                                    // Check if app wants tree rebuild (Elm-style)
+                                    needs_recompose = self.needs_recompose();
                                 }
                                 needs_render = true;
                             }
@@ -274,8 +294,8 @@ where
                     Some(envelope) = rx.recv() => {
                         log::debug!("EVENT_LOOP: Received message from {:?}", envelope.sender_type);
                         self.handle_message(envelope);
-                        // Recompose tree since app state may have changed
-                        needs_recompose = true;
+                        // Check if app wants tree rebuild (Elm-style)
+                        needs_recompose = self.needs_recompose();
                     }
                 }
             }
