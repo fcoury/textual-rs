@@ -107,16 +107,29 @@ where
     /// - Terminal events via `crossterm::event::EventStream`
     /// - Async messages via `tokio::sync::mpsc` channel
     ///
-    /// If called from within an existing Tokio runtime (e.g., `#[tokio::main]`),
-    /// reuses that runtime. Otherwise, creates a new multi-threaded runtime.
+    /// Runtime handling:
+    /// - No runtime: creates a new multi-threaded runtime
+    /// - Multi-thread runtime: reuses via `block_in_place`
+    /// - Current-thread runtime: returns an error (use `run_async` instead)
     fn run(&mut self) -> Result<()> {
         // Check if we're already inside a Tokio runtime
         match tokio::runtime::Handle::try_current() {
             Ok(handle) => {
-                // Already in a runtime - use block_in_place to avoid nested runtime panic
-                tokio::task::block_in_place(|| {
-                    handle.block_on(self.run_inner())
-                })
+                use tokio::runtime::RuntimeFlavor;
+                match handle.runtime_flavor() {
+                    RuntimeFlavor::MultiThread => {
+                        // Multi-thread runtime - safe to use block_in_place
+                        tokio::task::block_in_place(|| handle.block_on(self.run_inner()))
+                    }
+                    RuntimeFlavor::CurrentThread | _ => {
+                        // Current-thread runtime - can't block without deadlock
+                        Err(TextualError::RuntimeInit(
+                            "Cannot call run() from a current-thread Tokio runtime. \
+                             Use run_async().await instead, or use #[tokio::main] \
+                             (multi-threaded by default).".to_string()
+                        ))
+                    }
+                }
             }
             Err(_) => {
                 // No runtime - create a new one
@@ -127,6 +140,24 @@ where
                 rt.block_on(self.run_inner())
             }
         }
+    }
+
+    /// Run the application event loop asynchronously.
+    ///
+    /// Use this when you're already inside an async context and want to
+    /// run the app without blocking. This is the preferred method when
+    /// calling from a current-thread Tokio runtime.
+    ///
+    /// # Example
+    /// ```ignore
+    /// #[tokio::main(flavor = "current_thread")]
+    /// async fn main() {
+    ///     let mut app = MyApp::new();
+    ///     app.run_async().await.unwrap();
+    /// }
+    /// ```
+    fn run_async(&mut self) -> impl std::future::Future<Output = Result<()>> + '_ {
+        self.run_inner()
     }
 
     /// Inner async run logic, separated for runtime flexibility.
