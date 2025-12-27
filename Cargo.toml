@@ -29,3 +29,5 @@ textual = { path = "crates/textual" }
 nom = "7.1"           # Suggested for the CSS parser
 bitflags = "2.4"      # Useful for style modifiers (Bold, Italic, etc)
 thiserror = "1.0"     # For clean error handling in both crates
+log = { version = "0.4.29", features = ["std"] }  # For logging
+
