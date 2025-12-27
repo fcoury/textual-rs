@@ -1,19 +1,22 @@
 pub mod cascade;
+pub mod flatten;
 pub mod selectors;
 pub mod stylesheet;
 pub mod units;
 pub mod values;
 pub mod variables;
 
+pub use crate::parser::flatten::flatten_stylesheet;
 pub use crate::parser::stylesheet::{
-    Combinator, ComplexSelector, CompoundSelector, Declaration, Rule, Selector, SelectorList,
-    SelectorPart, Specificity, StyleSheet,
+    Combinator, ComplexSelector, CompoundSelector, Declaration, Rule, RuleItem, Selector,
+    SelectorList, SelectorPart, Specificity, StyleSheet,
 };
 pub use crate::parser::variables::{extract_variables, resolve_variables};
 
 use crate::parser::values::parse_ident;
 use crate::{TcssError, parser::selectors::parse_complex_selector};
 
+use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::{
     IResult,
@@ -28,7 +31,7 @@ pub fn parse_stylesheet(source: &str) -> Result<StyleSheet, TcssError> {
     let vars = extract_variables(source);
     let resolved_source = resolve_variables(source, &vars)?;
 
-    let (remaining, rules) =
+    let (remaining, raw_rules) =
         many0(parse_rule)(&resolved_source).map_err(|e| TcssError::InvalidSyntax(e.to_string()))?;
 
     if !remaining.trim().is_empty() {
@@ -38,26 +41,30 @@ pub fn parse_stylesheet(source: &str) -> Result<StyleSheet, TcssError> {
         )));
     }
 
-    Ok(StyleSheet { rules })
+    Ok(flatten_stylesheet(raw_rules))
 }
 
 /// Top-level parser for a CSS rule (e.g., "Button { color: red; }").
 pub fn parse_rule(input: &str) -> IResult<&str, Rule> {
     let (input, _) = multispace0(input)?;
-
-    // Parse the selector list (comma separated)
     let (input, selectors) = parse_selector_list(input)?;
-
     let (input, _) = multispace0(input)?;
 
-    // Parse the declaration block { ... }
-    let (input, declarations) = delimited(
+    let (input, items) = delimited(
         char('{'),
-        parse_declarations,
+        parse_rule_items,
         preceded(multispace0, char('}')),
     )(input)?;
 
-    Ok((input, Rule::new(selectors, declarations)))
+    Ok((input, Rule::new(selectors, items)))
+}
+
+/// Parses either a declaration (color: red) or a nested rule (&:hover { ... })
+fn parse_rule_items(input: &str) -> IResult<&str, Vec<RuleItem>> {
+    many0(alt((
+        map(parse_rule, RuleItem::NestedRule),
+        map(parse_single_declaration, RuleItem::Declaration),
+    )))(input)
 }
 
 /// Parses a comma-separated list of selectors (e.g., "Button, .primary").

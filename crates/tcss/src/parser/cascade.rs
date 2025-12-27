@@ -1,5 +1,7 @@
 use crate::{
-    parser::{Combinator, ComplexSelector, Declaration, Rule, Selector, Specificity, StyleSheet},
+    parser::{
+        Combinator, ComplexSelector, Declaration, Rule, RuleItem, Selector, Specificity, StyleSheet,
+    },
     types::{Border, ComputedStyle, RgbaColor, Theme},
 };
 
@@ -149,8 +151,10 @@ pub fn compute_style(
     // 3. Apply declarations in order (Highest priority wins)
     let mut computed = ComputedStyle::default();
     for matched in matched_rules {
-        for declaration in &matched.rule.declarations {
-            apply_declaration(&mut computed, declaration, theme);
+        for item in &matched.rule.items {
+            if let RuleItem::Declaration(decl) = item {
+                apply_declaration(&mut computed, decl, theme);
+            }
         }
     }
 
