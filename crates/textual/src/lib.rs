@@ -27,7 +27,7 @@ pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
 pub use widget::{Compose, Widget, switch::Switch};
 
-use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}};
+use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}, tree::WidgetTree};
 
 /// Sender information extracted from a widget.
 struct SenderInfo {
@@ -166,15 +166,18 @@ where
             let mut canvas = Canvas::new(cols, rows);
 
             // 2. Build the widget tree ONCE (persistent tree)
-            let mut root = self.compose();
+            // Use WidgetTree for O(d) focus-targeted dispatch and message bubbling
+            let root = self.compose();
+            let mut tree = WidgetTree::new(root);
 
-            // Set initial focus
-            root.clear_focus();
-            root.focus_nth(self.focus_index());
+            // Set initial focus and cache the focus path
+            tree.root_mut().clear_focus();
+            tree.root_mut().focus_nth(self.focus_index());
+            tree.update_focus(self.focus_index());
 
             // Initial style resolution for all widgets
             let mut ancestors = Vec::new();
-            resolve_styles(root.as_mut(), &stylesheet, &theme, &mut ancestors);
+            resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
 
             // 3. Create message channel for async communication
             let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<Self::Message>>();
@@ -196,8 +199,9 @@ where
                 // Check if focus changed
                 let current_focus = self.focus_index();
                 if current_focus != last_focus_index {
-                    root.clear_focus();
-                    root.focus_nth(current_focus);
+                    tree.root_mut().clear_focus();
+                    tree.root_mut().focus_nth(current_focus);
+                    tree.update_focus(current_focus);
                     last_focus_index = current_focus;
                     needs_render = true;
                 }
@@ -205,7 +209,7 @@ where
                 if needs_render {
                     // Resolve styles only for dirty widgets
                     let mut ancestors = Vec::new();
-                    resolve_dirty_styles(root.as_mut(), &stylesheet, &theme, &mut ancestors, false);
+                    resolve_dirty_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors, false);
 
                     canvas.clear();
                     let region = Region {
@@ -214,7 +218,7 @@ where
                         width: cols,
                         height: rows,
                     };
-                    root.render(&mut canvas, region);
+                    tree.root().render(&mut canvas, region);
                     canvas.flush()?;
 
                     needs_render = false;
@@ -228,12 +232,17 @@ where
                     maybe_event = event_stream.next() => {
                         match maybe_event {
                             Some(Ok(Event::Key(key_event))) => {
-                                // Send event to the PERSISTENT tree
-                                if let Some(msg) = root.on_event(key_event.code) {
+                                // Dispatch key event to the focused widget using cached focus path
+                                if let Some(msg) = tree.dispatch_key(key_event.code) {
                                     // Get sender info from the focused widget
-                                    let sender = get_focused_sender_info(root.as_mut());
+                                    let sender = get_focused_sender_info(tree.root_mut());
+
+                                    // Create envelope and bubble through ancestor widgets
                                     let envelope = MessageEnvelope::new(msg, sender.id.as_deref(), sender.type_name);
-                                    self.handle_message(envelope);
+                                    let bubbled = tree.bubble_message(envelope);
+
+                                    // App is always the final handler (even if bubbling was stopped)
+                                    self.handle_message(bubbled);
                                 }
                                 self.on_key(key_event.code);
                                 needs_render = true;
@@ -254,11 +263,11 @@ where
                                     height: rows,
                                 };
 
-                                // Route mouse event to widget tree
-                                if let Some(msg) = root.on_mouse(mouse_event, region) {
-                                    // NOTE: For mouse events, the clicked widget may differ from focused.
-                                    // Proper solution: have on_mouse return (Option<M>, SenderInfo) tuple.
-                                    // For now, we don't have accurate sender info for mouse-triggered messages.
+                                // Route mouse event through widget tree hit-testing
+                                // NOTE: Mouse events use hit-testing, not focus path.
+                                // Full mouse bubbling would require on_mouse to track the hit path.
+                                // For now, messages go directly to App without parent interception.
+                                if let Some(msg) = tree.root_mut().on_mouse(mouse_event, region) {
                                     let envelope = MessageEnvelope::new(msg, None, "Widget");
                                     self.handle_message(envelope);
                                 }
