@@ -107,15 +107,31 @@ where
     /// - Terminal events via `crossterm::event::EventStream`
     /// - Async messages via `tokio::sync::mpsc` channel
     ///
-    /// Uses a multi-threaded tokio runtime so that spawned tasks (timers, intervals)
-    /// can run concurrently with the event loop.
+    /// If called from within an existing Tokio runtime (e.g., `#[tokio::main]`),
+    /// reuses that runtime. Otherwise, creates a new multi-threaded runtime.
     fn run(&mut self) -> Result<()> {
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| TextualError::RuntimeInit(e.to_string()))?;
+        // Check if we're already inside a Tokio runtime
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => {
+                // Already in a runtime - use block_in_place to avoid nested runtime panic
+                tokio::task::block_in_place(|| {
+                    handle.block_on(self.run_inner())
+                })
+            }
+            Err(_) => {
+                // No runtime - create a new one
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| TextualError::RuntimeInit(e.to_string()))?;
+                rt.block_on(self.run_inner())
+            }
+        }
+    }
 
-        rt.block_on(async {
+    /// Inner async run logic, separated for runtime flexibility.
+    fn run_inner(&mut self) -> impl std::future::Future<Output = Result<()>> + '_ {
+        async move {
             let mut stdout = std::io::stdout();
             // Enable raw mode, mouse capture, and enter alternate screen
             terminal::enable_raw_mode()?;
@@ -138,7 +154,7 @@ where
             terminal::disable_raw_mode()?;
 
             result
-        })
+        }
     }
 
     /// The main async event loop.
