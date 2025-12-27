@@ -206,8 +206,8 @@ where
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
-        // Ignore input when disabled or not focused
-        if self.disabled || !self.focused {
+        // Ignore input when disabled, loading, or not focused
+        if self.disabled || self.loading || !self.focused {
             return None;
         }
 
@@ -264,8 +264,8 @@ where
     }
 
     fn is_focusable(&self) -> bool {
-        // Can't focus if invisible or disabled
-        self.visible && !self.disabled
+        // Can't focus if invisible, disabled, or loading
+        self.visible && !self.disabled && !self.loading
     }
 
     fn focus_nth(&mut self, n: usize) -> bool {
@@ -297,15 +297,15 @@ where
                 }
                 None
             }
-            MouseEventKind::Down(_button) if in_bounds && !self.disabled => {
-                // Start press (active state) - only if not disabled
+            MouseEventKind::Down(_button) if in_bounds && !self.disabled && !self.loading => {
+                // Start press (active state) - only if not disabled or loading
                 if !self.active {
                     self.active = true;
                     self.dirty = true;
                 }
                 None
             }
-            MouseEventKind::Up(_button) if in_bounds && self.active && !self.disabled => {
+            MouseEventKind::Up(_button) if in_bounds && self.active && !self.disabled && !self.loading => {
                 // Complete click: toggle value and send message
                 self.active = false;
                 self.value = !self.value;
