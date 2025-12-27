@@ -21,6 +21,8 @@ where
     pub style: ComputedStyle,
     /// Whether styles need to be recomputed
     dirty: bool,
+    /// Optional widget ID for message tracking
+    id: Option<String>,
     on_change: F,
 }
 
@@ -35,9 +37,24 @@ where
             hovered: false,
             active: false,
             dirty: true, // Start dirty so initial styles are computed
+            id: None,
             on_change,
             style: ComputedStyle::default(),
         }
+    }
+
+    /// Set a unique ID for this widget.
+    ///
+    /// The ID is included in `MessageEnvelope.sender_id` when this widget
+    /// produces a message, allowing you to identify which widget sent it.
+    ///
+    /// # Example
+    /// ```ignore
+    /// Switch::new(false, Message::WifiToggled).with_id("wifi-switch")
+    /// ```
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 
     pub fn with_focus(mut self, focused: bool) -> Self {
@@ -250,5 +267,9 @@ where
             self.active = false;
             self.dirty = true;
         }
+    }
+
+    fn id(&self) -> Option<&str> {
+        self.id.as_deref()
     }
 }

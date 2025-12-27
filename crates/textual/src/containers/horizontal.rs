@@ -115,4 +115,16 @@ impl<M> Widget<M> for Horizontal<M> {
             child.clear_hover();
         }
     }
+
+    fn child_count(&self) -> usize {
+        self.children.len()
+    }
+
+    fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
+        if index < self.children.len() {
+            Some(self.children[index].as_mut())
+        } else {
+            None
+        }
+    }
 }
