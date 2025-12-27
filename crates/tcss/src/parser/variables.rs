@@ -1,18 +1,55 @@
+//! CSS variable extraction and resolution.
+//!
+//! This module handles TCSS variables (SCSS-style `$variable` syntax):
+//!
+//! - [`extract_variables`]: Scans source for variable definitions
+//! - [`resolve_variables`]: Replaces variable references with values
+//!
+//! ## Variable Syntax
+//!
+//! Variables are defined at the top level of a stylesheet:
+//!
+//! ```css
+//! $primary-color: blue;
+//! $spacing: 10;
+//!
+//! Button {
+//!     color: $primary-color;
+//!     margin: $spacing;
+//! }
+//! ```
+//!
+//! ## Processing Steps
+//!
+//! 1. Block comments (`/* */`) are stripped
+//! 2. Variable definitions (`$name: value;`) are extracted
+//! 3. Variable references (`$name`) are replaced with values
+//! 4. Definition lines are removed from output
+
 use crate::error::TcssError;
 use std::collections::HashMap;
 
+/// Storage for stylesheet-defined variables.
+///
+/// Variables are extracted from the source before parsing and then
+/// resolved by replacing `$name` references with their values.
 #[derive(Debug, Clone, Default)]
 pub struct StylesheetVariables {
     variables: HashMap<String, String>,
 }
 
 impl StylesheetVariables {
+    /// Creates an empty variable storage.
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Defines a variable with the given name and value.
     pub fn define(&mut self, name: String, value: String) {
         self.variables.insert(name, value);
     }
+
+    /// Resolves a variable name to its value, if defined.
     pub fn resolve(&self, name: &str) -> Option<String> {
         self.variables.get(name).cloned()
     }

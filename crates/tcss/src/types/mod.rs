@@ -1,3 +1,24 @@
+//! Core types for TCSS styling.
+//!
+//! This module provides the fundamental types used throughout TCSS:
+//!
+//! - [`RgbaColor`]: Colors with RGBA components and theme variable support
+//! - [`Scalar`], [`Spacing`]: Dimension and box model values
+//! - [`Border`], [`BorderEdge`]: Border styling
+//! - [`TextStyle`], [`TextAlign`]: Text formatting
+//! - [`Display`], [`Visibility`], [`Overflow`]: Layout control
+//! - [`Theme`]: Color theme definitions
+//! - [`ComputedStyle`]: Final computed styles for a widget
+//!
+//! ## Module Organization
+//!
+//! - [`color`]: RGBA color with parsing and theme variable support
+//! - [`geometry`]: Scalars (dimensions) and spacing (margins/padding)
+//! - [`border`]: Border kinds, edges, and full border definitions
+//! - [`text`]: Text styling and alignment
+//! - [`layout`]: Display modes, visibility, and overflow
+//! - [`theme`]: Theme color palettes
+
 pub mod border;
 pub mod color;
 pub mod geometry;
@@ -7,11 +28,16 @@ pub mod theme;
 
 pub use border::{Border, BorderEdge, BorderKind};
 pub use color::RgbaColor;
-pub use geometry::{Scalar, Spacing};
+pub use geometry::{Scalar, Spacing, Unit};
 pub use layout::{Display, Overflow, Visibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
 pub use theme::Theme;
 
+/// The final computed style for a widget after cascade resolution.
+///
+/// This struct contains all resolved style properties that can be
+/// applied to a widget. Values are `Option` where the property may
+/// be inherited or use a default.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
     // Colors

@@ -1,3 +1,22 @@
+//! Value parsing for TCSS properties.
+//!
+//! This module handles parsing of CSS property values:
+//!
+//! - Colors: `red`, `#ff0000`, `rgb(255,0,0)`, `hsl(0,100%,50%)`
+//! - Borders: `solid red`, `round #ff0000`
+//! - Text alignment: `left`, `center`, `right`, `justify`
+//! - Identifiers: Generic CSS identifier parsing
+//!
+//! ## Color Formats
+//!
+//! Supports all standard CSS color formats:
+//! - Named colors: `red`, `blue`, `aliceblue`
+//! - Hex: `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`
+//! - RGB: `rgb(r, g, b)`, `rgb(r, g, b, a)`
+//! - HSL: `hsl(h, s%, l%)`, `hsla(h, s%, l%, a)`
+//! - Special: `auto`, `transparent`
+//! - Theme variables: `$primary`, `$panel`
+
 use crate::types::border::{BorderEdge, BorderKind};
 use crate::types::color::RgbaColor;
 use nom::{
@@ -5,7 +24,9 @@ use nom::{
     sequence::preceded,
 };
 
-/// Helper to parse CSS identifiers (alphanumeric + dashes/underscores).
+/// Parses a CSS identifier (alphanumeric characters, dashes, and underscores).
+///
+/// Identifiers are used for property names, type selectors, class names, etc.
 pub fn parse_ident(input: &str) -> IResult<&str, &str> {
     take_while1(|c: char| c.is_alphanumeric() || c == '-' || c == '_')(input)
 }

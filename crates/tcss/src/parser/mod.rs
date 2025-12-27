@@ -1,3 +1,39 @@
+//! TCSS parsing and stylesheet data structures.
+//!
+//! This module provides the core parsing functionality for TCSS stylesheets,
+//! including:
+//!
+//! - [`parse_stylesheet`]: Main entry point for parsing TCSS source
+//! - [`StyleSheet`]: Represents a complete parsed stylesheet
+//! - [`Rule`]: A CSS rule with selectors and declarations
+//! - [`Declaration`]: A property-value pair like `color: red`
+//! - Selector types: [`Selector`], [`CompoundSelector`], [`ComplexSelector`]
+//!
+//! ## Submodules
+//!
+//! - [`cascade`]: CSS specificity and style computation
+//! - [`selectors`]: Selector parsing (type, class, ID, combinators)
+//! - [`stylesheet`]: Core data structures for rules and declarations
+//! - [`units`]: Numeric value and unit parsing
+//! - [`values`]: Color, border, and other value parsing
+//! - [`variables`]: CSS variable extraction and resolution
+//! - [`flatten`]: Nested rule flattening (for `&` parent selector support)
+//!
+//! ## Example
+//!
+//! ```rust
+//! use tcss::parser::{parse_stylesheet, Declaration, Selector};
+//!
+//! let stylesheet = parse_stylesheet("Button { color: red; }").unwrap();
+//! let rule = &stylesheet.rules[0];
+//!
+//! // Check the selector
+//! assert_eq!(
+//!     rule.selectors.selectors[0].parts[0].compound.selectors[0],
+//!     Selector::Type("Button".to_string())
+//! );
+//! ```
+
 pub mod cascade;
 pub mod flatten;
 pub mod selectors;
@@ -13,8 +49,9 @@ pub use crate::parser::stylesheet::{
 };
 pub use crate::parser::variables::{extract_variables, resolve_variables};
 
+use crate::parser::selectors::parse_complex_selector;
 use crate::parser::values::parse_ident;
-use crate::{TcssError, parser::selectors::parse_complex_selector};
+use crate::TcssError;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;

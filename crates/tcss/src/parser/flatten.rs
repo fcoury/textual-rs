@@ -1,7 +1,43 @@
+//! Nested rule flattening for TCSS.
+//!
+//! This module handles flattening of nested CSS rules (SCSS-style nesting)
+//! into flat rules suitable for the cascade.
+//!
+//! ## Nesting Syntax
+//!
+//! TCSS supports nested rules using the `&` parent selector:
+//!
+//! ```css
+//! Button {
+//!     color: white;
+//!     &:hover { background: blue; }
+//!     &.active { background: green; }
+//! }
+//! ```
+//!
+//! This flattens to:
+//!
+//! ```css
+//! Button { color: white; }
+//! Button:hover { background: blue; }
+//! Button.active { background: green; }
+//! ```
+//!
+//! ## Flattening Rules
+//!
+//! - `&` is replaced by the parent selector
+//! - `&.class` appends class to parent's last compound selector
+//! - `& > child` creates child combinator from parent
+//! - Nested without `&` implies descendant combinator
+
 use crate::parser::stylesheet::{
     Combinator, ComplexSelector, Rule, RuleItem, Selector, SelectorList, StyleSheet,
 };
 
+/// Flattens a list of potentially nested rules into a flat stylesheet.
+///
+/// Nested rules (using `&` parent selector) are expanded into multiple
+/// flat rules with combined selectors.
 pub fn flatten_stylesheet(raw_rules: Vec<Rule>) -> StyleSheet {
     let mut flat_rules = Vec::new();
     for rule in raw_rules {
