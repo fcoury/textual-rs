@@ -36,6 +36,10 @@ impl<M> Widget<M> for Center<M> {
         self.child.render(canvas, centered_region);
     }
 
+    fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
+        f(self.child.as_mut());
+    }
+
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
         self.child.on_event(key)
     }
@@ -70,6 +74,10 @@ impl<M> Widget<M> for Middle<M> {
         };
 
         self.child.render(canvas, middled_region);
+    }
+
+    fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
+        f(self.child.as_mut());
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
