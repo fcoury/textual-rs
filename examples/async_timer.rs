@@ -8,7 +8,8 @@
 use std::time::Duration;
 
 use textual::{
-    App, AppContext, Compose, KeyCode, MessageEnvelope, Result, Switch, Vertical, Widget, log, ui,
+    App, AppContext, Compose, IntervalHandle, KeyCode, MessageEnvelope, Result, Switch, Vertical,
+    Widget, log, ui,
 };
 
 #[derive(Debug)]
@@ -23,6 +24,8 @@ struct TimerApp {
     running: bool,
     tick_count: u32,
     timer_enabled: bool,
+    /// Handle to the interval timer - must be stored to keep the timer alive
+    _interval_handle: Option<IntervalHandle>,
 }
 
 impl TimerApp {
@@ -31,6 +34,7 @@ impl TimerApp {
             running: true,
             tick_count: 0,
             timer_enabled: true,
+            _interval_handle: None,
         }
     }
 }
@@ -64,8 +68,11 @@ impl App for TimerApp {
     fn on_mount(&mut self, ctx: &AppContext<Message>) {
         log::info!("App mounted! Starting 1-second interval...");
 
-        // Start a repeating interval that sends Tick messages
-        ctx.set_interval(Duration::from_secs(1), || Message::Tick);
+        // Start a repeating interval that sends Tick messages.
+        // IMPORTANT: Store the handle to keep the timer alive!
+        // If the handle is dropped, the interval is automatically cancelled.
+        let handle = ctx.set_interval(Duration::from_secs(1), || Message::Tick);
+        self._interval_handle = Some(handle);
 
         // You could also set a one-shot timer:
         // ctx.set_timer(Duration::from_secs(5), Message::Timeout);
