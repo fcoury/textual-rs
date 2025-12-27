@@ -37,6 +37,12 @@ impl<M> Widget<M> for Horizontal<M> {
         }
     }
 
+    fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
+        for child in &mut self.children {
+            f(child.as_mut());
+        }
+    }
+
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
         for child in &mut self.children {
             if let Some(msg) = child.on_event(key) {

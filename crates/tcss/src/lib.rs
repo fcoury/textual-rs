@@ -71,3 +71,4 @@ pub mod parser;
 pub mod types;
 
 pub use error::TcssError;
+pub use types::ComputedStyle;

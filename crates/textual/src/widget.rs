@@ -1,5 +1,7 @@
 pub mod switch;
 
+use tcss::{ComputedStyle, parser::cascade::WidgetMeta};
+
 use crate::{
     KeyCode, Size,
     canvas::{Canvas, Region},
@@ -13,6 +15,40 @@ pub trait Widget<M> {
 
     /// Tell the parent container how much space this widget needs.
     fn desired_size(&self) -> Size;
+
+    fn for_each_child(&mut self, _f: &mut dyn FnMut(&mut dyn Widget<M>)) {}
+
+    // Metadata for CSS selectors
+    fn get_meta(&self) -> WidgetMeta {
+        let full_name = std::any::type_name::<Self>();
+        // Strip paths and generics: "textual::widget::switch::Switch<M, F>" -> "Switch"
+        let type_name = full_name
+            .split('<')
+            .next()
+            .unwrap_or(full_name)
+            .split("::")
+            .last()
+            .unwrap_or(full_name)
+            .to_string();
+
+        let mut classes = Vec::new();
+        if self.is_focused() {
+            classes.push("focus".to_string());
+        }
+
+        WidgetMeta {
+            type_name,
+            id: None,
+            classes,
+        }
+    }
+
+    // Default style management
+    fn set_style(&mut self, _style: ComputedStyle) {}
+
+    fn get_style(&self) -> ComputedStyle {
+        ComputedStyle::default()
+    }
 
     fn set_focus(&mut self, _is_focused: bool) {}
 
@@ -34,6 +70,18 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn desired_size(&self) -> Size {
         self.as_ref().desired_size()
+    }
+
+    fn get_style(&self) -> ComputedStyle {
+        self.as_ref().get_style()
+    }
+
+    fn set_style(&mut self, style: ComputedStyle) {
+        self.as_mut().set_style(style);
+    }
+
+    fn get_meta(&self) -> WidgetMeta {
+        self.as_ref().get_meta()
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
