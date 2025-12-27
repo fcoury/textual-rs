@@ -27,9 +27,8 @@ pub fn parse_color(input: &str) -> IResult<&str, RgbaColor> {
 
     // Handle Theme Variables ($primary, etc.)
     if color_str.starts_with('$') {
-        // Return a special RgbaColor marked as 'auto' or 'placeholder'
-        // For now, we'll use the 'auto' flag to represent a theme-resolved color
-        return Ok((&input[end..], RgbaColor::auto(1.0)));
+        // Strip the '$' and store the name
+        return Ok((&input[end..], RgbaColor::theme_variable(&color_str[1..])));
     }
 
     match RgbaColor::parse(color_str) {

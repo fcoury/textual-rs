@@ -1,6 +1,6 @@
 use crate::{
     parser::{Combinator, ComplexSelector, Declaration, Rule, Selector, Specificity, StyleSheet},
-    types::{Border, ComputedStyle},
+    types::{Border, ComputedStyle, RgbaColor, Theme},
 };
 
 /// Metadata about a widget used for selector matching.
@@ -120,6 +120,7 @@ pub fn compute_style(
     widget: &WidgetMeta,
     ancestors: &[WidgetMeta],
     stylesheet: &StyleSheet,
+    theme: &Theme,
 ) -> ComputedStyle {
     let mut matched_rules = Vec::new();
 
@@ -149,25 +150,50 @@ pub fn compute_style(
     let mut computed = ComputedStyle::default();
     for matched in matched_rules {
         for declaration in &matched.rule.declarations {
-            apply_declaration(&mut computed, declaration);
+            apply_declaration(&mut computed, declaration, theme);
         }
     }
 
     computed
 }
 
-fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration) {
+fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Theme) {
     match decl {
         Declaration::Color(c) => {
-            style.color = Some(c.clone());
-            style.auto_color = c.auto;
+            style.color = Some(resolve_theme_color(c, theme));
         }
-        Declaration::Background(c) => style.background = Some(c.clone()),
+        Declaration::Background(c) => {
+            style.background = Some(resolve_theme_color(c, theme));
+        }
         Declaration::Width(s) => style.width = Some(*s),
         Declaration::Height(s) => style.height = Some(*s),
         Declaration::Margin(s) => style.margin = *s,
         Declaration::Padding(s) => style.padding = *s,
         Declaration::Border(b) => style.border = Border::all(b.clone()),
         Declaration::Unknown(_) => {}
+    }
+}
+
+fn resolve_theme_color(color: &RgbaColor, theme: &Theme) -> RgbaColor {
+    if let Some(var_name) = &color.theme_var {
+        // Check for modifiers like "-lighten-1"
+        let parts: Vec<&str> = var_name.split('-').collect();
+        let base_name = parts[0];
+
+        let mut resolved = theme.get_color(base_name).unwrap_or_else(RgbaColor::white);
+
+        if parts.len() >= 3 {
+            let mode = parts[1]; // "lighten" or "darken"
+            let amount = parts[2].parse::<f32>().unwrap_or(0.0);
+
+            resolved = match mode {
+                "lighten" => resolved.lighten(amount),
+                "darken" => resolved.darken(amount),
+                _ => resolved,
+            };
+        }
+        resolved
+    } else {
+        color.clone()
     }
 }
