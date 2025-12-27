@@ -1,4 +1,4 @@
-use textual::{App, Compose, Horizontal, KeyCode, Result, Switch, Vertical, Widget, ui};
+use textual::{App, Compose, Horizontal, KeyCode, Result, Switch, Vertical, Widget, log, ui};
 
 enum Message {
     WifiToggled(bool),
@@ -8,8 +8,6 @@ enum Message {
 struct SwitchApp {
     running: bool,
     focus_index: usize,
-    wifi_on: bool,
-    bt_on: bool,
 }
 
 impl SwitchApp {
@@ -17,8 +15,6 @@ impl SwitchApp {
         Self {
             running: true,
             focus_index: 0,
-            wifi_on: false,
-            bt_on: false,
         }
     }
 }
@@ -26,6 +22,10 @@ impl SwitchApp {
 impl Compose for SwitchApp {
     type Message = Message;
 
+    /// Build the widget tree ONCE (persistent tree architecture).
+    ///
+    /// Note: We don't pass `.with_focus()` here anymore - focus is managed
+    /// by the run loop via `clear_focus()` and `focus_nth()`.
     fn compose(&self) -> Box<dyn Widget<Message>> {
         let wifi_msg = Message::WifiToggled as fn(bool) -> Message;
         let bt_msg = Message::BluetoothToggled as fn(bool) -> Message;
@@ -35,10 +35,10 @@ impl Compose for SwitchApp {
                 Center {
                     Vertical{
                         Horizontal {
-                            Switch::new(self.wifi_on, wifi_msg)
-                                .with_focus(self.focus_index == 0),
-                            Switch::new(self.bt_on, bt_msg)
-                                .with_focus(self.focus_index == 1)
+                            // Widgets start with their initial value
+                            // They own their state and toggle it themselves
+                            Switch::new(false, wifi_msg),
+                            Switch::new(false, bt_msg)
                         }
                     }
                 }
@@ -50,7 +50,9 @@ impl Compose for SwitchApp {
 impl App for SwitchApp {
     const CSS: &'static str = "
         Switch { color: #00FF00; }
+        Switch:hover { color: #66FF66; background: #222222; }
         Switch:focus { color: #FFFF00; background: #333333; }
+        Switch:active { color: #FF6600; background: #444444; }
     ";
 
     fn on_key(&mut self, key: KeyCode) {
@@ -70,11 +72,24 @@ impl App for SwitchApp {
         !self.running
     }
 
-    // Exhaustive pattern matching - compiler catches missing variants!
+    /// Returns the current focus index.
+    /// The run loop uses this to update focus in the persistent widget tree.
+    fn focus_index(&self) -> usize {
+        self.focus_index
+    }
+
+    /// Handle messages from widgets.
+    ///
+    /// In the persistent tree model, widgets update their own state.
+    /// Messages are for the app to react (e.g., make API calls, show notifications).
     fn handle_message(&mut self, message: Message) {
         match message {
-            Message::WifiToggled(on) => self.wifi_on = on,
-            Message::BluetoothToggled(on) => self.bt_on = on,
+            Message::WifiToggled(on) => {
+                log::info!("WiFi toggled to: {}", on);
+            }
+            Message::BluetoothToggled(on) => {
+                log::info!("Bluetooth toggled to: {}", on);
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 use crossterm::{
     cursor, execute,
-    style::{Color, ResetColor, SetBackgroundColor, SetForegroundColor},
+    style::{Color, SetBackgroundColor, SetForegroundColor},
 };
 use std::io::Write;
 use tcss::types::RgbaColor;
@@ -32,7 +32,10 @@ pub struct Canvas {
     size: Size,
     cells: Vec<Cell>,
     // Track current active colors to minimize ANSI escape codes
+    // TODO: Use these for optimization in flush()
+    #[allow(dead_code)]
     current_fg: Option<Color>,
+    #[allow(dead_code)]
     current_bg: Option<Color>,
 }
 

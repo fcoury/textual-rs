@@ -1,15 +1,26 @@
-use tcss::ComputedStyle;
+use tcss::{ComputedStyle, WidgetStates};
 
-use crate::{Canvas, KeyCode, Region, Size, Widget};
+use crate::{Canvas, KeyCode, MouseEvent, MouseEventKind, Region, Size, Widget};
 
 /// A toggle switch widget that produces messages via a callback.
+///
+/// Supports focus, hover, and active pseudo-class states for CSS styling.
 pub struct Switch<M, F>
 where
     F: Fn(bool) -> M,
 {
+    /// Whether the widget has keyboard focus
     pub focused: bool,
+    /// Whether the mouse is hovering over the widget
+    pub hovered: bool,
+    /// Whether the widget is being actively pressed
+    pub active: bool,
+    /// The current on/off value
     pub value: bool,
+    /// Computed CSS styles
     pub style: ComputedStyle,
+    /// Whether styles need to be recomputed
+    dirty: bool,
     on_change: F,
 }
 
@@ -21,13 +32,35 @@ where
         Self {
             value,
             focused: false,
+            hovered: false,
+            active: false,
+            dirty: true, // Start dirty so initial styles are computed
             on_change,
             style: ComputedStyle::default(),
         }
     }
 
     pub fn with_focus(mut self, focused: bool) -> Self {
-        self.focused = focused;
+        if self.focused != focused {
+            self.focused = focused;
+            self.dirty = true;
+        }
+        self
+    }
+
+    pub fn with_hover(mut self, hovered: bool) -> Self {
+        if self.hovered != hovered {
+            self.hovered = hovered;
+            self.dirty = true;
+        }
+        self
+    }
+
+    pub fn with_active(mut self, active: bool) -> Self {
+        if self.active != active {
+            self.active = active;
+            self.dirty = true;
+        }
         self
     }
 }
@@ -81,7 +114,13 @@ where
         }
 
         match key {
-            KeyCode::Char(' ') | KeyCode::Enter => Some((self.on_change)(!self.value)),
+            KeyCode::Char(' ') | KeyCode::Enter => {
+                // Toggle our own value (persistent widget owns its state)
+                self.value = !self.value;
+                self.dirty = true;
+                // Notify the app of the change
+                Some((self.on_change)(self.value))
+            }
             _ => None,
         }
     }
@@ -91,6 +130,125 @@ where
     }
 
     fn set_focus(&mut self, is_focused: bool) {
-        self.focused = is_focused;
+        if self.focused != is_focused {
+            self.focused = is_focused;
+            self.dirty = true; // Reactive: mark dirty when state changes
+        }
+    }
+
+    fn get_state(&self) -> WidgetStates {
+        let mut states = WidgetStates::empty();
+        if self.focused {
+            states |= WidgetStates::FOCUS;
+        }
+        if self.hovered {
+            states |= WidgetStates::HOVER;
+        }
+        if self.active {
+            states |= WidgetStates::ACTIVE;
+        }
+        states
+    }
+
+    fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+
+    fn is_focusable(&self) -> bool {
+        true
+    }
+
+    fn focus_nth(&mut self, n: usize) -> bool {
+        if n == 0 {
+            self.set_focus(true);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        let x = event.column;
+        let y = event.row;
+
+        // Hit test: is mouse within this widget's region?
+        let in_bounds = x >= region.x
+            && x < region.x + region.width
+            && y >= region.y
+            && y < region.y + region.height;
+
+        match event.kind {
+            MouseEventKind::Moved => {
+                // Update hover state
+                if in_bounds != self.hovered {
+                    self.hovered = in_bounds;
+                    self.dirty = true;
+                }
+                None
+            }
+            MouseEventKind::Down(_button) if in_bounds => {
+                // Start press (active state)
+                if !self.active {
+                    self.active = true;
+                    self.dirty = true;
+                }
+                None
+            }
+            MouseEventKind::Up(_button) if in_bounds && self.active => {
+                // Complete click: toggle value and send message
+                self.active = false;
+                self.value = !self.value;
+                self.dirty = true;
+                Some((self.on_change)(self.value))
+            }
+            MouseEventKind::Up(_) => {
+                // Mouse released outside - cancel active state
+                if self.active {
+                    self.active = false;
+                    self.dirty = true;
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn set_hover(&mut self, is_hovered: bool) -> bool {
+        if self.hovered != is_hovered {
+            self.hovered = is_hovered;
+            self.dirty = true;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn set_active(&mut self, is_active: bool) -> bool {
+        if self.active != is_active {
+            self.active = is_active;
+            self.dirty = true;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn clear_hover(&mut self) {
+        if self.hovered {
+            self.hovered = false;
+            self.dirty = true;
+        }
+        if self.active {
+            self.active = false;
+            self.dirty = true;
+        }
     }
 }
