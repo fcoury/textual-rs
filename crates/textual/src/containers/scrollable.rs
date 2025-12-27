@@ -42,8 +42,6 @@ pub struct ScrollableContainer<M> {
     scrollbar_hover: Option<bool>,
     /// Scrollbar being dragged: None, Some((vertical, grab_offset))
     scrollbar_drag: Option<(bool, i32)>,
-    /// Position when drag started
-    drag_start_position: f32,
 }
 
 impl<M> ScrollableContainer<M> {
@@ -56,7 +54,6 @@ impl<M> ScrollableContainer<M> {
             dirty: true,
             scrollbar_hover: None,
             scrollbar_drag: None,
-            drag_start_position: 0.0,
         }
     }
 
@@ -68,8 +65,7 @@ impl<M> ScrollableContainer<M> {
     /// Check if vertical scrollbar should be shown.
     ///
     /// For `Overflow::Auto`, we check if content height exceeds viewport height.
-    /// This uses content.desired_size() directly instead of scroll state to avoid
-    /// the need for mutable update during render.
+    /// Returns false if viewport is not yet initialized (height == 0).
     fn show_vertical_scrollbar(&self) -> bool {
         let style = self.scrollbar_style();
         if style.visibility == ScrollbarVisibility::Hidden || style.size.vertical == 0 {
@@ -78,8 +74,11 @@ impl<M> ScrollableContainer<M> {
         match self.style.overflow_y {
             Overflow::Scroll => true,
             Overflow::Auto => {
-                // Check content height vs scroll state's viewport
+                // Only show scrollbar when viewport is initialized and content exceeds it
                 let scroll = self.scroll.borrow();
+                if scroll.viewport_height <= 0 {
+                    return false;
+                }
                 let content_height = self.content.desired_size().height as i32;
                 content_height > scroll.viewport_height
             }
@@ -88,6 +87,9 @@ impl<M> ScrollableContainer<M> {
     }
 
     /// Check if horizontal scrollbar should be shown.
+    ///
+    /// For `Overflow::Auto`, we check if content width exceeds viewport width.
+    /// Returns false if viewport is not yet initialized (width == 0).
     fn show_horizontal_scrollbar(&self) -> bool {
         let style = self.scrollbar_style();
         if style.visibility == ScrollbarVisibility::Hidden || style.size.horizontal == 0 {
@@ -96,8 +98,11 @@ impl<M> ScrollableContainer<M> {
         match self.style.overflow_x {
             Overflow::Scroll => true,
             Overflow::Auto => {
-                // Check content width vs scroll state's viewport
+                // Only show scrollbar when viewport is initialized and content exceeds it
                 let scroll = self.scroll.borrow();
+                if scroll.viewport_width <= 0 {
+                    return false;
+                }
                 let content_width = self.content.desired_size().width as i32;
                 content_width > scroll.viewport_width
             }
@@ -606,20 +611,26 @@ impl<M> ScrollableContainer<M> {
             scroll.viewport_height as f32,
             scroll.offset_y as f32,
         );
-        let offset_y = scroll.offset_y;
         drop(scroll);
 
         if pos_in_bar >= thumb_start && pos_in_bar < thumb_end {
             // Start drag
             self.scrollbar_drag = Some((true, pos_in_bar - thumb_start));
-            self.drag_start_position = offset_y as f32;
             self.dirty = true;
         } else if pos_in_bar < thumb_start {
-            // Click above thumb
-            self.handle_scroll(ScrollMessage::ScrollUp);
+            // Click above thumb - page scroll up
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_up(amount);
+            drop(scroll);
+            self.dirty = true;
         } else {
-            // Click below thumb
-            self.handle_scroll(ScrollMessage::ScrollDown);
+            // Click below thumb - page scroll down
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_down(amount);
+            drop(scroll);
+            self.dirty = true;
         }
         None
     }
@@ -637,20 +648,26 @@ impl<M> ScrollableContainer<M> {
             scroll.viewport_width as f32,
             scroll.offset_x as f32,
         );
-        let offset_x = scroll.offset_x;
         drop(scroll);
 
         if pos_in_bar >= thumb_start && pos_in_bar < thumb_end {
             // Start drag
             self.scrollbar_drag = Some((false, pos_in_bar - thumb_start));
-            self.drag_start_position = offset_x as f32;
             self.dirty = true;
         } else if pos_in_bar < thumb_start {
-            // Click left of thumb
-            self.handle_scroll(ScrollMessage::ScrollLeft);
+            // Click left of thumb - page scroll left
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_width as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_left(amount);
+            drop(scroll);
+            self.dirty = true;
         } else {
-            // Click right of thumb
-            self.handle_scroll(ScrollMessage::ScrollRight);
+            // Click right of thumb - page scroll right
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_width as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_right(amount);
+            drop(scroll);
+            self.dirty = true;
         }
         None
     }
