@@ -24,8 +24,9 @@ struct TimerApp {
     running: bool,
     tick_count: u32,
     timer_enabled: bool,
-    /// Handle to the interval timer - must be stored to keep the timer alive
-    _interval_handle: Option<IntervalHandle>,
+    /// Handle to the interval timer - must be stored to keep the timer alive.
+    /// Dropping or taking this handle cancels the interval.
+    interval_handle: Option<IntervalHandle>,
 }
 
 impl TimerApp {
@@ -34,7 +35,7 @@ impl TimerApp {
             running: true,
             tick_count: 0,
             timer_enabled: true,
-            _interval_handle: None,
+            interval_handle: None,
         }
     }
 }
@@ -70,9 +71,9 @@ impl App for TimerApp {
 
         // Start a repeating interval that sends Tick messages.
         // IMPORTANT: Store the handle to keep the timer alive!
-        // If the handle is dropped, the interval is automatically cancelled.
+        // Dropping the handle automatically cancels the interval.
         let handle = ctx.set_interval(Duration::from_secs(1), || Message::Tick);
-        self._interval_handle = Some(handle);
+        self.interval_handle = Some(handle);
 
         // You could also set a one-shot timer:
         // ctx.set_timer(Duration::from_secs(5), Message::Timeout);
@@ -98,22 +99,31 @@ impl App for TimerApp {
     fn handle_message(&mut self, envelope: MessageEnvelope<Message>) {
         match envelope.message {
             Message::Tick => {
-                if self.timer_enabled {
-                    self.tick_count += 1;
-                    log::info!(
-                        "Tick #{} (from: {})",
-                        self.tick_count,
-                        envelope.sender_type
-                    );
-                }
+                self.tick_count += 1;
+                log::info!(
+                    "Tick #{} (from: {})",
+                    self.tick_count,
+                    envelope.sender_type
+                );
             }
             Message::SwitchToggled(enabled) => {
                 self.timer_enabled = enabled;
-                log::info!(
-                    "Timer {} (from: {:?})",
-                    if enabled { "enabled" } else { "disabled" },
-                    envelope.sender_id.as_deref().unwrap_or("unknown")
-                );
+
+                if !enabled {
+                    // Cancel the interval by dropping the handle
+                    self.interval_handle.take();
+                    log::info!(
+                        "Timer cancelled (from: {:?})",
+                        envelope.sender_id.as_deref().unwrap_or("unknown")
+                    );
+                } else {
+                    // Note: Can't restart here without storing AppContext.
+                    // In a real app, you'd store ctx in the struct or use a different pattern.
+                    log::info!(
+                        "Timer enabled but can't restart without AppContext (from: {:?})",
+                        envelope.sender_id.as_deref().unwrap_or("unknown")
+                    );
+                }
             }
         }
     }
