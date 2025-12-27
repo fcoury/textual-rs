@@ -1,4 +1,4 @@
-use textual::{App, Compose, Horizontal, KeyCode, Result, Switch, Vertical, Widget, log, ui};
+use textual::{App, Compose, Horizontal, KeyCode, MessageEnvelope, Result, Switch, Vertical, Widget, log, ui};
 
 enum Message {
     WifiToggled(bool),
@@ -37,8 +37,9 @@ impl Compose for SwitchApp {
                         Horizontal {
                             // Widgets start with their initial value
                             // They own their state and toggle it themselves
-                            Switch::new(false, wifi_msg),
-                            Switch::new(false, bt_msg)
+                            // Use with_id() to identify the sender in messages
+                            Switch::new(false, wifi_msg).with_id("wifi-switch"),
+                            Switch::new(false, bt_msg).with_id("bluetooth-switch")
                         }
                     }
                 }
@@ -82,13 +83,18 @@ impl App for SwitchApp {
     ///
     /// In the persistent tree model, widgets update their own state.
     /// Messages are for the app to react (e.g., make API calls, show notifications).
-    fn handle_message(&mut self, message: Message) {
-        match message {
+    ///
+    /// The envelope provides metadata like sender_id and sender_type.
+    fn handle_message(&mut self, envelope: MessageEnvelope<Message>) {
+        // The envelope provides sender metadata
+        let sender_id = envelope.sender_id.as_deref().unwrap_or("unknown");
+
+        match envelope.message {
             Message::WifiToggled(on) => {
-                log::info!("WiFi toggled to: {}", on);
+                log::info!("WiFi toggled to: {} (sender: {})", on, sender_id);
             }
             Message::BluetoothToggled(on) => {
-                log::info!("Bluetooth toggled to: {}", on);
+                log::info!("Bluetooth toggled to: {} (sender: {})", on, sender_id);
             }
         }
     }
