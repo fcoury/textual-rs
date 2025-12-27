@@ -89,6 +89,18 @@ impl<M> Widget<M> for Center<M> {
     fn clear_hover(&mut self) {
         self.child.clear_hover();
     }
+
+    fn child_count(&self) -> usize {
+        1
+    }
+
+    fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
+        if index == 0 {
+            Some(self.child.as_mut())
+        } else {
+            None
+        }
+    }
 }
 
 /// Centered vertically
@@ -173,5 +185,17 @@ impl<M> Widget<M> for Middle<M> {
 
     fn clear_hover(&mut self) {
         self.child.clear_hover();
+    }
+
+    fn child_count(&self) -> usize {
+        1
+    }
+
+    fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
+        if index == 0 {
+            Some(self.child.as_mut())
+        } else {
+            None
+        }
     }
 }
