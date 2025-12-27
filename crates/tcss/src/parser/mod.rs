@@ -1,0 +1,146 @@
+pub mod cascade;
+pub mod selectors;
+pub mod stylesheet;
+pub mod units;
+pub mod values;
+pub mod variables;
+
+pub use crate::parser::stylesheet::{
+    Combinator, ComplexSelector, CompoundSelector, Declaration, Rule, Selector, SelectorList,
+    SelectorPart, Specificity, StyleSheet,
+};
+pub use crate::parser::variables::{extract_variables, resolve_variables};
+
+use crate::parser::values::parse_ident;
+use crate::{TcssError, parser::selectors::parse_complex_selector};
+
+use nom::bytes::complete::tag;
+use nom::{
+    IResult,
+    character::complete::{char, multispace0},
+    combinator::{map, opt},
+    multi::many0,
+    sequence::{delimited, preceded, tuple},
+};
+
+/// Parses a full TCSS stylesheet, including variable resolution.
+pub fn parse_stylesheet(source: &str) -> Result<StyleSheet, TcssError> {
+    let vars = extract_variables(source);
+    let resolved_source = resolve_variables(source, &vars)?;
+
+    let (remaining, rules) =
+        many0(parse_rule)(&resolved_source).map_err(|e| TcssError::InvalidSyntax(e.to_string()))?;
+
+    if !remaining.trim().is_empty() {
+        return Err(TcssError::InvalidSyntax(format!(
+            "Unexpected tokens at end of stylesheet: {}",
+            remaining.trim()
+        )));
+    }
+
+    Ok(StyleSheet { rules })
+}
+
+/// Top-level parser for a CSS rule (e.g., "Button { color: red; }").
+pub fn parse_rule(input: &str) -> IResult<&str, Rule> {
+    let (input, _) = multispace0(input)?;
+
+    // Parse the selector list (comma separated)
+    let (input, selectors) = parse_selector_list(input)?;
+
+    let (input, _) = multispace0(input)?;
+
+    // Parse the declaration block { ... }
+    let (input, declarations) = delimited(
+        char('{'),
+        parse_declarations,
+        preceded(multispace0, char('}')),
+    )(input)?;
+
+    Ok((input, Rule::new(selectors, declarations)))
+}
+
+/// Parses a comma-separated list of selectors (e.g., "Button, .primary").
+pub fn parse_selector_list(input: &str) -> IResult<&str, SelectorList> {
+    let (input, _) = multispace0(input)?;
+    let (input, first) = parse_complex_selector(input)?;
+    let (input, rest) = many0(preceded(
+        tuple((multispace0, char(','), multispace0)),
+        parse_complex_selector,
+    ))(input)?;
+
+    let mut selectors = vec![first];
+    selectors.extend(rest);
+    Ok((input, SelectorList::new(selectors)))
+}
+
+/// Parses multiple declarations inside a block.
+pub fn parse_declarations(input: &str) -> IResult<&str, Vec<Declaration>> {
+    many0(parse_single_declaration)(input)
+}
+
+/// Dispatches parsing based on property name.
+fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
+    let (input, _) = multispace0(input)?;
+
+    // If we see a '{' or a selector pattern starting with '&', '.', '#', or ident followed by
+    // '{' it's a nested rule. For now, we'll consume it to allow the main rule to finish
+    // parsing.
+    if input.starts_with('&') || input.starts_with('.') || input.starts_with('#') {
+        if let Ok((after_nested, _)) = take_until_balanced_braces(input) {
+            return Ok((
+                after_nested,
+                Declaration::Unknown("nested-rule".to_string()),
+            ));
+        }
+    }
+
+    let (input, property) = parse_ident(input)?;
+    let (input, _) = tuple((multispace0, char(':'), multispace0))(input)?;
+
+    let (input, declaration) = match property {
+        "color" => map(values::parse_color, Declaration::Color)(input)?,
+        "background" => map(values::parse_color, Declaration::Background)(input)?,
+        "width" => map(units::parse_scalar, Declaration::Width)(input)?,
+        "height" => map(units::parse_scalar, Declaration::Height)(input)?,
+        "margin" => map(units::parse_spacing, Declaration::Margin)(input)?,
+        "padding" => map(units::parse_spacing, Declaration::Padding)(input)?,
+        "border" => map(values::parse_border_edge, Declaration::Border)(input)?,
+        _ => {
+            // Robustly consume until semicolon or brace for unknown properties
+            let (input, _value) = take_until_semicolon_or_brace(input)?;
+            (input, Declaration::Unknown(property.to_string()))
+        }
+    };
+
+    // Consume !important if present (we'll just skip it for now to pass parsing)
+    let (input, _) = opt(preceded(multispace0, tag("!important")))(input)?;
+
+    let (input, _) = multispace0(input)?;
+    let (input, _) = opt(char(';'))(input)?;
+    Ok((input, declaration))
+}
+
+fn take_until_balanced_braces(input: &str) -> IResult<&str, &str> {
+    // Basic balanced brace matcher to skip nested blocks
+    let mut depth = 0;
+    let mut end = 0;
+    for (i, c) in input.char_indices() {
+        if c == '{' {
+            depth += 1;
+        } else if c == '}' {
+            depth -= 1;
+            if depth == 0 {
+                return Ok((&input[i + 1..], &input[..i + 1]));
+            }
+        }
+        end = i + c.len_utf8();
+    }
+    Ok((&input[end..], input))
+}
+
+fn take_until_semicolon_or_brace(input: &str) -> IResult<&str, &str> {
+    nom::bytes::complete::take_until(";")(input).or_else(|_: nom::Err<nom::error::Error<&str>>| {
+        nom::bytes::complete::take_until("}")(input)
+    })
+}
