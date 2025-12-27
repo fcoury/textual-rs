@@ -29,6 +29,39 @@ pub use widget::{Compose, Widget, switch::Switch};
 
 use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}};
 
+/// Sender information extracted from a widget.
+struct SenderInfo {
+    id: Option<String>,
+    type_name: &'static str,
+}
+
+/// Walk the tree to find the focused widget and extract its sender info.
+fn get_focused_sender_info<M>(widget: &mut dyn Widget<M>) -> SenderInfo {
+    // If this widget is focused, return its info
+    if widget.is_focused() {
+        return SenderInfo {
+            id: widget.id().map(|s| s.to_string()),
+            type_name: widget.type_name(),
+        };
+    }
+
+    // Otherwise, recursively check children
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            let info = get_focused_sender_info(child);
+            if info.id.is_some() || info.type_name != "Widget" {
+                return info;
+            }
+        }
+    }
+
+    SenderInfo {
+        id: None,
+        type_name: "Widget",
+    }
+}
+
 /// The main application trait. Implement this to create a TUI application.
 ///
 /// The `Message` associated type (from `Compose`) defines the events your UI can produce.
@@ -197,9 +230,9 @@ where
                             Some(Ok(Event::Key(key_event))) => {
                                 // Send event to the PERSISTENT tree
                                 if let Some(msg) = root.on_event(key_event.code) {
-                                    // Wrap in envelope with sender info
-                                    // TODO: get actual sender info from focused widget
-                                    let envelope = MessageEnvelope::new(msg, None, "Widget");
+                                    // Get sender info from the focused widget
+                                    let sender = get_focused_sender_info(root.as_mut());
+                                    let envelope = MessageEnvelope::new(msg, sender.id.as_deref(), sender.type_name);
                                     self.handle_message(envelope);
                                 }
                                 self.on_key(key_event.code);
@@ -223,8 +256,9 @@ where
 
                                 // Route mouse event to widget tree
                                 if let Some(msg) = root.on_mouse(mouse_event, region) {
-                                    // Wrap in envelope with sender info
-                                    // TODO: get actual sender info from clicked widget
+                                    // NOTE: For mouse events, the clicked widget may differ from focused.
+                                    // Proper solution: have on_mouse return (Option<M>, SenderInfo) tuple.
+                                    // For now, we don't have accurate sender info for mouse-triggered messages.
                                     let envelope = MessageEnvelope::new(msg, None, "Widget");
                                     self.handle_message(envelope);
                                 }
