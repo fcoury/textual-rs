@@ -8,7 +8,7 @@
 //! - Nested rules (TODO)
 //! - !important (TODO)
 
-use tcss::parser::{parse_rule, Combinator, Declaration, Selector};
+use tcss::parser::{Combinator, Declaration, Selector, parse_rule};
 use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::Unit;
@@ -28,9 +28,9 @@ fn test_rule_type_selector_single_declaration() {
         Selector::Type("Button".to_string())
     );
 
-    assert_eq!(rule.declarations.len(), 1);
+    assert_eq!(rule.declarations().len(), 1);
     assert_eq!(
-        rule.declarations[0],
+        rule.declarations()[0],
         Declaration::Color(RgbaColor::rgb(255, 0, 0))
     );
 }
@@ -45,7 +45,7 @@ fn test_rule_class_selector() {
     );
 
     assert_eq!(
-        rule.declarations[0],
+        rule.declarations()[0],
         Declaration::Background(RgbaColor::rgb(0, 0, 255))
     );
 }
@@ -59,7 +59,7 @@ fn test_rule_id_selector() {
         Selector::Id("main".to_string())
     );
 
-    if let Declaration::Width(s) = &rule.declarations[0] {
+    if let Declaration::Width(s) = &rule.declarations()[0] {
         assert_eq!(s.value, 100.0);
         assert_eq!(s.unit, Unit::Percent);
     } else {
@@ -92,16 +92,16 @@ fn test_rule_multiple_declarations() {
     )
     .unwrap();
 
-    assert_eq!(rule.declarations.len(), 3);
+    assert_eq!(rule.declarations().len(), 3);
     assert_eq!(
-        rule.declarations[0],
+        rule.declarations()[0],
         Declaration::Color(RgbaColor::rgb(255, 0, 0))
     );
     assert_eq!(
-        rule.declarations[1],
+        rule.declarations()[1],
         Declaration::Background(RgbaColor::rgb(0, 0, 255))
     );
-    if let Declaration::Width(s) = &rule.declarations[2] {
+    if let Declaration::Width(s) = &rule.declarations()[2] {
         assert_eq!(s.value, 50.0);
     } else {
         panic!("expected Width");
@@ -119,21 +119,21 @@ fn test_rule_all_box_model_properties() {
     )
     .unwrap();
 
-    assert_eq!(rule.declarations.len(), 3);
+    assert_eq!(rule.declarations().len(), 3);
 
-    if let Declaration::Margin(s) = &rule.declarations[0] {
+    if let Declaration::Margin(s) = &rule.declarations()[0] {
         assert_eq!(s.top.value, 10.0);
     } else {
         panic!("expected Margin");
     }
 
-    if let Declaration::Padding(s) = &rule.declarations[1] {
+    if let Declaration::Padding(s) = &rule.declarations()[1] {
         assert_eq!(s.top.value, 5.0);
     } else {
         panic!("expected Padding");
     }
 
-    if let Declaration::Border(b) = &rule.declarations[2] {
+    if let Declaration::Border(b) = &rule.declarations()[2] {
         assert_eq!(b.kind, BorderKind::Solid);
     } else {
         panic!("expected Border");
@@ -151,7 +151,10 @@ fn test_rule_compound_selector() {
     let compound = &rule.selectors.selectors[0].parts[0].compound;
     assert_eq!(compound.selectors.len(), 2);
     assert_eq!(compound.selectors[0], Selector::Type("Button".to_string()));
-    assert_eq!(compound.selectors[1], Selector::Class("primary".to_string()));
+    assert_eq!(
+        compound.selectors[1],
+        Selector::Class("primary".to_string())
+    );
 }
 
 #[test]
@@ -207,7 +210,7 @@ fn test_rule_header_dock() {
     );
 
     // dock is unknown for now
-    if let Declaration::Unknown(name) = &rule.declarations[0] {
+    if let Declaration::Unknown(name) = &rule.declarations()[0] {
         assert_eq!(name, "dock");
     } else {
         panic!("expected Unknown declaration for dock");
@@ -255,7 +258,7 @@ fn test_rule_chained_classes() {
     );
 
     assert_eq!(
-        rule.declarations[0],
+        rule.declarations()[0],
         Declaration::Background(RgbaColor::rgb(139, 0, 0))
     );
 }
@@ -282,7 +285,7 @@ fn test_rule_universal_in_descendant() {
 fn test_rule_minimal_whitespace() {
     let (_, rule) = parse_rule("Button{color:red}").unwrap();
     assert_eq!(
-        rule.declarations[0],
+        rule.declarations()[0],
         Declaration::Color(RgbaColor::rgb(255, 0, 0))
     );
 }
@@ -291,7 +294,7 @@ fn test_rule_minimal_whitespace() {
 fn test_rule_excessive_whitespace() {
     let (_, rule) = parse_rule("   Button   {   color  :   red   ;   }   ").unwrap();
     assert_eq!(
-        rule.declarations[0],
+        rule.declarations()[0],
         Declaration::Color(RgbaColor::rgb(255, 0, 0))
     );
 }
@@ -308,14 +311,14 @@ fn test_rule_multiline_formatted() {
     )
     .unwrap();
 
-    assert_eq!(rule.declarations.len(), 2);
+    assert_eq!(rule.declarations().len(), 2);
 }
 
 #[test]
 fn test_rule_tabs_and_spaces() {
     let (_, rule) = parse_rule("\tButton\t{\n\t\tcolor:\tred;\n\t}").unwrap();
     assert_eq!(
-        rule.declarations[0],
+        rule.declarations()[0],
         Declaration::Color(RgbaColor::rgb(255, 0, 0))
     );
 }
@@ -327,13 +330,13 @@ fn test_rule_tabs_and_spaces() {
 #[test]
 fn test_rule_empty_declarations() {
     let (_, rule) = parse_rule("Button { }").unwrap();
-    assert_eq!(rule.declarations.len(), 0);
+    assert_eq!(rule.declarations().len(), 0);
 }
 
 #[test]
 fn test_rule_declaration_without_final_semicolon() {
     let (_, rule) = parse_rule("Button { color: red }").unwrap();
-    assert_eq!(rule.declarations.len(), 1);
+    assert_eq!(rule.declarations().len(), 1);
 }
 
 #[test]
@@ -342,7 +345,7 @@ fn test_rule_multiple_semicolons() {
     // Extra semicolons might appear in real CSS
     let (_, rule) = parse_rule("Button { color: red;; }").unwrap();
     // Should still parse, possibly with an empty/unknown declaration
-    assert!(!rule.declarations.is_empty());
+    assert!(!rule.declarations().is_empty());
 }
 
 // ============================================================================
@@ -358,14 +361,14 @@ fn test_rule_with_comment() {
         Button { color: red; }",
     )
     .unwrap();
-    assert_eq!(rule.declarations.len(), 1);
+    assert_eq!(rule.declarations().len(), 1);
 }
 
 #[test]
 #[ignore = "inline comments not yet implemented"]
 fn test_rule_inline_comment() {
     let (_, rule) = parse_rule("Button { color: red; /* primary color */ }").unwrap();
-    assert_eq!(rule.declarations.len(), 1);
+    assert_eq!(rule.declarations().len(), 1);
 }
 
 #[test]
@@ -375,7 +378,7 @@ fn test_rule_with_variable() {
     // Button { color: $primary; }
     let (_, rule) = parse_rule("Button { color: $primary; }").unwrap();
     // Should expand variable
-    assert!(matches!(rule.declarations[0], Declaration::Color(_)));
+    assert!(matches!(rule.declarations()[0], Declaration::Color(_)));
 }
 
 #[test]
@@ -413,7 +416,7 @@ fn test_nesting_selector() {
 fn test_important_declaration() {
     let (_, rule) = parse_rule("Button { color: red !important; }").unwrap();
     // Declaration should be marked as important
-    assert_eq!(rule.declarations.len(), 1);
+    assert_eq!(rule.declarations().len(), 1);
 }
 
 #[test]
@@ -421,7 +424,7 @@ fn test_important_declaration() {
 fn test_rule_with_pseudo_class() {
     let (_, rule) = parse_rule("Button:hover { background: green; }").unwrap();
     // Should parse pseudo-class as part of selector
-    assert_eq!(rule.declarations.len(), 1);
+    assert_eq!(rule.declarations().len(), 1);
 }
 
 #[test]
@@ -429,7 +432,7 @@ fn test_rule_with_pseudo_class() {
 fn test_initial_value() {
     let (_, rule) = parse_rule("Button { color: initial; }").unwrap();
     // Should reset to default value
-    assert_eq!(rule.declarations.len(), 1);
+    assert_eq!(rule.declarations().len(), 1);
 }
 
 // ============================================================================

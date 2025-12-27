@@ -8,7 +8,7 @@
 //!
 //! Properties not yet implemented are marked with #[ignore]
 
-use tcss::parser::{parse_rule, Declaration};
+use tcss::parser::{Declaration, parse_rule};
 use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
@@ -16,7 +16,7 @@ use tcss::types::geometry::{Scalar, Spacing, Unit};
 /// Helper to parse a simple rule and extract declarations
 fn parse_declarations(input: &str) -> Vec<Declaration> {
     let (_, rule) = parse_rule(input).expect("failed to parse rule");
-    rule.declarations
+    rule.declarations()
 }
 
 /// Helper to parse a rule and get the first declaration
