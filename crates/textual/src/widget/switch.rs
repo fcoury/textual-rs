@@ -2,9 +2,13 @@ use tcss::{ComputedStyle, WidgetStates};
 
 use crate::{Canvas, KeyCode, MouseEvent, MouseEventKind, Region, Size, Widget};
 
+/// Braille spinner animation frames for loading state.
+const SPINNER_FRAMES: [char; 10] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
 /// A toggle switch widget that produces messages via a callback.
 ///
 /// Supports focus, hover, and active pseudo-class states for CSS styling.
+/// Also supports reactive visibility, loading, and disabled states.
 pub struct Switch<M, F>
 where
     F: Fn(bool) -> M,
@@ -23,6 +27,14 @@ where
     dirty: bool,
     /// Optional widget ID for message tracking
     id: Option<String>,
+    /// Whether the widget is visible
+    visible: bool,
+    /// Whether the widget is in loading state
+    loading: bool,
+    /// Whether the widget is disabled
+    disabled: bool,
+    /// Current frame of the loading spinner animation
+    spinner_frame: usize,
     on_change: F,
 }
 
@@ -38,6 +50,10 @@ where
             active: false,
             dirty: true, // Start dirty so initial styles are computed
             id: None,
+            visible: true,
+            loading: false,
+            disabled: false,
+            spinner_frame: 0,
             on_change,
             style: ComputedStyle::default(),
         }
@@ -80,6 +96,44 @@ where
         }
         self
     }
+
+    /// Set initial visibility state.
+    pub fn with_visible(mut self, visible: bool) -> Self {
+        self.visible = visible;
+        self
+    }
+
+    /// Set initial loading state.
+    pub fn with_loading(mut self, loading: bool) -> Self {
+        self.loading = loading;
+        self
+    }
+
+    /// Set initial disabled state.
+    pub fn with_disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// Set the switch value externally (e.g., from API response).
+    ///
+    /// Unlike toggling via keyboard/mouse, this doesn't produce a message.
+    pub fn set_value(&mut self, value: bool) {
+        if self.value != value {
+            self.value = value;
+            self.dirty = true;
+        }
+    }
+
+    /// Advance the spinner animation frame.
+    ///
+    /// Call this from a timer (e.g., every 100ms) for smooth animation.
+    pub fn tick_spinner(&mut self) {
+        self.spinner_frame = (self.spinner_frame + 1) % SPINNER_FRAMES.len();
+        if self.loading {
+            self.dirty = true;
+        }
+    }
 }
 
 impl<M, F> Widget<M> for Switch<M, F>
@@ -96,10 +150,28 @@ where
     fn render(&self, canvas: &mut Canvas, region: Region) {
         // Log to verify what colors are actually in the struct right now
         log::debug!(
-            "SWITCH RENDER: fg={:?} bg={:?}",
+            "SWITCH RENDER: fg={:?} bg={:?} loading={} disabled={}",
             self.style.color,
-            self.style.background
+            self.style.background,
+            self.loading,
+            self.disabled
         );
+
+        // Show loading spinner instead of normal content
+        if self.loading {
+            let frame = SPINNER_FRAMES[self.spinner_frame];
+            let style_bracket_l = if self.focused { ">[" } else { " [" };
+            let style_bracket_r = if self.focused { " ]<" } else { " ] " };
+            let display = format!("{}  {}  {}", style_bracket_l, frame, style_bracket_r);
+            canvas.put_str(
+                region.x,
+                region.y,
+                &display,
+                self.style.color.clone(),
+                self.style.background.clone(),
+            );
+            return;
+        }
 
         let style_bracket_l = if self.focused { ">[" } else { " [" };
         let style_bracket_r = if self.focused { " ]<" } else { " ] " };
@@ -126,7 +198,8 @@ where
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
-        if !self.focused {
+        // Ignore input when disabled or not focused
+        if self.disabled || !self.focused {
             return None;
         }
 
@@ -164,6 +237,9 @@ where
         if self.active {
             states |= WidgetStates::ACTIVE;
         }
+        if self.disabled {
+            states |= WidgetStates::DISABLED;
+        }
         states
     }
 
@@ -180,7 +256,8 @@ where
     }
 
     fn is_focusable(&self) -> bool {
-        true
+        // Can't focus if invisible or disabled
+        self.visible && !self.disabled
     }
 
     fn focus_nth(&mut self, n: usize) -> bool {
@@ -193,6 +270,7 @@ where
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        // Disabled widgets still track hover for styling, but don't respond to clicks
         let x = event.column;
         let y = event.row;
 
@@ -204,22 +282,22 @@ where
 
         match event.kind {
             MouseEventKind::Moved => {
-                // Update hover state
+                // Update hover state (even when disabled, for CSS :hover:disabled)
                 if in_bounds != self.hovered {
                     self.hovered = in_bounds;
                     self.dirty = true;
                 }
                 None
             }
-            MouseEventKind::Down(_button) if in_bounds => {
-                // Start press (active state)
+            MouseEventKind::Down(_button) if in_bounds && !self.disabled => {
+                // Start press (active state) - only if not disabled
                 if !self.active {
                     self.active = true;
                     self.dirty = true;
                 }
                 None
             }
-            MouseEventKind::Up(_button) if in_bounds && self.active => {
+            MouseEventKind::Up(_button) if in_bounds && self.active && !self.disabled => {
                 // Complete click: toggle value and send message
                 self.active = false;
                 self.value = !self.value;
@@ -271,5 +349,42 @@ where
 
     fn id(&self) -> Option<&str> {
         self.id.as_deref()
+    }
+
+    // =========================================================================
+    // Reactive Attributes
+    // =========================================================================
+
+    fn is_visible(&self) -> bool {
+        self.visible
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        if self.visible != visible {
+            self.visible = visible;
+            self.dirty = true;
+        }
+    }
+
+    fn is_loading(&self) -> bool {
+        self.loading
+    }
+
+    fn set_loading(&mut self, loading: bool) {
+        if self.loading != loading {
+            self.loading = loading;
+            self.dirty = true;
+        }
+    }
+
+    fn is_disabled(&self) -> bool {
+        self.disabled
+    }
+
+    fn set_disabled(&mut self, disabled: bool) {
+        if self.disabled != disabled {
+            self.disabled = disabled;
+            self.dirty = true;
+        }
     }
 }
