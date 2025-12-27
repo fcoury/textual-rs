@@ -87,10 +87,10 @@ where
     /// - Terminal events via `crossterm::event::EventStream`
     /// - Async messages via `tokio::sync::mpsc` channel
     ///
-    /// Uses a single-threaded tokio runtime since TUI rendering is inherently
-    /// single-threaded. Background tasks can still be spawned for async work.
+    /// Uses a multi-threaded tokio runtime so that spawned tasks (timers, intervals)
+    /// can run concurrently with the event loop.
     fn run(&mut self) -> Result<()> {
-        let rt = tokio::runtime::Builder::new_current_thread()
+        let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .map_err(|e| TextualError::RuntimeInit(e.to_string()))?;
@@ -161,8 +161,27 @@ where
 
             // Flag to prevent redundant re-renders
             let mut needs_render = true;
+            // Flag to trigger tree rebuild after state changes
+            let mut needs_recompose = false;
 
             while !self.should_quit() {
+                // Rebuild widget tree if app state changed
+                if needs_recompose {
+                    let root = self.compose();
+                    tree = WidgetTree::new(root);
+                    tree.root_mut().clear_focus();
+                    tree.root_mut().focus_nth(self.focus_index());
+                    tree.update_focus(self.focus_index());
+                    last_focus_index = self.focus_index();
+
+                    // Full style resolution for new tree
+                    let mut ancestors = Vec::new();
+                    resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
+
+                    needs_recompose = false;
+                    needs_render = true;
+                }
+
                 // Check if focus changed
                 let current_focus = self.focus_index();
                 if current_focus != last_focus_index {
@@ -192,8 +211,9 @@ where
                 }
 
                 // 5. Event Handling: Use tokio::select! for async polling
+                // NOTE: Don't use `biased` here - it would starve the message channel
+                // if the event stream keeps returning ready (mouse events, etc.)
                 tokio::select! {
-                    biased;
 
                     // Terminal events from crossterm
                     maybe_event = event_stream.next() => {
@@ -210,6 +230,8 @@ where
 
                                     // App is always the final handler (even if bubbling was stopped)
                                     self.handle_message(bubbled);
+                                    // Recompose tree since app state may have changed
+                                    needs_recompose = true;
                                 }
                                 self.on_key(key_event.code);
                                 needs_render = true;
@@ -237,6 +259,8 @@ where
                                 if let Some(msg) = tree.root_mut().on_mouse(mouse_event, region) {
                                     let envelope = MessageEnvelope::new(msg, None, "Widget");
                                     self.handle_message(envelope);
+                                    // Recompose tree since app state may have changed
+                                    needs_recompose = true;
                                 }
                                 needs_render = true;
                             }
@@ -248,8 +272,10 @@ where
 
                     // Messages from async tasks (timers, background work)
                     Some(envelope) = rx.recv() => {
+                        log::debug!("EVENT_LOOP: Received message from {:?}", envelope.sender_type);
                         self.handle_message(envelope);
-                        needs_render = true;
+                        // Recompose tree since app state may have changed
+                        needs_recompose = true;
                     }
                 }
             }
