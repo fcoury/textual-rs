@@ -442,13 +442,31 @@ async fn test_timer_fires_once() {
     // Should receive exactly one message
     let envelope = rx.try_recv().expect("Should receive timer message");
     assert_eq!(envelope.message, "timeout");
-    assert_eq!(envelope.sender_type, "Timer");
+    // Unbound context uses default sender_type
+    assert_eq!(envelope.sender_type, "AppContext");
 
     // Advance more time - no duplicates
     tokio::time::advance(Duration::from_secs(10)).await;
     tokio::task::yield_now().await;
 
     assert!(rx.try_recv().is_err(), "Timer should only fire once");
+}
+
+/// Test timer preserves widget sender info.
+#[tokio::test(start_paused = true)]
+async fn test_timer_preserves_sender_info() {
+    let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<&str>>();
+    let ctx = AppContext::new(tx).with_sender_info(Some("clock-widget"), "ClockWidget");
+
+    ctx.set_timer(Duration::from_secs(1), "tick");
+
+    tokio::task::yield_now().await;
+    tokio::time::advance(Duration::from_secs(1)).await;
+    tokio::task::yield_now().await;
+
+    let envelope = rx.try_recv().expect("Should receive timer message");
+    assert_eq!(envelope.sender_id, Some("clock-widget".to_string()));
+    assert_eq!(envelope.sender_type, "ClockWidget");
 }
 
 // =============================================================================
