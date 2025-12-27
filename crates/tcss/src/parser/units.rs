@@ -1,3 +1,27 @@
+//! Numeric value and unit parsing for TCSS.
+//!
+//! This module handles parsing of dimensions and spacing values:
+//!
+//! - [`parse_scalar`]: Single dimension value (e.g., `10`, `50%`, `auto`)
+//! - [`parse_spacing`]: Box model spacing (e.g., `10`, `1 2`, `1 2 3 4`)
+//!
+//! ## Supported Units
+//!
+//! - Cells (default): `10` - character cells in the terminal
+//! - Percentage: `50%` - percentage of parent dimension
+//! - Width: `50w` - percentage of parent width
+//! - Height: `50h` - percentage of parent height
+//! - Viewport: `50vw`, `50vh` - percentage of viewport
+//! - Fraction: `1fr`, `2fr` - grid fraction units
+//! - Auto: `auto` - automatic sizing
+//!
+//! ## Spacing Syntax
+//!
+//! Follows CSS shorthand conventions:
+//! - 1 value: all sides (`margin: 10`)
+//! - 2 values: vertical, horizontal (`margin: 1 2`)
+//! - 4 values: top, right, bottom, left (`margin: 1 2 3 4`)
+
 use crate::types::geometry::{Scalar, Spacing, Unit};
 use nom::{
     IResult,
@@ -8,7 +32,7 @@ use nom::{
     sequence::{pair, preceded, tuple},
 };
 
-/// Parse a floating point or integer number.
+/// Parses a floating point or integer number.
 fn parse_number(input: &str) -> IResult<&str, f64> {
     map_res(
         recognize(tuple((

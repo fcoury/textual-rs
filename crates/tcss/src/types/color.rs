@@ -1,8 +1,38 @@
+//! RGBA color type with parsing and manipulation.
+//!
+//! This module provides the [`RgbaColor`] type for representing colors
+//! in TCSS stylesheets. Colors can be:
+//!
+//! - Literal values (hex, RGB, HSL, named)
+//! - Theme variable references (resolved at cascade time)
+//! - Auto colors (computed based on background contrast)
+//!
+//! ## Supported Color Formats
+//!
+//! - **Hex**: `#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`
+//! - **RGB**: `rgb(r, g, b)`, `rgb(r, g, b, a)`
+//! - **HSL**: `hsl(h, s%, l%)`, `hsla(h, s%, l%, a)`
+//! - **Named**: CSS color names like `red`, `aliceblue`, `rebeccapurple`
+//! - **Special**: `auto` (contrast-aware), `transparent`
+//!
+//! ## Color Manipulation
+//!
+//! Colors support HSL-based transformations for theming:
+//!
+//! ```ignore
+//! let blue = RgbaColor::rgb(0, 0, 255);
+//! let lighter = blue.lighten(1.0);  // Increase luminosity by 10%
+//! let darker = blue.darken(2.0);    // Decrease luminosity by 20%
+//! ```
+
 use std::fmt;
 
 /// Error returned when color parsing fails.
+///
+/// Contains a descriptive message about what went wrong.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ColorParseError {
+    /// Human-readable description of the parsing error.
     pub message: String,
 }
 
@@ -14,6 +44,30 @@ impl fmt::Display for ColorParseError {
 
 impl std::error::Error for ColorParseError {}
 
+/// An RGBA color with optional theme and terminal support.
+///
+/// `RgbaColor` represents colors in TCSS stylesheets. Beyond simple RGB values,
+/// it supports:
+///
+/// - **Theme variables**: Colors like `$primary` that resolve from a theme
+/// - **Auto colors**: Adapt to provide contrast against the background
+/// - **ANSI colors**: Map to the 256-color terminal palette
+///
+/// # Examples
+///
+/// ```
+/// use tcss::types::RgbaColor;
+///
+/// // Create from RGB values
+/// let red = RgbaColor::rgb(255, 0, 0);
+///
+/// // Parse from CSS string
+/// let blue = RgbaColor::parse("#0000ff").unwrap();
+/// let named = RgbaColor::parse("coral").unwrap();
+///
+/// // Theme variable reference
+/// let primary = RgbaColor::theme_variable("primary");
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct RgbaColor {
     /// Red component (0-255).
@@ -22,13 +76,13 @@ pub struct RgbaColor {
     pub g: u8,
     /// Blue component (0-255).
     pub b: u8,
-    /// Alpha component (0.0 to 1.0).
+    /// Alpha component (0.0 = transparent, 1.0 = opaque).
     pub a: f32,
-    /// Optional ANSI 256-color palette index.
+    /// ANSI 256-color palette index for terminal rendering.
     pub ansi: Option<u8>,
-    /// If true, this color resolves dynamically based on background contrast.
+    /// When `true`, this color adapts for contrast against the background.
     pub auto: bool,
-    /// If set, this color is defined by a theme variable name.
+    /// Theme variable name (e.g., "primary", "surface") for runtime resolution.
     pub theme_var: Option<String>,
 }
 

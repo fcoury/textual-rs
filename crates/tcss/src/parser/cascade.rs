@@ -1,3 +1,26 @@
+//! CSS cascade and style computation.
+//!
+//! This module implements the CSS cascade algorithm for TCSS:
+//!
+//! - [`compute_style`]: Main entry point for computing a widget's final styles
+//! - [`WidgetMeta`]: Widget metadata for selector matching
+//!
+//! ## Cascade Algorithm
+//!
+//! 1. Find all rules whose selectors match the widget
+//! 2. Sort by specificity (IDs > classes > types), then source order
+//! 3. Apply declarations in order (later declarations override earlier)
+//! 4. Resolve theme variables to actual colors
+//!
+//! ## Selector Matching
+//!
+//! The cascade matches selectors against the widget and its ancestors:
+//!
+//! - Type selectors match `widget.type_name`
+//! - Class selectors match any class in `widget.classes`
+//! - ID selectors match `widget.id`
+//! - Combinators traverse the ancestor chain
+
 use crate::{
     parser::{
         Combinator, ComplexSelector, Declaration, Rule, RuleItem, Selector, Specificity, StyleSheet,
@@ -6,10 +29,16 @@ use crate::{
 };
 
 /// Metadata about a widget used for selector matching.
+///
+/// This struct provides the information needed to determine if a CSS
+/// selector matches a widget in the UI tree.
 #[derive(Clone, Debug, Default)]
 pub struct WidgetMeta {
+    /// The widget's type name (e.g., "Button", "Label", "Container").
     pub type_name: String,
+    /// The widget's unique ID, if set (e.g., "submit", "header").
     pub id: Option<String>,
+    /// The widget's CSS classes (e.g., ["primary", "active"]).
     pub classes: Vec<String>,
 }
 

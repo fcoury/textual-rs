@@ -1,3 +1,27 @@
+//! Selector parsing for TCSS.
+//!
+//! This module handles parsing of CSS selectors from source text:
+//!
+//! - Simple selectors: `Button`, `.class`, `#id`, `*`, `:hover`, `[attr=value]`
+//! - Compound selectors: `Button.primary#submit`
+//! - Complex selectors with combinators: `Container > Button`
+//!
+//! ## Supported Combinators
+//!
+//! - Descendant (whitespace): `Container Button`
+//! - Child (`>`): `Container > Button`
+//! - Adjacent sibling (`+`): `Label + Input`
+//! - General sibling (`~`): `Label ~ Input`
+//!
+//! ## Parser Structure
+//!
+//! ```text
+//! parse_complex_selector    → ComplexSelector
+//!   ├── parse_compound_selector → CompoundSelector
+//!   │     └── parse_simple_selector* → Selector
+//!   └── combinator parsing
+//! ```
+
 use crate::parser::{
     Combinator, ComplexSelector, CompoundSelector, Selector, SelectorPart, values::parse_ident,
 };
@@ -11,7 +35,7 @@ use nom::{
     sequence::{delimited, preceded},
 };
 
-/// Parses a simple selector: Type, .Class, or #ID.
+/// Parses a simple selector: `Type`, `.class`, `#id`, `*`, `:pseudo`, `&`, or `[attr]`.
 pub fn parse_simple_selector(input: &str) -> IResult<&str, Selector> {
     alt((
         map(preceded(char('#'), parse_ident), |s| {
