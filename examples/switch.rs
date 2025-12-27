@@ -49,9 +49,8 @@ impl Compose for SwitchApp {
 
 impl App for SwitchApp {
     const CSS: &'static str = "
-        Screen {
-            align: center middle;
-        }
+        Switch { color: #00FF00; }
+        Switch:focus { color: #FFFF00; background: #333333; }
     ";
 
     fn on_key(&mut self, key: KeyCode) {
@@ -81,6 +80,9 @@ impl App for SwitchApp {
 }
 
 fn main() -> Result<()> {
+    // Initialize the logger to write to "app.log"
+    textual::init_logger("app.log");
+
     let mut app = SwitchApp::new();
     app.run()
 }
