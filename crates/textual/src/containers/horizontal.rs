@@ -30,21 +30,29 @@ impl<M> Widget<M> for Horizontal<M> {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        canvas.push_clip(region);
+
         let mut current_x = region.x;
         for child in &self.children {
             if !child.is_visible() {
                 continue;
             }
+
             let size = child.desired_size();
+            let child_width = size.width as i32;
+
             let child_region = Region {
                 x: current_x,
                 y: region.y,
-                width: size.width,
+                width: child_width,
                 height: region.height,
             };
+
             child.render(canvas, child_region);
-            current_x += size.width;
+            current_x += child_width;
         }
+
+        canvas.pop_clip();
     }
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
@@ -110,25 +118,35 @@ impl<M> Widget<M> for Horizontal<M> {
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
-        // Compute child regions (same logic as render) and delegate
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        if !region.contains_point(mx, my) {
+            return None;
+        }
+
         let mut current_x = region.x;
         for child in &mut self.children {
             if !child.is_visible() {
                 continue;
             }
+
             let size = child.desired_size();
+            let child_width = size.width as i32;
+
             let child_region = Region {
                 x: current_x,
                 y: region.y,
-                width: size.width,
+                width: child_width,
                 height: region.height,
             };
 
-            // Delegate to child - it will handle its own hit testing
-            if let Some(msg) = child.on_mouse(event, child_region) {
-                return Some(msg);
+            if child_region.contains_point(mx, my) {
+                if let Some(msg) = child.on_mouse(event, child_region) {
+                    return Some(msg);
+                }
             }
-            current_x += size.width;
+            current_x += child_width;
         }
         None
     }

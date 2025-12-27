@@ -12,6 +12,7 @@ use tcss::parser::{Declaration, parse_rule};
 use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
+use tcss::types::Overflow;
 
 /// Helper to parse a simple rule and extract declarations
 fn parse_declarations(input: &str) -> Vec<Declaration> {
@@ -518,11 +519,39 @@ fn test_property_content_align() {
 }
 
 #[test]
-#[ignore = "overflow property not yet implemented"]
-fn test_property_overflow() {
-    let decl = parse_first_declaration("Button { overflow: auto; }");
-    // Should parse as Declaration::Overflow(Overflow::Auto)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+fn test_property_overflow_x_hidden() {
+    let decl = parse_first_declaration("Button { overflow-x: hidden; }");
+    assert!(matches!(decl, Declaration::OverflowX(Overflow::Hidden)));
+}
+
+#[test]
+fn test_property_overflow_x_auto() {
+    let decl = parse_first_declaration("Button { overflow-x: auto; }");
+    assert!(matches!(decl, Declaration::OverflowX(Overflow::Auto)));
+}
+
+#[test]
+fn test_property_overflow_x_scroll() {
+    let decl = parse_first_declaration("Button { overflow-x: scroll; }");
+    assert!(matches!(decl, Declaration::OverflowX(Overflow::Scroll)));
+}
+
+#[test]
+fn test_property_overflow_y_hidden() {
+    let decl = parse_first_declaration("Button { overflow-y: hidden; }");
+    assert!(matches!(decl, Declaration::OverflowY(Overflow::Hidden)));
+}
+
+#[test]
+fn test_property_overflow_y_auto() {
+    let decl = parse_first_declaration("Button { overflow-y: auto; }");
+    assert!(matches!(decl, Declaration::OverflowY(Overflow::Auto)));
+}
+
+#[test]
+fn test_property_overflow_y_scroll() {
+    let decl = parse_first_declaration("Button { overflow-y: scroll; }");
+    assert!(matches!(decl, Declaration::OverflowY(Overflow::Scroll)));
 }
 
 #[test]
@@ -539,4 +568,194 @@ fn test_property_max_height() {
     let decl = parse_first_declaration("Button { max-height: 100; }");
     // Should parse as Declaration::MaxHeight(Scalar)
     assert!(matches!(decl, Declaration::Unknown(_)));
+}
+
+// ============================================================================
+// SCROLLBAR PROPERTIES
+// ============================================================================
+
+#[test]
+fn test_property_scrollbar_color() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-color: magenta; }");
+    if let Declaration::ScrollbarColor(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(255, 0, 255));
+    } else {
+        panic!("expected ScrollbarColor declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_scrollbar_color_hex() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-color: #ff00ff; }");
+    if let Declaration::ScrollbarColor(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(255, 0, 255));
+    } else {
+        panic!("expected ScrollbarColor declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_color_hover() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-color-hover: #aaaaaa; }");
+    if let Declaration::ScrollbarColorHover(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(170, 170, 170));
+    } else {
+        panic!("expected ScrollbarColorHover declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_color_active() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-color-active: white; }");
+    if let Declaration::ScrollbarColorActive(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(255, 255, 255));
+    } else {
+        panic!("expected ScrollbarColorActive declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_background() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-background: #555555; }");
+    if let Declaration::ScrollbarBackground(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(85, 85, 85));
+    } else {
+        panic!("expected ScrollbarBackground declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_background_hover() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-background-hover: #666666; }");
+    if let Declaration::ScrollbarBackgroundHover(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(102, 102, 102));
+    } else {
+        panic!("expected ScrollbarBackgroundHover declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_background_active() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-background-active: #777777; }");
+    if let Declaration::ScrollbarBackgroundActive(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(119, 119, 119));
+    } else {
+        panic!("expected ScrollbarBackgroundActive declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_corner_color() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-corner-color: #333333; }");
+    if let Declaration::ScrollbarCornerColor(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(51, 51, 51));
+    } else {
+        panic!("expected ScrollbarCornerColor declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_size_single() {
+    use tcss::types::scrollbar::ScrollbarSize;
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-size: 2; }");
+    if let Declaration::ScrollbarSize(size) = decl {
+        assert_eq!(size, ScrollbarSize { horizontal: 2, vertical: 2 });
+    } else {
+        panic!("expected ScrollbarSize declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_scrollbar_size_two_values() {
+    use tcss::types::scrollbar::ScrollbarSize;
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-size: 1 2; }");
+    if let Declaration::ScrollbarSize(size) = decl {
+        assert_eq!(size, ScrollbarSize { horizontal: 1, vertical: 2 });
+    } else {
+        panic!("expected ScrollbarSize declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_size_horizontal() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-size-horizontal: 3; }");
+    if let Declaration::ScrollbarSizeHorizontal(v) = decl {
+        assert_eq!(v, 3);
+    } else {
+        panic!("expected ScrollbarSizeHorizontal declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_size_vertical() {
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-size-vertical: 2; }");
+    if let Declaration::ScrollbarSizeVertical(v) = decl {
+        assert_eq!(v, 2);
+    } else {
+        panic!("expected ScrollbarSizeVertical declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_gutter_auto() {
+    use tcss::types::scrollbar::ScrollbarGutter;
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-gutter: auto; }");
+    if let Declaration::ScrollbarGutter(g) = decl {
+        assert_eq!(g, ScrollbarGutter::Auto);
+    } else {
+        panic!("expected ScrollbarGutter declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_gutter_stable() {
+    use tcss::types::scrollbar::ScrollbarGutter;
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-gutter: stable; }");
+    if let Declaration::ScrollbarGutter(g) = decl {
+        assert_eq!(g, ScrollbarGutter::Stable);
+    } else {
+        panic!("expected ScrollbarGutter declaration");
+    }
+}
+
+#[test]
+fn test_property_scrollbar_visibility_visible() {
+    use tcss::types::scrollbar::ScrollbarVisibility;
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-visibility: visible; }");
+    if let Declaration::ScrollbarVisibility(v) = decl {
+        assert_eq!(v, ScrollbarVisibility::Visible);
+    } else {
+        panic!("expected ScrollbarVisibility declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_scrollbar_visibility_hidden() {
+    use tcss::types::scrollbar::ScrollbarVisibility;
+    let decl = parse_first_declaration("ScrollableContainer { scrollbar-visibility: hidden; }");
+    if let Declaration::ScrollbarVisibility(v) = decl {
+        assert_eq!(v, ScrollbarVisibility::Hidden);
+    } else {
+        panic!("expected ScrollbarVisibility declaration");
+    }
+}
+
+#[test]
+fn test_scrollbar_multiple_properties() {
+    let decls = parse_declarations(
+        "ScrollableContainer { scrollbar-color: cyan; scrollbar-background: #222; scrollbar-size: 1; }"
+    );
+    assert_eq!(decls.len(), 3);
+
+    if let Declaration::ScrollbarColor(c) = &decls[0] {
+        assert_eq!(*c, RgbaColor::rgb(0, 255, 255));
+    } else {
+        panic!("expected ScrollbarColor");
+    }
+
+    if let Declaration::ScrollbarBackground(c) = &decls[1] {
+        assert_eq!(*c, RgbaColor::rgb(34, 34, 34));
+    } else {
+        panic!("expected ScrollbarBackground");
+    }
 }

@@ -9,6 +9,7 @@
 //! - [`Display`], [`Visibility`], [`Overflow`]: Layout control
 //! - [`Theme`]: Color theme definitions
 //! - [`ComputedStyle`]: Final computed styles for a widget
+//! - [`ScrollbarStyle`]: Scrollbar styling and configuration
 //!
 //! ## Module Organization
 //!
@@ -18,11 +19,13 @@
 //! - [`text`]: Text styling and alignment
 //! - [`layout`]: Display modes, visibility, and overflow
 //! - [`theme`]: Theme color palettes
+//! - [`scrollbar`]: Scrollbar styling, sizes, and visibility
 
 pub mod border;
 pub mod color;
 pub mod geometry;
 pub mod layout;
+pub mod scrollbar;
 pub mod text;
 pub mod theme;
 
@@ -30,6 +33,7 @@ pub use border::{Border, BorderEdge, BorderKind};
 pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing, Unit};
 pub use layout::{Display, Overflow, Visibility};
+pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
 pub use theme::Theme;
 
@@ -72,6 +76,9 @@ pub struct ComputedStyle {
     // Scroller behavior
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,
+
+    // Scrollbar styling
+    pub scrollbar: ScrollbarStyle,
 }
 
 impl Default for ComputedStyle {
@@ -98,6 +105,7 @@ impl Default for ComputedStyle {
             opacity: 1.0,
             overflow_x: Overflow::default(),
             overflow_y: Overflow::default(),
+            scrollbar: ScrollbarStyle::default(),
         }
     }
 }
