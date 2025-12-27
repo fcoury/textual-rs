@@ -141,6 +141,51 @@ pub trait Widget<M> {
         }
         false
     }
+
+    /// Returns the number of direct children this widget has.
+    ///
+    /// Used by WidgetTree for O(d) focus-targeted dispatch.
+    fn child_count(&self) -> usize {
+        0
+    }
+
+    /// Returns a mutable reference to the child at the given index.
+    ///
+    /// Used by WidgetTree for O(d) focus-targeted dispatch.
+    fn get_child_mut(&mut self, _index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
+        None
+    }
+
+    /// Handle a message bubbling up from a descendant widget.
+    ///
+    /// Return `Some(M)` to transform the message, or `None` to pass it through unchanged.
+    /// Call `envelope.stop()` to prevent further bubbling.
+    fn handle_message(&mut self, _envelope: &mut crate::MessageEnvelope<M>) -> Option<M> {
+        None
+    }
+
+    /// Returns the widget's optional ID for message tracking.
+    ///
+    /// Set via `widget.with_id("my-widget")`. Used to identify which widget
+    /// produced a message in `MessageEnvelope.sender_id`.
+    fn id(&self) -> Option<&str> {
+        None
+    }
+
+    /// Returns the widget's type name (e.g., "Switch", "Button").
+    ///
+    /// Used for `MessageEnvelope.sender_type` to identify what kind of widget
+    /// produced a message.
+    fn type_name(&self) -> &'static str {
+        // Extract simple type name from full path
+        let full = std::any::type_name::<Self>();
+        full.split('<')
+            .next()
+            .unwrap_or(full)
+            .split("::")
+            .last()
+            .unwrap_or(full)
+    }
 }
 
 /// Allow boxed widgets to be used as widgets.
@@ -215,6 +260,28 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn focus_nth(&mut self, n: usize) -> bool {
         self.as_mut().focus_nth(n)
+    }
+
+    fn child_count(&self) -> usize {
+        self.as_ref().child_count()
+    }
+
+    fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
+        self.as_mut().get_child_mut(index)
+    }
+
+    fn handle_message(&mut self, envelope: &mut crate::MessageEnvelope<M>) -> Option<M> {
+        self.as_mut().handle_message(envelope)
+    }
+
+    fn id(&self) -> Option<&str> {
+        self.as_ref().id()
+    }
+
+    fn type_name(&self) -> &'static str {
+        // Box<dyn Widget> should delegate to inner widget's type_name
+        // but we can't call it through trait object, so return generic name
+        "Widget"
     }
 }
 
