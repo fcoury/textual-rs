@@ -13,3 +13,7 @@ thiserror.workspace = true
 crossterm.workspace = true
 tokio.workspace = true
 futures.workspace = true
+
+[dev-dependencies]
+# Enable test-util for deterministic virtual time testing
+tokio = { version = "1.0", features = ["test-util"] }

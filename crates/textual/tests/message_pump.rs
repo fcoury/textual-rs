@@ -328,79 +328,89 @@ async fn test_concurrent_post_from_multiple_tasks() {
 
 // =============================================================================
 // Integration Tests: Timer Lifecycle (RAII)
+//
+// These tests use Tokio's virtual time (start_paused = true) for:
+// - 100% deterministic behavior (no race conditions)
+// - Instantaneous execution (no actual waiting)
+// - Reliable CI across different environments
 // =============================================================================
 
 /// Critical regression test: Ensure interval stops when handle is dropped.
-#[tokio::test]
+/// Uses virtual time for deterministic testing.
+#[tokio::test(start_paused = true)]
 async fn test_interval_handle_drops_immediately() {
     let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<()>>();
     let ctx = AppContext::new(tx);
 
     {
         // Start an interval and drop it immediately
-        let _handle = ctx.set_interval(Duration::from_millis(5), || ());
+        let _handle = ctx.set_interval(Duration::from_secs(1), || ());
     } // _handle dropped here, should cancel the interval
 
-    // Wait long enough for many ticks to have occurred if not cancelled
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    // Advance virtual time well past when ticks would have occurred
+    tokio::time::advance(Duration::from_secs(10)).await;
 
-    // Count messages received (should be 0 or at most 1 from race condition)
-    let mut count = 0;
-    while rx.try_recv().is_ok() {
-        count += 1;
-    }
+    // Yield to allow any pending tasks to run
+    tokio::task::yield_now().await;
 
+    // Should be exactly 0 messages (deterministic with virtual time)
     assert!(
-        count <= 1,
-        "Timer should have stopped; got {} messages",
-        count
+        rx.try_recv().is_err(),
+        "Timer should have stopped immediately on drop"
     );
 }
 
 /// Test that keeping the handle alive allows messages to flow.
-#[tokio::test]
+/// Uses virtual time for deterministic tick counting.
+#[tokio::test(start_paused = true)]
 async fn test_interval_fires_while_handle_alive() {
     let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<i32>>();
     let ctx = AppContext::new(tx);
 
-    let _handle = ctx.set_interval(Duration::from_millis(10), || 1);
+    let _handle = ctx.set_interval(Duration::from_secs(1), || 1);
 
-    // Wait for at least 3 ticks
-    tokio::time::sleep(Duration::from_millis(45)).await;
+    // With virtual time, we need to advance in steps and yield to let tasks run
+    // First tick fires immediately at t=0
+    tokio::task::yield_now().await;
+
+    // Advance through 3 more seconds (ticks at 1s, 2s, 3s)
+    for _ in 0..3 {
+        tokio::time::advance(Duration::from_secs(1)).await;
+        tokio::task::yield_now().await;
+    }
 
     let mut count = 0;
     while rx.try_recv().is_ok() {
         count += 1;
     }
 
-    assert!(
-        count >= 3,
-        "Should receive at least 3 ticks, got {}",
-        count
-    );
+    assert_eq!(count, 4, "Should receive exactly 4 ticks at 0s, 1s, 2s, 3s");
 }
 
 /// Test explicit cancel() stops the interval.
-#[tokio::test]
+/// Uses virtual time for deterministic behavior.
+#[tokio::test(start_paused = true)]
 async fn test_interval_explicit_cancel() {
     let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<()>>();
     let ctx = AppContext::new(tx);
 
-    let mut handle = ctx.set_interval(Duration::from_millis(5), || ());
+    let mut handle = ctx.set_interval(Duration::from_secs(1), || ());
 
-    // Wait for a tick
-    let _ = rx.recv().await;
+    // Advance to get first tick
+    tokio::time::advance(Duration::from_millis(100)).await;
+    tokio::task::yield_now().await;
+
+    // Receive the first tick (fires immediately)
+    assert!(rx.try_recv().is_ok(), "Should receive first tick");
 
     // Explicitly cancel
     handle.cancel();
 
-    // Drain any in-flight messages
-    tokio::time::sleep(Duration::from_millis(10)).await;
-    while rx.try_recv().is_ok() {}
+    // Advance well past when more ticks would have occurred
+    tokio::time::advance(Duration::from_secs(10)).await;
+    tokio::task::yield_now().await;
 
-    // Now wait and ensure no more messages arrive
-    tokio::time::sleep(Duration::from_millis(30)).await;
-
+    // No more messages should arrive
     assert!(
         rx.try_recv().is_err(),
         "No messages should arrive after cancel"
@@ -408,20 +418,33 @@ async fn test_interval_explicit_cancel() {
 }
 
 /// Test one-shot timer fires exactly once.
-#[tokio::test]
+/// Uses virtual time for deterministic behavior.
+#[tokio::test(start_paused = true)]
 async fn test_timer_fires_once() {
     let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<&str>>();
     let ctx = AppContext::new(tx);
 
-    ctx.set_timer(Duration::from_millis(10), "timeout");
+    ctx.set_timer(Duration::from_secs(1), "timeout");
 
-    // Wait for the timer
-    let envelope = rx.recv().await.expect("Should receive timer message");
+    // Let the spawned task start
+    tokio::task::yield_now().await;
+
+    // Advance past the timer delay
+    tokio::time::advance(Duration::from_secs(1)).await;
+
+    // Let the task wake up after the sleep and complete the send
+    tokio::task::yield_now().await;
+    tokio::task::yield_now().await;
+
+    // Should receive exactly one message
+    let envelope = rx.try_recv().expect("Should receive timer message");
     assert_eq!(envelope.message, "timeout");
     assert_eq!(envelope.sender_type, "Timer");
 
-    // Wait more and ensure no duplicate
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    // Advance more time - no duplicates
+    tokio::time::advance(Duration::from_secs(10)).await;
+    tokio::task::yield_now().await;
+
     assert!(rx.try_recv().is_err(), "Timer should only fire once");
 }
 
