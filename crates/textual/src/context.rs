@@ -12,18 +12,20 @@ use tokio::sync::mpsc;
 
 use crate::message::MessageEnvelope;
 
-/// Unique identifier for a widget in the tree.
-pub type WidgetId = usize;
-
 /// Context provided to widgets for posting messages and spawning async tasks.
 ///
 /// Clone this context to share it with async tasks. The underlying channel
 /// is designed to be shared across threads.
+///
+/// When bound to a widget via `with_sender_info`, messages sent through this
+/// context will include the widget's ID and type for attribution.
 #[derive(Clone)]
 pub struct AppContext<M> {
     sender: mpsc::UnboundedSender<MessageEnvelope<M>>,
-    /// The widget ID this context belongs to (set during mount).
-    widget_id: Option<WidgetId>,
+    /// The widget's string ID (from `Widget::id()`).
+    sender_id: Option<String>,
+    /// The widget's type name (from `Widget::type_name()`).
+    sender_type: String,
 }
 
 impl<M> AppContext<M> {
@@ -31,19 +33,29 @@ impl<M> AppContext<M> {
     pub fn new(sender: mpsc::UnboundedSender<MessageEnvelope<M>>) -> Self {
         Self {
             sender,
-            widget_id: None,
+            sender_id: None,
+            sender_type: "AppContext".to_string(),
         }
     }
 
-    /// Create a context bound to a specific widget.
-    pub fn with_widget_id(mut self, id: WidgetId) -> Self {
-        self.widget_id = Some(id);
+    /// Bind this context to a widget's sender info.
+    ///
+    /// Messages sent via `post`, `set_timer`, or `set_interval` will include
+    /// this sender metadata, allowing the App to identify the source widget.
+    pub fn with_sender_info(mut self, id: Option<&str>, type_name: &str) -> Self {
+        self.sender_id = id.map(String::from);
+        self.sender_type = type_name.to_string();
         self
     }
 
-    /// Get the widget ID this context belongs to.
-    pub fn widget_id(&self) -> Option<WidgetId> {
-        self.widget_id
+    /// Get the sender ID this context is bound to.
+    pub fn sender_id(&self) -> Option<&str> {
+        self.sender_id.as_deref()
+    }
+
+    /// Get the sender type this context is bound to.
+    pub fn sender_type(&self) -> &str {
+        &self.sender_type
     }
 
     /// Get a clone of the sender for use in async tasks.
@@ -66,12 +78,18 @@ impl<M: Send + 'static> AppContext<M> {
     ///
     /// The message will be wrapped in an envelope and delivered to
     /// `App::handle_message` without going through the bubbling mechanism.
+    ///
+    /// If this context is bound to a widget via `with_sender_info`, the
+    /// envelope will include the widget's ID and type.
     pub fn post(&self, message: M) {
-        let envelope = MessageEnvelope::new(message, None, "AppContext");
+        let envelope = MessageEnvelope::new(message, self.sender_id.as_deref(), &self.sender_type);
         let _ = self.sender.send(envelope);
     }
 
     /// Set a one-shot timer that fires a message after a delay.
+    ///
+    /// If this context is bound to a widget, the timer message will include
+    /// the widget's sender info for attribution.
     ///
     /// # Example
     /// ```ignore
@@ -79,9 +97,11 @@ impl<M: Send + 'static> AppContext<M> {
     /// ```
     pub fn set_timer(&self, delay: Duration, message: M) {
         let sender = self.sender.clone();
+        let sender_id = self.sender_id.clone();
+        let sender_type = self.sender_type.clone();
         tokio::spawn(async move {
             tokio::time::sleep(delay).await;
-            let envelope = MessageEnvelope::new(message, None, "Timer");
+            let envelope = MessageEnvelope::new(message, sender_id.as_deref(), &sender_type);
             let _ = sender.send(envelope);
         });
     }
@@ -89,6 +109,9 @@ impl<M: Send + 'static> AppContext<M> {
     /// Set a repeating interval that fires a message periodically.
     ///
     /// Returns a handle that can be used to cancel the interval.
+    ///
+    /// If this context is bound to a widget, interval messages will include
+    /// the widget's sender info for attribution.
     ///
     /// # Example
     /// ```ignore
@@ -101,6 +124,8 @@ impl<M: Send + 'static> AppContext<M> {
         F: Fn() -> M + Send + 'static,
     {
         let sender = self.sender.clone();
+        let sender_id = self.sender_id.clone();
+        let sender_type = self.sender_type.clone();
         let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel();
 
         tokio::spawn(async move {
@@ -111,7 +136,7 @@ impl<M: Send + 'static> AppContext<M> {
             loop {
                 tokio::select! {
                     _ = ticker.tick() => {
-                        let envelope = MessageEnvelope::new(message_fn(), None, "Interval");
+                        let envelope = MessageEnvelope::new(message_fn(), sender_id.as_deref(), &sender_type);
                         if sender.send(envelope).is_err() {
                             break; // Receiver dropped
                         }
@@ -176,7 +201,22 @@ mod tests {
 
         let envelope = rx.recv().await.unwrap();
         assert_eq!(envelope.message, "timeout");
-        assert_eq!(envelope.sender_type, "Timer");
+        // Unbound context uses default sender_type
+        assert_eq!(envelope.sender_type, "AppContext");
+    }
+
+    #[tokio::test]
+    async fn test_timer_preserves_sender_info() {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let ctx: AppContext<&str> = AppContext::new(tx)
+            .with_sender_info(Some("my-timer-widget"), "TimerWidget");
+
+        ctx.set_timer(Duration::from_millis(10), "timeout");
+
+        let envelope = rx.recv().await.unwrap();
+        assert_eq!(envelope.message, "timeout");
+        assert_eq!(envelope.sender_id, Some("my-timer-widget".to_string()));
+        assert_eq!(envelope.sender_type, "TimerWidget");
     }
 
     #[tokio::test]
