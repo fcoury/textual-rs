@@ -32,6 +32,7 @@ enum Message {
     /// User toggled bluetooth switch
     BluetoothToggled(bool),
     /// User toggled the disabled switch (won't fire - it's disabled!)
+    #[allow(dead_code)]
     DisabledToggled(bool),
 }
 
@@ -48,6 +49,8 @@ struct ApiApp {
     ctx: Option<AppContext<Message>>,
     // Spinner frame counter (shared across all loading widgets)
     spinner_frame: usize,
+    // Focus navigation
+    focus_idx: usize,
 }
 
 impl ApiApp {
@@ -61,6 +64,7 @@ impl ApiApp {
             spinner_handle: None,
             ctx: None,
             spinner_frame: 0,
+            focus_idx: 0,
         }
     }
 }
@@ -76,11 +80,13 @@ impl Compose for ApiApp {
                         // WiFi switch - starts loading, then shows actual state
                         Switch::new(self.wifi_enabled, Message::WifiToggled)
                             .with_id("wifi")
-                            .with_loading(self.wifi_loading),
+                            .with_loading(self.wifi_loading)
+                            .with_spinner_frame(self.spinner_frame),
                         // Bluetooth switch - starts loading, then shows actual state
                         Switch::new(self.bluetooth_enabled, Message::BluetoothToggled)
                             .with_id("bluetooth")
-                            .with_loading(self.bluetooth_loading),
+                            .with_loading(self.bluetooth_loading)
+                            .with_spinner_frame(self.spinner_frame),
                         // Disabled switch - always disabled, shows how disabled state works
                         Switch::new(false, Message::DisabledToggled)
                             .with_id("disabled-demo")
@@ -119,8 +125,17 @@ impl App for ApiApp {
     }
 
     fn on_key(&mut self, key: KeyCode) {
-        if key == KeyCode::Char('q') {
-            self.running = false;
+        match key {
+            KeyCode::Char('q') => self.running = false,
+            KeyCode::Tab | KeyCode::Down => {
+                // Cycle forward through focusable widgets (2 enabled switches)
+                self.focus_idx = (self.focus_idx + 1) % 2;
+            }
+            KeyCode::BackTab | KeyCode::Up => {
+                // Cycle backward
+                self.focus_idx = if self.focus_idx == 0 { 1 } else { self.focus_idx - 1 };
+            }
+            _ => {}
         }
     }
 
@@ -129,7 +144,7 @@ impl App for ApiApp {
     }
 
     fn focus_index(&self) -> usize {
-        0
+        self.focus_idx
     }
 
     fn handle_message(&mut self, envelope: MessageEnvelope<Message>) {

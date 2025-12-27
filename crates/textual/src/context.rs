@@ -99,10 +99,16 @@ impl<M: Send + 'static> AppContext<M> {
         let sender = self.sender.clone();
         let sender_id = self.sender_id.clone();
         let sender_type = self.sender_type.clone();
+        log::debug!("TIMER: Spawning timer for {:?}", delay);
         tokio::spawn(async move {
+            log::debug!("TIMER: Task started, sleeping for {:?}", delay);
             tokio::time::sleep(delay).await;
+            log::debug!("TIMER: Woke up, sending message");
             let envelope = MessageEnvelope::new(message, sender_id.as_deref(), &sender_type);
-            let _ = sender.send(envelope);
+            match sender.send(envelope) {
+                Ok(_) => log::debug!("TIMER: Message sent successfully"),
+                Err(e) => log::error!("TIMER: Failed to send message: {:?}", e),
+            }
         });
     }
 
@@ -128,20 +134,25 @@ impl<M: Send + 'static> AppContext<M> {
         let sender_type = self.sender_type.clone();
         let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel();
 
+        log::debug!("INTERVAL: Spawning interval for {:?}", interval);
         tokio::spawn(async move {
             // Use interval_at with delayed start to ensure cancellation can suppress all ticks.
             // tokio::time::interval() fires immediately on first tick, creating a race with cancel.
             let start = tokio::time::Instant::now() + interval;
             let mut ticker = tokio::time::interval_at(start, interval);
+            log::debug!("INTERVAL: Task started, first tick at {:?}", start);
             loop {
                 tokio::select! {
                     _ = ticker.tick() => {
+                        log::debug!("INTERVAL: Tick! Sending message");
                         let envelope = MessageEnvelope::new(message_fn(), sender_id.as_deref(), &sender_type);
                         if sender.send(envelope).is_err() {
+                            log::error!("INTERVAL: Receiver dropped");
                             break; // Receiver dropped
                         }
                     }
                     _ = &mut cancel_rx => {
+                        log::debug!("INTERVAL: Cancelled");
                         break; // Cancelled
                     }
                 }
