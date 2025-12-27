@@ -8,6 +8,15 @@ use crate::message::MessageEnvelope;
 use crate::widget::Widget;
 use crate::KeyCode;
 
+/// Sender information extracted from a widget.
+#[derive(Debug, Clone)]
+pub struct SenderInfo {
+    /// The widget's ID (if set via `with_id`).
+    pub id: Option<String>,
+    /// The widget's type name.
+    pub type_name: &'static str,
+}
+
 /// A path from the root to a specific widget in the tree.
 ///
 /// Each element is the child index at that level of the tree.
@@ -128,6 +137,20 @@ impl<M> WidgetTree<M> {
     /// Returns the message produced, if any.
     pub fn dispatch_key(&mut self, key: KeyCode) -> Option<M> {
         self.with_focused(|widget| widget.on_event(key)).flatten()
+    }
+
+    /// Get sender info for the focused widget.
+    ///
+    /// Uses the cached focus path for O(d) access instead of tree search.
+    pub fn focused_sender_info(&mut self) -> SenderInfo {
+        self.with_focused(|widget| SenderInfo {
+            id: widget.id().map(|s| s.to_string()),
+            type_name: widget.type_name(),
+        })
+        .unwrap_or(SenderInfo {
+            id: None,
+            type_name: "Widget",
+        })
     }
 
     /// Bubble a message up from the focused widget to ancestors.
