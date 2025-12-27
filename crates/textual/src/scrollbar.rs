@@ -52,6 +52,11 @@ impl ScrollBarRender {
         thumb_color: RgbaColor,
         track_color: RgbaColor,
     ) {
+        // Guard against zero-dimension regions to prevent underflow
+        if region.height <= 0 || region.width <= 0 {
+            return;
+        }
+
         let size = region.height as f32;
         let thickness = region.width;
 
@@ -146,6 +151,11 @@ impl ScrollBarRender {
         thumb_color: RgbaColor,
         track_color: RgbaColor,
     ) {
+        // Guard against zero-dimension regions to prevent underflow
+        if region.width <= 0 || region.height <= 0 {
+            return;
+        }
+
         let size = region.width as f32;
         let thickness = region.height;
 

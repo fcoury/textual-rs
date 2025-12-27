@@ -341,8 +341,8 @@ where
     }
 
     fn set_style(&mut self, style: ComputedStyle) {
-        self.computed_style = style.clone();
-        self.scrollbar_style = style.scrollbar;
+        self.scrollbar_style = style.scrollbar.clone();
+        self.computed_style = style;
     }
 
     fn get_style(&self) -> ComputedStyle {
