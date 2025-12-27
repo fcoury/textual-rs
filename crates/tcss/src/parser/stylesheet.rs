@@ -115,17 +115,31 @@ pub enum Declaration {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum RuleItem {
+    Declaration(Declaration),
+    NestedRule(Rule),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Rule {
     pub selectors: SelectorList,
-    pub declarations: Vec<Declaration>,
+    pub items: Vec<RuleItem>,
 }
 
 impl Rule {
-    pub fn new(selectors: SelectorList, declarations: Vec<Declaration>) -> Self {
-        Self {
-            selectors,
-            declarations,
-        }
+    pub fn new(selectors: SelectorList, items: Vec<RuleItem>) -> Self {
+        Self { selectors, items }
+    }
+
+    /// Helper for tests and the cascade to get a flat list of declarations.
+    pub fn declarations(&self) -> Vec<Declaration> {
+        self.items
+            .iter()
+            .filter_map(|item| match item {
+                RuleItem::Declaration(decl) => Some(decl.clone()),
+                RuleItem::NestedRule(_) => None,
+            })
+            .collect()
     }
 }
 
