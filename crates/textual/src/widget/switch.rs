@@ -109,6 +109,14 @@ where
         self
     }
 
+    /// Set the spinner animation frame (0-9).
+    ///
+    /// Use this when recomposing to maintain animation continuity.
+    pub fn with_spinner_frame(mut self, frame: usize) -> Self {
+        self.spinner_frame = frame % SPINNER_FRAMES.len();
+        self
+    }
+
     /// Set initial disabled state.
     pub fn with_disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
