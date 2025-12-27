@@ -7,6 +7,8 @@
 //! - Mouse wheel support
 //! - CSS-configurable scrollbar styling
 
+use std::cell::RefCell;
+
 use crate::canvas::{Canvas, Region, Size};
 use crate::scroll::{ScrollMessage, ScrollState};
 use crate::scrollbar::ScrollBarRender;
@@ -30,8 +32,8 @@ const PAGE_SCROLL_RATIO: f32 = 0.9;
 pub struct ScrollableContainer<M> {
     /// The content widget to scroll
     content: Box<dyn Widget<M>>,
-    /// Current scroll state
-    scroll: ScrollState,
+    /// Current scroll state (RefCell for interior mutability in render)
+    scroll: RefCell<ScrollState>,
     /// Computed style from CSS
     style: ComputedStyle,
     /// Dirty flag
@@ -49,7 +51,7 @@ impl<M> ScrollableContainer<M> {
     pub fn new(content: Box<dyn Widget<M>>) -> Self {
         Self {
             content,
-            scroll: ScrollState::default(),
+            scroll: RefCell::new(ScrollState::default()),
             style: ComputedStyle::default(),
             dirty: true,
             scrollbar_hover: None,
@@ -77,14 +79,9 @@ impl<M> ScrollableContainer<M> {
             Overflow::Scroll => true,
             Overflow::Auto => {
                 // Check content height vs scroll state's viewport
-                // If viewport_height is 0 (not yet set), fall back to content size check
+                let scroll = self.scroll.borrow();
                 let content_height = self.content.desired_size().height as i32;
-                if self.scroll.viewport_height > 0 {
-                    content_height > self.scroll.viewport_height
-                } else {
-                    // Viewport not set yet - content overflows if it has any height
-                    content_height > 0
-                }
+                content_height > scroll.viewport_height
             }
             Overflow::Hidden => false,
         }
@@ -100,12 +97,9 @@ impl<M> ScrollableContainer<M> {
             Overflow::Scroll => true,
             Overflow::Auto => {
                 // Check content width vs scroll state's viewport
+                let scroll = self.scroll.borrow();
                 let content_width = self.content.desired_size().width as i32;
-                if self.scroll.viewport_width > 0 {
-                    content_width > self.scroll.viewport_width
-                } else {
-                    content_width > 0
-                }
+                content_width > scroll.viewport_width
             }
             Overflow::Hidden => false,
         }
@@ -183,33 +177,35 @@ impl<M> ScrollableContainer<M> {
     fn handle_scroll(&mut self, msg: ScrollMessage) {
         match msg {
             ScrollMessage::ScrollUp => {
-                self.scroll.scroll_up(SCROLL_AMOUNT);
+                self.scroll.borrow_mut().scroll_up(SCROLL_AMOUNT);
                 self.dirty = true;
             }
             ScrollMessage::ScrollDown => {
-                self.scroll.scroll_down(SCROLL_AMOUNT);
+                self.scroll.borrow_mut().scroll_down(SCROLL_AMOUNT);
                 self.dirty = true;
             }
             ScrollMessage::ScrollLeft => {
-                self.scroll.scroll_left(SCROLL_AMOUNT);
+                self.scroll.borrow_mut().scroll_left(SCROLL_AMOUNT);
                 self.dirty = true;
             }
             ScrollMessage::ScrollRight => {
-                self.scroll.scroll_right(SCROLL_AMOUNT);
+                self.scroll.borrow_mut().scroll_right(SCROLL_AMOUNT);
                 self.dirty = true;
             }
             ScrollMessage::ScrollTo { x, y, animate: _ } => {
-                self.scroll.scroll_to(x, y);
+                self.scroll.borrow_mut().scroll_to(x, y);
                 self.dirty = true;
             }
         }
     }
 
     /// Update scroll state dimensions from content and viewport.
-    fn update_scroll_dimensions(&mut self, content_region: Region) {
+    /// Uses interior mutability so it can be called from render().
+    fn update_scroll_dimensions(&self, content_region: Region) {
         let content_size = self.content.desired_size();
-        self.scroll.set_virtual_size(content_size.width as i32, content_size.height as i32);
-        self.scroll.set_viewport(content_region.width, content_region.height);
+        let mut scroll = self.scroll.borrow_mut();
+        scroll.set_virtual_size(content_size.width as i32, content_size.height as i32);
+        scroll.set_viewport(content_region.width, content_region.height);
     }
 
     /// Get colors for vertical scrollbar based on hover/drag state.
@@ -245,12 +241,48 @@ impl<M> Widget<M> for ScrollableContainer<M> {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        // Update scroll dimensions FIRST so show_*_scrollbar() has correct viewport info
+        // This fixes keyboard-only scrolling and overflow:auto decisions on first render
+        let content_size = self.content.desired_size();
+        {
+            let mut scroll = self.scroll.borrow_mut();
+            scroll.set_virtual_size(content_size.width as i32, content_size.height as i32);
+            // We need to estimate content region size before calling content_region()
+            // to avoid chicken-and-egg problem with scrollbar visibility
+            let style = self.scrollbar_style();
+            let est_v_size = match self.style.overflow_y {
+                Overflow::Scroll => style.size.vertical as i32,
+                Overflow::Auto => {
+                    // If content is taller than region, we'll need scrollbar
+                    if content_size.height as i32 > region.height {
+                        style.size.vertical as i32
+                    } else {
+                        0
+                    }
+                }
+                Overflow::Hidden => 0,
+            };
+            let est_h_size = match self.style.overflow_x {
+                Overflow::Scroll => style.size.horizontal as i32,
+                Overflow::Auto => {
+                    if content_size.width as i32 > region.width {
+                        style.size.horizontal as i32
+                    } else {
+                        0
+                    }
+                }
+                Overflow::Hidden => 0,
+            };
+            scroll.set_viewport(
+                (region.width - est_v_size).max(0),
+                (region.height - est_h_size).max(0),
+            );
+        }
+
         let content_region = self.content_region(region);
 
-        // Update virtual/viewport dimensions for proper scrollbar rendering
-        let content_size = self.content.desired_size();
-
         // Debug logging
+        let scroll = self.scroll.borrow();
         log::debug!(
             "ScrollableContainer::render - region: ({}, {}, {}, {}), content_region: ({}, {}, {}, {})",
             region.x, region.y, region.width, region.height,
@@ -258,7 +290,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         );
         log::debug!(
             "  scroll offset: ({}, {}), content_size: ({}, {})",
-            self.scroll.offset_x, self.scroll.offset_y,
+            scroll.offset_x, scroll.offset_y,
             content_size.width, content_size.height
         );
         log::debug!(
@@ -273,14 +305,16 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             self.style.overflow_x,
             self.style.overflow_y
         );
+        let (offset_x, offset_y) = (scroll.offset_x, scroll.offset_y);
+        drop(scroll); // Release borrow before calling content_region again
 
         // Render content with clipping and scroll offset
         canvas.push_clip(content_region);
 
         // Calculate content position with scroll offset
         let content_render_region = Region {
-            x: content_region.x - self.scroll.offset_x,
-            y: content_region.y - self.scroll.offset_y,
+            x: content_region.x - offset_x,
+            y: content_region.y - offset_y,
             width: content_size.width as i32,
             height: content_size.height as i32,
         };
@@ -304,7 +338,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 v_region,
                 content_size.height as f32,
                 content_region.height as f32,
-                self.scroll.offset_y as f32,
+                offset_y as f32,
                 thumb_color,
                 track_color,
             );
@@ -320,7 +354,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 h_region,
                 content_size.width as f32,
                 content_region.width as f32,
-                self.scroll.offset_x as f32,
+                offset_x as f32,
                 thumb_color,
                 track_color,
             );
@@ -384,27 +418,32 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 return None;
             }
             KeyCode::PageUp => {
-                let amount = (self.scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
-                self.scroll.scroll_up(amount);
+                let mut scroll = self.scroll.borrow_mut();
+                let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
+                scroll.scroll_up(amount);
+                drop(scroll);
                 self.dirty = true;
                 return None;
             }
             KeyCode::PageDown => {
-                let amount = (self.scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
-                self.scroll.scroll_down(amount);
+                let mut scroll = self.scroll.borrow_mut();
+                let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
+                scroll.scroll_down(amount);
+                drop(scroll);
                 self.dirty = true;
                 return None;
             }
             KeyCode::Home => {
-                self.scroll.scroll_to(Some(0.0), Some(0.0));
+                self.scroll.borrow_mut().scroll_to(Some(0.0), Some(0.0));
                 self.dirty = true;
                 return None;
             }
             KeyCode::End => {
-                self.scroll.scroll_to(
-                    Some(self.scroll.max_scroll_x() as f32),
-                    Some(self.scroll.max_scroll_y() as f32),
-                );
+                let mut scroll = self.scroll.borrow_mut();
+                let max_x = scroll.max_scroll_x() as f32;
+                let max_y = scroll.max_scroll_y() as f32;
+                scroll.scroll_to(Some(max_x), Some(max_y));
+                drop(scroll);
                 self.dirty = true;
                 return None;
             }
@@ -545,11 +584,12 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 impl<M> ScrollableContainer<M> {
     /// Calculate content region adjusted for scroll offset (for mouse routing).
     fn scrolled_content_region(&self, content_region: Region) -> Region {
+        let scroll = self.scroll.borrow();
         Region {
-            x: content_region.x - self.scroll.offset_x,
-            y: content_region.y - self.scroll.offset_y,
-            width: self.scroll.virtual_width,
-            height: self.scroll.virtual_height,
+            x: content_region.x - scroll.offset_x,
+            y: content_region.y - scroll.offset_y,
+            width: scroll.virtual_width,
+            height: scroll.virtual_height,
         }
     }
 
@@ -559,17 +599,20 @@ impl<M> ScrollableContainer<M> {
         let pos_in_bar = my - region.y;
 
         let content_size = self.content.desired_size();
+        let scroll = self.scroll.borrow();
         let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
             region.height,
             content_size.height as f32,
-            self.scroll.viewport_height as f32,
-            self.scroll.offset_y as f32,
+            scroll.viewport_height as f32,
+            scroll.offset_y as f32,
         );
+        let offset_y = scroll.offset_y;
+        drop(scroll);
 
         if pos_in_bar >= thumb_start && pos_in_bar < thumb_end {
             // Start drag
             self.scrollbar_drag = Some((true, pos_in_bar - thumb_start));
-            self.drag_start_position = self.scroll.offset_y as f32;
+            self.drag_start_position = offset_y as f32;
             self.dirty = true;
         } else if pos_in_bar < thumb_start {
             // Click above thumb
@@ -587,17 +630,20 @@ impl<M> ScrollableContainer<M> {
         let pos_in_bar = mx - region.x;
 
         let content_size = self.content.desired_size();
+        let scroll = self.scroll.borrow();
         let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
             region.width,
             content_size.width as f32,
-            self.scroll.viewport_width as f32,
-            self.scroll.offset_x as f32,
+            scroll.viewport_width as f32,
+            scroll.offset_x as f32,
         );
+        let offset_x = scroll.offset_x;
+        drop(scroll);
 
         if pos_in_bar >= thumb_start && pos_in_bar < thumb_end {
             // Start drag
             self.scrollbar_drag = Some((false, pos_in_bar - thumb_start));
-            self.drag_start_position = self.scroll.offset_x as f32;
+            self.drag_start_position = offset_x as f32;
             self.dirty = true;
         } else if pos_in_bar < thumb_start {
             // Click left of thumb
@@ -627,14 +673,14 @@ impl<M> ScrollableContainer<M> {
 
             let track_size = v_region.height as f32;
             let virtual_size = content_size.height as f32;
-            let window_size = self.scroll.viewport_height as f32;
+            let window_size = self.scroll.borrow().viewport_height as f32;
             let thumb_size = (window_size / virtual_size) * track_size;
             let track_range = track_size - thumb_size;
 
             if track_range > 0.0 {
                 let ratio = new_thumb_start as f32 / track_range;
                 let new_position = ratio * (virtual_size - window_size);
-                self.scroll.scroll_to(None, Some(new_position));
+                self.scroll.borrow_mut().scroll_to(None, Some(new_position));
                 self.dirty = true;
             }
         } else {
@@ -645,14 +691,14 @@ impl<M> ScrollableContainer<M> {
 
             let track_size = h_region.width as f32;
             let virtual_size = content_size.width as f32;
-            let window_size = self.scroll.viewport_width as f32;
+            let window_size = self.scroll.borrow().viewport_width as f32;
             let thumb_size = (window_size / virtual_size) * track_size;
             let track_range = track_size - thumb_size;
 
             if track_range > 0.0 {
                 let ratio = new_thumb_start as f32 / track_range;
                 let new_position = ratio * (virtual_size - window_size);
-                self.scroll.scroll_to(Some(new_position), None);
+                self.scroll.borrow_mut().scroll_to(Some(new_position), None);
                 self.dirty = true;
             }
         }
