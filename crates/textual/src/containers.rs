@@ -20,6 +20,19 @@ impl<M> Center<M> {
             dirty: true, // Start dirty so initial styles are computed
         }
     }
+
+    /// Calculate the centered region for the child within the given region.
+    fn centered_region(&self, region: Region) -> Region {
+        let child_size = self.child.desired_size();
+        let child_width = child_size.width as i32;
+        let x_offset = (region.width - child_width).max(0) / 2;
+        Region {
+            x: region.x + x_offset,
+            y: region.y,
+            width: child_width,
+            height: region.height,
+        }
+    }
 }
 
 impl<M> Widget<M> for Center<M> {
@@ -34,19 +47,7 @@ impl<M> Widget<M> for Center<M> {
         if !self.child.is_visible() {
             return;
         }
-
-        let child_size = self.child.desired_size();
-        let child_width = child_size.width as i32;
-        let x_offset = (region.width - child_width).max(0) / 2;
-
-        let centered_region = Region {
-            x: region.x + x_offset,
-            y: region.y,
-            width: child_width,
-            height: region.height,
-        };
-
-        self.child.render(canvas, centered_region);
+        self.child.render(canvas, self.centered_region(region));
     }
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
@@ -96,19 +97,7 @@ impl<M> Widget<M> for Center<M> {
         if !self.child.is_visible() {
             return None;
         }
-
-        let child_size = self.child.desired_size();
-        let child_width = child_size.width as i32;
-        let x_offset = (region.width - child_width).max(0) / 2;
-
-        let centered_region = Region {
-            x: region.x + x_offset,
-            y: region.y,
-            width: child_width,
-            height: region.height,
-        };
-
-        self.child.on_mouse(event, centered_region)
+        self.child.on_mouse(event, self.centered_region(region))
     }
 
     fn clear_hover(&mut self) {
@@ -144,6 +133,19 @@ impl<M> Middle<M> {
             dirty: true, // Start dirty so initial styles are computed
         }
     }
+
+    /// Calculate the vertically centered region for the child within the given region.
+    fn middled_region(&self, region: Region) -> Region {
+        let child_size = self.child.desired_size();
+        let child_height = child_size.height as i32;
+        let y_offset = (region.height - child_height).max(0) / 2;
+        Region {
+            x: region.x,
+            y: region.y + y_offset,
+            width: region.width,
+            height: child_height,
+        }
+    }
 }
 
 impl<M> Widget<M> for Middle<M> {
@@ -158,19 +160,7 @@ impl<M> Widget<M> for Middle<M> {
         if !self.child.is_visible() {
             return;
         }
-
-        let child_size = self.child.desired_size();
-        let child_height = child_size.height as i32;
-        let y_offset = (region.height - child_height).max(0) / 2;
-
-        let middled_region = Region {
-            x: region.x,
-            y: region.y + y_offset,
-            width: region.width,
-            height: child_height,
-        };
-
-        self.child.render(canvas, middled_region);
+        self.child.render(canvas, self.middled_region(region));
     }
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
@@ -220,19 +210,7 @@ impl<M> Widget<M> for Middle<M> {
         if !self.child.is_visible() {
             return None;
         }
-
-        let child_size = self.child.desired_size();
-        let child_height = child_size.height as i32;
-        let y_offset = (region.height - child_height).max(0) / 2;
-
-        let middled_region = Region {
-            x: region.x,
-            y: region.y + y_offset,
-            width: region.width,
-            height: child_height,
-        };
-
-        self.child.on_mouse(event, middled_region)
+        self.child.on_mouse(event, self.middled_region(region))
     }
 
     fn clear_hover(&mut self) {
