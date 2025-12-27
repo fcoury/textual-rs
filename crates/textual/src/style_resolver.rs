@@ -21,6 +21,8 @@ pub fn resolve_styles<M>(
 /// - It is marked dirty (state changed like focus/hover/active)
 /// - A parent was dirty (selectors like `Parent:focus > Child` may apply)
 ///
+/// Invisible widgets are skipped entirely (optimization).
+///
 /// After restyling, widgets are marked clean.
 pub fn resolve_dirty_styles<M>(
     widget: &mut dyn Widget<M>,
@@ -29,6 +31,11 @@ pub fn resolve_dirty_styles<M>(
     ancestors: &mut Vec<WidgetMeta>,
     parent_dirty: bool,
 ) {
+    // Skip invisible widgets and their subtrees
+    if !widget.is_visible() {
+        return;
+    }
+
     let is_dirty = widget.is_dirty();
     let should_restyle = is_dirty || parent_dirty;
 

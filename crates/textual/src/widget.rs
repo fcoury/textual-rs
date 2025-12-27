@@ -26,6 +26,9 @@ pub trait Widget<M> {
         if self.is_focused() {
             states |= WidgetStates::FOCUS;
         }
+        if self.is_disabled() {
+            states |= WidgetStates::DISABLED;
+        }
         states
     }
 
@@ -114,9 +117,46 @@ pub trait Widget<M> {
     fn clear_hover(&mut self) {}
 
     /// Returns true if this widget can receive focus.
+    ///
+    /// Default implementation returns false. Widgets should also return
+    /// false if invisible or disabled.
     fn is_focusable(&self) -> bool {
         false
     }
+
+    // =========================================================================
+    // Reactive Attributes (Visibility, Loading, Disabled)
+    // =========================================================================
+
+    /// Returns false if this widget should be excluded from layout, rendering, and events.
+    ///
+    /// Invisible widgets don't occupy space and cannot receive focus.
+    fn is_visible(&self) -> bool {
+        true
+    }
+
+    /// Set the visibility of this widget.
+    fn set_visible(&mut self, _visible: bool) {}
+
+    /// Returns true if this widget is in a loading state.
+    ///
+    /// Loading widgets render a loading indicator instead of normal content.
+    fn is_loading(&self) -> bool {
+        false
+    }
+
+    /// Set the loading state of this widget.
+    fn set_loading(&mut self, _loading: bool) {}
+
+    /// Returns true if this widget is disabled (visible but non-interactive).
+    ///
+    /// Disabled widgets are rendered in a muted style and cannot receive input.
+    fn is_disabled(&self) -> bool {
+        false
+    }
+
+    /// Set the disabled state of this widget.
+    fn set_disabled(&mut self, _disabled: bool) {}
 
     /// Counts the total number of focusable widgets in this subtree.
     fn count_focusable(&self) -> usize {
@@ -248,6 +288,30 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn is_focusable(&self) -> bool {
         self.as_ref().is_focusable()
+    }
+
+    fn is_visible(&self) -> bool {
+        self.as_ref().is_visible()
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        self.as_mut().set_visible(visible);
+    }
+
+    fn is_loading(&self) -> bool {
+        self.as_ref().is_loading()
+    }
+
+    fn set_loading(&mut self, loading: bool) {
+        self.as_mut().set_loading(loading);
+    }
+
+    fn is_disabled(&self) -> bool {
+        self.as_ref().is_disabled()
+    }
+
+    fn set_disabled(&mut self, disabled: bool) {
+        self.as_mut().set_disabled(disabled);
     }
 
     fn count_focusable(&self) -> usize {
