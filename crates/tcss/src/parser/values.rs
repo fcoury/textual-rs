@@ -19,8 +19,9 @@
 
 use crate::types::border::{BorderEdge, BorderKind};
 use crate::types::color::RgbaColor;
+use crate::types::scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarVisibility};
 use nom::{
-    IResult, bytes::complete::take_while1, character::complete::multispace1, combinator::opt,
+    IResult, bytes::complete::take_while1, character::complete::{digit1, multispace1}, combinator::opt,
     sequence::preceded,
 };
 
@@ -128,6 +129,76 @@ pub fn parse_text_align(input: &str) -> IResult<&str, crate::types::text::TextAl
         "justify" => Ok((input, Justify)),
         "start" => Ok((input, Start)),
         "end" => Ok((input, End)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parse a u16 integer.
+pub fn parse_u16(input: &str) -> IResult<&str, u16> {
+    let (input, digits) = digit1(input)?;
+    let value = digits.parse::<u16>().map_err(|_| {
+        nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Digit))
+    })?;
+    Ok((input, value))
+}
+
+/// Parse scrollbar-size: `<int>` or `<int> <int>`.
+/// Single value applies to both horizontal and vertical.
+/// Two values: horizontal vertical.
+pub fn parse_scrollbar_size(input: &str) -> IResult<&str, ScrollbarSize> {
+    let (input, first) = parse_u16(input)?;
+    let (input, second) = opt(preceded(multispace1, parse_u16))(input)?;
+
+    let size = match second {
+        Some(v) => ScrollbarSize {
+            horizontal: first,
+            vertical: v,
+        },
+        None => ScrollbarSize {
+            horizontal: first,
+            vertical: first,
+        },
+    };
+    Ok((input, size))
+}
+
+/// Parse scrollbar-gutter: `auto` or `stable`.
+pub fn parse_scrollbar_gutter(input: &str) -> IResult<&str, ScrollbarGutter> {
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "auto" => Ok((input, ScrollbarGutter::Auto)),
+        "stable" => Ok((input, ScrollbarGutter::Stable)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parse scrollbar-visibility: `visible` or `hidden`.
+pub fn parse_scrollbar_visibility(input: &str) -> IResult<&str, ScrollbarVisibility> {
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "visible" => Ok((input, ScrollbarVisibility::Visible)),
+        "hidden" => Ok((input, ScrollbarVisibility::Hidden)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parse overflow: `hidden`, `auto`, or `scroll`.
+pub fn parse_overflow(input: &str) -> IResult<&str, crate::types::Overflow> {
+    use crate::types::Overflow;
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "hidden" => Ok((input, Overflow::Hidden)),
+        "auto" => Ok((input, Overflow::Auto)),
+        "scroll" => Ok((input, Overflow::Scroll)),
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,

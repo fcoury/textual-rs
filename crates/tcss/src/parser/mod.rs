@@ -150,6 +150,25 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "margin" => map(units::parse_spacing, Declaration::Margin)(input)?,
         "padding" => map(units::parse_spacing, Declaration::Padding)(input)?,
         "border" => map(values::parse_border_edge, Declaration::Border)(input)?,
+
+        // Scrollbar properties
+        "scrollbar-color" => map(values::parse_color, Declaration::ScrollbarColor)(input)?,
+        "scrollbar-color-hover" => map(values::parse_color, Declaration::ScrollbarColorHover)(input)?,
+        "scrollbar-color-active" => map(values::parse_color, Declaration::ScrollbarColorActive)(input)?,
+        "scrollbar-background" => map(values::parse_color, Declaration::ScrollbarBackground)(input)?,
+        "scrollbar-background-hover" => map(values::parse_color, Declaration::ScrollbarBackgroundHover)(input)?,
+        "scrollbar-background-active" => map(values::parse_color, Declaration::ScrollbarBackgroundActive)(input)?,
+        "scrollbar-corner-color" => map(values::parse_color, Declaration::ScrollbarCornerColor)(input)?,
+        "scrollbar-size" => map(values::parse_scrollbar_size, Declaration::ScrollbarSize)(input)?,
+        "scrollbar-size-horizontal" => map(values::parse_u16, Declaration::ScrollbarSizeHorizontal)(input)?,
+        "scrollbar-size-vertical" => map(values::parse_u16, Declaration::ScrollbarSizeVertical)(input)?,
+        "scrollbar-gutter" => map(values::parse_scrollbar_gutter, Declaration::ScrollbarGutter)(input)?,
+        "scrollbar-visibility" => map(values::parse_scrollbar_visibility, Declaration::ScrollbarVisibility)(input)?,
+
+        // Overflow properties
+        "overflow-x" => map(values::parse_overflow, Declaration::OverflowX)(input)?,
+        "overflow-y" => map(values::parse_overflow, Declaration::OverflowY)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;

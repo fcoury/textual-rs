@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{BorderEdge, RgbaColor, Scalar, Spacing};
+use crate::types::{BorderEdge, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -206,6 +206,39 @@ pub enum Declaration {
     Padding(Spacing),
     /// The `border` property for element borders.
     Border(BorderEdge),
+
+    // Scrollbar properties
+    /// The `scrollbar-color` property for scrollbar thumb color.
+    ScrollbarColor(RgbaColor),
+    /// The `scrollbar-color-hover` property for scrollbar thumb hover color.
+    ScrollbarColorHover(RgbaColor),
+    /// The `scrollbar-color-active` property for scrollbar thumb active color.
+    ScrollbarColorActive(RgbaColor),
+    /// The `scrollbar-background` property for scrollbar track color.
+    ScrollbarBackground(RgbaColor),
+    /// The `scrollbar-background-hover` property for scrollbar track hover color.
+    ScrollbarBackgroundHover(RgbaColor),
+    /// The `scrollbar-background-active` property for scrollbar track active color.
+    ScrollbarBackgroundActive(RgbaColor),
+    /// The `scrollbar-corner-color` property for scrollbar corner color.
+    ScrollbarCornerColor(RgbaColor),
+    /// The `scrollbar-size` property (horizontal, vertical thickness).
+    ScrollbarSize(ScrollbarSize),
+    /// The `scrollbar-size-horizontal` property.
+    ScrollbarSizeHorizontal(u16),
+    /// The `scrollbar-size-vertical` property.
+    ScrollbarSizeVertical(u16),
+    /// The `scrollbar-gutter` property (auto or stable).
+    ScrollbarGutter(ScrollbarGutter),
+    /// The `scrollbar-visibility` property (visible or hidden).
+    ScrollbarVisibility(ScrollbarVisibility),
+
+    // Overflow properties
+    /// The `overflow-x` property for horizontal overflow behavior.
+    OverflowX(Overflow),
+    /// The `overflow-y` property for vertical overflow behavior.
+    OverflowY(Overflow),
+
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),
 }

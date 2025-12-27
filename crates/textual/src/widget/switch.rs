@@ -279,14 +279,11 @@ where
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
         // Disabled widgets still track hover for styling, but don't respond to clicks
-        let x = event.column;
-        let y = event.row;
+        let mx = event.column as i32;
+        let my = event.row as i32;
 
         // Hit test: is mouse within this widget's region?
-        let in_bounds = x >= region.x
-            && x < region.x + region.width
-            && y >= region.y
-            && y < region.y + region.height;
+        let in_bounds = region.contains_point(mx, my);
 
         match event.kind {
             MouseEventKind::Moved => {

@@ -247,6 +247,53 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Margin(s) => style.margin = *s,
         Declaration::Padding(s) => style.padding = *s,
         Declaration::Border(b) => style.border = Border::all(b.clone()),
+
+        // Scrollbar properties
+        Declaration::ScrollbarColor(c) => {
+            style.scrollbar.color = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::ScrollbarColorHover(c) => {
+            style.scrollbar.color_hover = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::ScrollbarColorActive(c) => {
+            style.scrollbar.color_active = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::ScrollbarBackground(c) => {
+            style.scrollbar.background = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::ScrollbarBackgroundHover(c) => {
+            style.scrollbar.background_hover = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::ScrollbarBackgroundActive(c) => {
+            style.scrollbar.background_active = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::ScrollbarCornerColor(c) => {
+            style.scrollbar.corner_color = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::ScrollbarSize(s) => {
+            style.scrollbar.size = *s;
+        }
+        Declaration::ScrollbarSizeHorizontal(v) => {
+            style.scrollbar.size.horizontal = *v;
+        }
+        Declaration::ScrollbarSizeVertical(v) => {
+            style.scrollbar.size.vertical = *v;
+        }
+        Declaration::ScrollbarGutter(g) => {
+            style.scrollbar.gutter = *g;
+        }
+        Declaration::ScrollbarVisibility(v) => {
+            style.scrollbar.visibility = *v;
+        }
+
+        // Overflow properties
+        Declaration::OverflowX(o) => {
+            style.overflow_x = *o;
+        }
+        Declaration::OverflowY(o) => {
+            style.overflow_y = *o;
+        }
+
         Declaration::Unknown(_) => {}
     }
 }
