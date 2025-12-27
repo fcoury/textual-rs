@@ -369,12 +369,12 @@ async fn test_interval_fires_while_handle_alive() {
 
     let _handle = ctx.set_interval(Duration::from_secs(1), || 1);
 
-    // With virtual time, we need to advance in steps and yield to let tasks run
-    // First tick fires immediately at t=0
+    // Yield to let the spawned task set up the interval
     tokio::task::yield_now().await;
 
-    // Advance through 3 more seconds (ticks at 1s, 2s, 3s)
-    for _ in 0..3 {
+    // With delayed-start interval, first tick fires at 1s (not immediately).
+    // Advance through 4 seconds to get ticks at 1s, 2s, 3s, 4s.
+    for _ in 0..4 {
         tokio::time::advance(Duration::from_secs(1)).await;
         tokio::task::yield_now().await;
     }
@@ -384,7 +384,7 @@ async fn test_interval_fires_while_handle_alive() {
         count += 1;
     }
 
-    assert_eq!(count, 4, "Should receive exactly 4 ticks at 0s, 1s, 2s, 3s");
+    assert_eq!(count, 4, "Should receive exactly 4 ticks at 1s, 2s, 3s, 4s");
 }
 
 /// Test explicit cancel() stops the interval.
@@ -396,11 +396,14 @@ async fn test_interval_explicit_cancel() {
 
     let mut handle = ctx.set_interval(Duration::from_secs(1), || ());
 
-    // Advance to get first tick
-    tokio::time::advance(Duration::from_millis(100)).await;
+    // Yield to let the spawned task set up the interval
     tokio::task::yield_now().await;
 
-    // Receive the first tick (fires immediately)
+    // With delayed-start interval, first tick fires at 1s
+    tokio::time::advance(Duration::from_secs(1)).await;
+    tokio::task::yield_now().await;
+
+    // Receive the first tick
     assert!(rx.try_recv().is_ok(), "Should receive first tick");
 
     // Explicitly cancel
