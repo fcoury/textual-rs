@@ -28,6 +28,8 @@ pub struct RgbaColor {
     pub ansi: Option<u8>,
     /// If true, this color resolves dynamically based on background contrast.
     pub auto: bool,
+    /// If set, this color is defined by a theme variable name.
+    pub theme_var: Option<String>,
 }
 
 impl Default for RgbaColor {
@@ -39,11 +41,28 @@ impl Default for RgbaColor {
             a: 1.0,
             ansi: None,
             auto: false,
+            theme_var: None,
         }
     }
 }
 
 impl RgbaColor {
+    pub fn white() -> Self {
+        Self::rgb(255, 255, 255)
+    }
+
+    pub fn black() -> Self {
+        Self::rgb(0, 0, 0)
+    }
+
+    pub fn theme_variable(name: &str) -> Self {
+        Self {
+            theme_var: Some(name.to_string()),
+            auto: true,
+            ..Default::default()
+        }
+    }
+
     pub fn rgb(r: u8, g: u8, b: u8) -> Self {
         Self {
             r,
@@ -83,6 +102,19 @@ impl RgbaColor {
     /// Returns true if the color is fully transparent.
     pub fn is_transparent(&self) -> bool {
         self.a <= 0.0
+    }
+
+    pub fn lighten(&self, factor: f32) -> Self {
+        let (h, s, l) = self.to_hsl();
+        // Increase luminosity by factor (e.g., 0.1 per 'step')
+        let new_l = (l + (factor * 0.1)).clamp(0.0, 1.0);
+        Self::from_hsl(h, s, new_l, self.a)
+    }
+
+    pub fn darken(&self, factor: f32) -> Self {
+        let (h, s, l) = self.to_hsl();
+        let new_l = (l - (factor * 0.1)).clamp(0.0, 1.0);
+        Self::from_hsl(h, s, new_l, self.a)
     }
 
     /// Parse a color string in various formats.
@@ -276,6 +308,67 @@ impl RgbaColor {
             message: format!("invalid percentage: {}", s),
         })?;
         Ok(val / 100.0)
+    }
+
+    // Helper to convert RGB to HSL
+    fn to_hsl(&self) -> (f32, f32, f32) {
+        let r = self.r as f32 / 255.0;
+        let g = self.g as f32 / 255.0;
+        let b = self.b as f32 / 255.0;
+
+        let max = r.max(g).max(b);
+        let min = r.min(g).min(b);
+        let mut h;
+        let s;
+        let l = (max + min) / 2.0;
+
+        if max == min {
+            h = 0.0;
+            s = 0.0;
+        } else {
+            let d = max - min;
+            s = if l > 0.5 {
+                d / (2.0 - max - min)
+            } else {
+                d / (max + min)
+            };
+            h = if max == r {
+                (g - b) / d + (if g < b { 6.0 } else { 0.0 })
+            } else if max == g {
+                (b - r) / d + 2.0
+            } else {
+                (r - g) / d + 4.0
+            };
+            h /= 6.0;
+        }
+        (h * 360.0, s, l)
+    }
+
+    /// Creates an RgbaColor from HSL values.
+    pub fn from_hsl(h: f32, s: f32, l: f32, a: f32) -> Self {
+        let h = h / 360.0;
+        let (r, g, b) = if s == 0.0 {
+            (l, l, l)
+        } else {
+            let q = if l < 0.5 {
+                l * (1.0 + s)
+            } else {
+                l + s - l * s
+            };
+            let p = 2.0 * l - q;
+            (
+                Self::hue_to_rgb(p, q, h + 1.0 / 3.0),
+                Self::hue_to_rgb(p, q, h),
+                Self::hue_to_rgb(p, q, h - 1.0 / 3.0),
+            )
+        };
+
+        Self::rgba(
+            (r * 255.0).round() as u8,
+            (g * 255.0).round() as u8,
+            (b * 255.0).round() as u8,
+            a,
+        )
     }
 
     fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (u8, u8, u8) {
@@ -639,25 +732,52 @@ mod tests {
     #[test]
     fn test_named_basic_colors() {
         assert_eq!(RgbaColor::parse("red").unwrap(), RgbaColor::rgb(255, 0, 0));
-        assert_eq!(RgbaColor::parse("green").unwrap(), RgbaColor::rgb(0, 128, 0));
+        assert_eq!(
+            RgbaColor::parse("green").unwrap(),
+            RgbaColor::rgb(0, 128, 0)
+        );
         assert_eq!(RgbaColor::parse("blue").unwrap(), RgbaColor::rgb(0, 0, 255));
-        assert_eq!(RgbaColor::parse("white").unwrap(), RgbaColor::rgb(255, 255, 255));
+        assert_eq!(
+            RgbaColor::parse("white").unwrap(),
+            RgbaColor::rgb(255, 255, 255)
+        );
         assert_eq!(RgbaColor::parse("black").unwrap(), RgbaColor::rgb(0, 0, 0));
     }
 
     #[test]
     fn test_named_extended_colors() {
-        assert_eq!(RgbaColor::parse("aliceblue").unwrap(), RgbaColor::rgb(240, 248, 255));
-        assert_eq!(RgbaColor::parse("coral").unwrap(), RgbaColor::rgb(255, 127, 80));
-        assert_eq!(RgbaColor::parse("darkorchid").unwrap(), RgbaColor::rgb(153, 50, 204));
-        assert_eq!(RgbaColor::parse("crimson").unwrap(), RgbaColor::rgb(220, 20, 60));
+        assert_eq!(
+            RgbaColor::parse("aliceblue").unwrap(),
+            RgbaColor::rgb(240, 248, 255)
+        );
+        assert_eq!(
+            RgbaColor::parse("coral").unwrap(),
+            RgbaColor::rgb(255, 127, 80)
+        );
+        assert_eq!(
+            RgbaColor::parse("darkorchid").unwrap(),
+            RgbaColor::rgb(153, 50, 204)
+        );
+        assert_eq!(
+            RgbaColor::parse("crimson").unwrap(),
+            RgbaColor::rgb(220, 20, 60)
+        );
     }
 
     #[test]
     fn test_named_case_insensitive() {
-        assert_eq!(RgbaColor::parse("Red").unwrap(), RgbaColor::parse("red").unwrap());
-        assert_eq!(RgbaColor::parse("RED").unwrap(), RgbaColor::parse("red").unwrap());
-        assert_eq!(RgbaColor::parse("AliceBlue").unwrap(), RgbaColor::parse("aliceblue").unwrap());
+        assert_eq!(
+            RgbaColor::parse("Red").unwrap(),
+            RgbaColor::parse("red").unwrap()
+        );
+        assert_eq!(
+            RgbaColor::parse("RED").unwrap(),
+            RgbaColor::parse("red").unwrap()
+        );
+        assert_eq!(
+            RgbaColor::parse("AliceBlue").unwrap(),
+            RgbaColor::parse("aliceblue").unwrap()
+        );
     }
 
     // ==================== SPECIAL VALUES TESTS ====================
@@ -717,5 +837,45 @@ mod tests {
     fn test_empty_input() {
         assert!(RgbaColor::parse("").is_err());
         assert!(RgbaColor::parse("   ").is_err());
+    }
+}
+
+#[cfg(test)]
+mod theme_math_tests {
+    use super::*;
+
+    #[test]
+    fn test_hsl_roundtrip() {
+        // Test that converting RGB -> HSL -> RGB returns the original color
+        let original = RgbaColor::rgb(100, 150, 200);
+        let (h, s, l) = original.to_hsl();
+        let roundtrip = RgbaColor::from_hsl(h, s, l, 1.0);
+
+        assert_eq!(original.r, roundtrip.r);
+        assert_eq!(original.g, roundtrip.g);
+        assert_eq!(original.b, roundtrip.b);
+    }
+
+    #[test]
+    fn test_lighten_darken_logic() {
+        let base = RgbaColor::rgb(128, 128, 128); // 50% Gray
+
+        let lighter = base.lighten(1.0); // Should be ~60% Lightness
+        assert!(lighter.r > base.r);
+        assert_eq!(lighter.r, lighter.g); // Should remain grayscale
+
+        let darker = base.darken(2.0); // Should be ~30% Lightness
+        assert!(darker.r < base.r);
+    }
+
+    #[test]
+    fn test_clamping_limits() {
+        let white = RgbaColor::white();
+        let still_white = white.lighten(5.0);
+        assert_eq!(still_white, RgbaColor::white());
+
+        let black = RgbaColor::black();
+        let still_black = black.darken(5.0);
+        assert_eq!(still_black, RgbaColor::black());
     }
 }
