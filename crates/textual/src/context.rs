@@ -104,7 +104,10 @@ impl<M: Send + 'static> AppContext<M> {
         let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel();
 
         tokio::spawn(async move {
-            let mut ticker = tokio::time::interval(interval);
+            // Use interval_at with delayed start to ensure cancellation can suppress all ticks.
+            // tokio::time::interval() fires immediately on first tick, creating a race with cancel.
+            let start = tokio::time::Instant::now() + interval;
+            let mut ticker = tokio::time::interval_at(start, interval);
             loop {
                 tokio::select! {
                     _ = ticker.tick() => {
