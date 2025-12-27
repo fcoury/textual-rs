@@ -80,8 +80,10 @@ impl<M> Widget<M> for ScrollBarCorner {
         let render_height = region.height.min(self.height as i32);
 
         for y in 0..render_height {
+            // Clone bg once per row to avoid repeated allocations
+            let row_bg = bg.clone();
             for x in 0..render_width {
-                canvas.put_char(region.x + x, region.y + y, ' ', None, Some(bg.clone()));
+                canvas.put_char(region.x + x, region.y + y, ' ', None, Some(row_bg.clone()));
             }
         }
     }

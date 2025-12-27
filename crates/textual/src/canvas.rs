@@ -68,7 +68,10 @@ impl Region {
 
     /// Checks if a point is contained within the region.
     pub fn contains_point(&self, x: i32, y: i32) -> bool {
-        x >= self.x && x < self.x + self.width && y >= self.y && y < self.y + self.height
+        x >= self.x
+            && x < self.x.saturating_add(self.width)
+            && y >= self.y
+            && y < self.y.saturating_add(self.height)
     }
 
     /// Returns true if the region has no area.

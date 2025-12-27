@@ -379,7 +379,8 @@ where
 
     fn set_active(&mut self, is_active: bool) -> bool {
         if is_active {
-            // Active state is managed by grab
+            // Active/pressed state is internally managed via Grabbed during drag.
+            // External set_active(true) is a no-op since we track drag state ourselves.
             false
         } else {
             if matches!(self.state, ScrollBarState::Grabbed { .. }) {
