@@ -23,12 +23,14 @@
 //! - 4 values: top, right, bottom, left (`margin: 1 2 3 4`)
 
 use crate::types::geometry::{Scalar, Spacing, Unit};
+use crate::types::Layout;
 use nom::{
     IResult,
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, digit1, multispace0},
+    character::complete::{char, digit1, multispace0, multispace1},
     combinator::{map, map_res, opt, recognize},
+    multi::many0,
     sequence::{pair, preceded, tuple},
 };
 
@@ -108,4 +110,44 @@ pub fn parse_spacing(input: &str) -> IResult<&str, Spacing> {
             }
         }
     }
+}
+
+/// Parse a u16 integer value.
+pub fn parse_u16(input: &str) -> IResult<&str, u16> {
+    let input = input.trim_start();
+    map_res(digit1, |s: &str| s.parse::<u16>())(input)
+}
+
+/// Parse layout value: vertical, horizontal, or grid.
+pub fn parse_layout(input: &str) -> IResult<&str, Layout> {
+    let input = input.trim_start();
+    alt((
+        map(tag("vertical"), |_| Layout::Vertical),
+        map(tag("horizontal"), |_| Layout::Horizontal),
+        map(tag("grid"), |_| Layout::Grid),
+    ))(input)
+}
+
+/// Parse grid-size: `<columns>` or `<columns> <rows>`.
+pub fn parse_grid_size(input: &str) -> IResult<&str, (u16, Option<u16>)> {
+    let (input, cols) = parse_u16(input)?;
+    let (input, rows) = opt(preceded(multispace1, parse_u16))(input)?;
+    Ok((input, (cols, rows)))
+}
+
+/// Parse a list of scalar values (for grid-columns, grid-rows).
+pub fn parse_scalar_list(input: &str) -> IResult<&str, Vec<Scalar>> {
+    let (input, first) = parse_scalar(input)?;
+    let (input, rest) = many0(preceded(multispace1, parse_scalar))(input)?;
+
+    let mut result = vec![first];
+    result.extend(rest);
+    Ok((input, result))
+}
+
+/// Parse grid-gutter: `<vertical>` or `<vertical> <horizontal>`.
+pub fn parse_grid_gutter(input: &str) -> IResult<&str, (Scalar, Option<Scalar>)> {
+    let (input, v) = parse_scalar(input)?;
+    let (input, h) = opt(preceded(multispace1, parse_scalar))(input)?;
+    Ok((input, (v, h)))
 }

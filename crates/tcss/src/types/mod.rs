@@ -6,7 +6,8 @@
 //! - [`Scalar`], [`Spacing`]: Dimension and box model values
 //! - [`Border`], [`BorderEdge`]: Border styling
 //! - [`TextStyle`], [`TextAlign`]: Text formatting
-//! - [`Display`], [`Visibility`], [`Overflow`]: Layout control
+//! - [`Display`], [`Layout`], [`Visibility`], [`Overflow`]: Layout control
+//! - [`GridStyle`], [`GridPlacement`]: CSS Grid support
 //! - [`Theme`]: Color theme definitions
 //! - [`ComputedStyle`]: Final computed styles for a widget
 //! - [`ScrollbarStyle`]: Scrollbar styling and configuration
@@ -17,13 +18,15 @@
 //! - [`geometry`]: Scalars (dimensions) and spacing (margins/padding)
 //! - [`border`]: Border kinds, edges, and full border definitions
 //! - [`text`]: Text styling and alignment
-//! - [`layout`]: Display modes, visibility, and overflow
+//! - [`layout`]: Display modes, layout modes, visibility, and overflow
+//! - [`grid`]: CSS Grid configuration and child placement
 //! - [`theme`]: Theme color palettes
 //! - [`scrollbar`]: Scrollbar styling, sizes, and visibility
 
 pub mod border;
 pub mod color;
 pub mod geometry;
+pub mod grid;
 pub mod layout;
 pub mod scrollbar;
 pub mod text;
@@ -32,7 +35,8 @@ pub mod theme;
 pub use border::{Border, BorderEdge, BorderKind};
 pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing, Unit};
-pub use layout::{Display, Overflow, Visibility};
+pub use grid::{GridPlacement, GridStyle};
+pub use layout::{Display, Layout, Overflow, Visibility};
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
 pub use theme::Theme;
@@ -73,6 +77,13 @@ pub struct ComputedStyle {
     pub visibility: Visibility,
     pub opacity: f64,
 
+    // Layout mode
+    pub layout: Layout,
+
+    // Grid layout
+    pub grid: GridStyle,
+    pub grid_placement: GridPlacement,
+
     // Scroller behavior
     pub overflow_x: Overflow,
     pub overflow_y: Overflow,
@@ -103,6 +114,9 @@ impl Default for ComputedStyle {
             display: Display::default(),
             visibility: Visibility::default(),
             opacity: 1.0,
+            layout: Layout::default(),
+            grid: GridStyle::default(),
+            grid_placement: GridPlacement::default(),
             overflow_x: Overflow::default(),
             overflow_y: Overflow::default(),
             scrollbar: ScrollbarStyle::default(),

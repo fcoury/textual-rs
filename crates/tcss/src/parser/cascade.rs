@@ -294,6 +294,30 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.overflow_y = *o;
         }
 
+        // Layout and Grid properties
+        Declaration::Layout(l) => {
+            style.layout = *l;
+        }
+        Declaration::GridSize(cols, rows) => {
+            style.grid.columns = Some(*cols);
+            style.grid.rows = *rows;
+        }
+        Declaration::GridColumns(widths) => {
+            style.grid.column_widths = widths.clone();
+        }
+        Declaration::GridRows(heights) => {
+            style.grid.row_heights = heights.clone();
+        }
+        Declaration::GridGutter(v, h) => {
+            style.grid.gutter = (*v, h.unwrap_or(*v));
+        }
+        Declaration::ColumnSpan(n) => {
+            style.grid_placement.column_span = *n;
+        }
+        Declaration::RowSpan(n) => {
+            style.grid_placement.row_span = *n;
+        }
+
         Declaration::Unknown(_) => {}
     }
 }

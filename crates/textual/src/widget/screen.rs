@@ -4,11 +4,34 @@
 //! - A CSS-targetable root container (type name "Screen")
 //! - Responsive breakpoint classes based on terminal size
 //! - Resize event propagation to children
+//!
+//! ## Custom Breakpoints
+//!
+//! Apps can define custom breakpoints by implementing `horizontal_breakpoints`
+//! and `vertical_breakpoints` on the App trait. Breakpoints are (threshold, class_name)
+//! pairs where the class is applied when the dimension >= threshold.
+//!
+//! The last matching breakpoint wins (iterate in order).
 
 use crate::canvas::{Canvas, Region, Size};
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+
+/// Breakpoint configuration: threshold and class name to apply.
+pub type Breakpoint = (u16, &'static str);
+
+/// Default horizontal breakpoints (matches Textual).
+pub const DEFAULT_HORIZONTAL_BREAKPOINTS: &[Breakpoint] = &[
+    (0, "-narrow"),
+    (80, "-wide"),
+];
+
+/// Default vertical breakpoints (matches Textual).
+pub const DEFAULT_VERTICAL_BREAKPOINTS: &[Breakpoint] = &[
+    (0, "-short"),
+    (24, "-tall"),
+];
 
 /// The root container for a widget tree.
 ///
@@ -23,41 +46,59 @@ pub struct Screen<M> {
     responsive_classes: Vec<String>,
     style: ComputedStyle,
     is_dirty: bool,
+    horizontal_breakpoints: &'static [Breakpoint],
+    vertical_breakpoints: &'static [Breakpoint],
 }
 
 impl<M> Screen<M> {
-    /// Wraps a widget in a new Screen.
+    /// Wraps a widget in a new Screen with default breakpoints.
     pub fn new(child: Box<dyn Widget<M>>) -> Self {
         Self {
             child,
             responsive_classes: Vec::new(),
             style: ComputedStyle::default(),
             is_dirty: true,
+            horizontal_breakpoints: DEFAULT_HORIZONTAL_BREAKPOINTS,
+            vertical_breakpoints: DEFAULT_VERTICAL_BREAKPOINTS,
         }
+    }
+
+    /// Set custom horizontal breakpoints.
+    pub fn with_horizontal_breakpoints(mut self, breakpoints: &'static [Breakpoint]) -> Self {
+        self.horizontal_breakpoints = breakpoints;
+        self
+    }
+
+    /// Set custom vertical breakpoints.
+    pub fn with_vertical_breakpoints(mut self, breakpoints: &'static [Breakpoint]) -> Self {
+        self.vertical_breakpoints = breakpoints;
+        self
     }
 
     /// Updates the responsive classes based on dimensions.
     ///
-    /// Breakpoints match Textual's defaults:
-    /// - width < 80: "-narrow"
-    /// - width >= 80: "-wide"
-    /// - height < 24: "-short"
-    /// - height >= 24: "-tall"
+    /// For each axis, finds the last matching breakpoint (threshold <= dimension)
+    /// and applies that class.
     fn update_breakpoints(&mut self, width: u16, height: u16) {
         let old_classes = self.responsive_classes.clone();
         self.responsive_classes.clear();
 
-        // Textual standard breakpoints
-        if width < 80 {
-            self.responsive_classes.push("-narrow".to_string());
-        } else {
-            self.responsive_classes.push("-wide".to_string());
+        // Find matching horizontal breakpoint (last one where width >= threshold)
+        if let Some((_, class)) = self.horizontal_breakpoints
+            .iter()
+            .filter(|(threshold, _)| width >= *threshold)
+            .last()
+        {
+            self.responsive_classes.push(class.to_string());
         }
 
-        if height < 24 {
-            self.responsive_classes.push("-short".to_string());
-        } else {
-            self.responsive_classes.push("-tall".to_string());
+        // Find matching vertical breakpoint (last one where height >= threshold)
+        if let Some((_, class)) = self.vertical_breakpoints
+            .iter()
+            .filter(|(threshold, _)| height >= *threshold)
+            .last()
+        {
+            self.responsive_classes.push(class.to_string());
         }
 
         if old_classes != self.responsive_classes {
