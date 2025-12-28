@@ -197,7 +197,7 @@ fn border_kind_to_str(kind: BorderKind) -> &'static str {
         BorderKind::Hidden => "hidden",
         BorderKind::Ascii => "ascii",
         BorderKind::Blank => "blank",
-        BorderKind::Block => "thick",
+        BorderKind::Block => "block",
         BorderKind::Dashed => "dashed",
         BorderKind::Double => "double",
         BorderKind::Heavy => "heavy",
