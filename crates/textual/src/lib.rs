@@ -8,16 +8,20 @@ pub mod scroll;
 pub mod scrollbar;
 pub mod style_resolver;
 pub mod tree;
+pub mod visual;
 pub mod widget;
 
-pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, EventStream};
+pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use crossterm::{cursor, execute, terminal};
 use futures::StreamExt;
 use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
-pub use containers::{Center, Middle, grid::Grid, horizontal::Horizontal, scrollable::ScrollableContainer, vertical::Vertical};
+pub use containers::{
+    Center, Middle, grid::Grid, horizontal::Horizontal, scrollable::ScrollableContainer,
+    vertical::Vertical,
+};
 pub use context::{AppContext, IntervalHandle};
 pub use error::Result;
 pub use log_init::init_logger;
@@ -25,13 +29,22 @@ pub use message::MessageEnvelope;
 pub use scroll::{ScrollMessage, ScrollState};
 pub use scrollbar::{ScrollBarRender, ScrollbarGlyphs};
 pub use tcss::TcssError;
+pub use visual::VisualType;
+pub use widget::label::Label;
 
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
-pub use widget::{Compose, Widget, placeholder::Placeholder, screen::Screen, screen::Breakpoint, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch};
+pub use widget::{
+    Compose, Widget, placeholder::Placeholder, screen::Breakpoint, screen::Screen,
+    scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch,
+};
 
-use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}, tree::WidgetTree};
+use crate::{
+    error::TextualError,
+    style_resolver::{resolve_dirty_styles, resolve_styles},
+    tree::WidgetTree,
+};
 
 /// The main application trait. Implement this to create a TUI application.
 ///
@@ -157,7 +170,8 @@ where
                         Err(TextualError::RuntimeInit(
                             "Cannot call run() from a current-thread Tokio runtime. \
                              Use run_async().await instead, or use #[tokio::main] \
-                             (multi-threaded by default).".to_string()
+                             (multi-threaded by default)."
+                                .to_string(),
                         ))
                     }
                 }
@@ -236,7 +250,7 @@ where
             let root = Box::new(
                 Screen::new(self.compose())
                     .with_horizontal_breakpoints(self.horizontal_breakpoints())
-                    .with_vertical_breakpoints(self.vertical_breakpoints())
+                    .with_vertical_breakpoints(self.vertical_breakpoints()),
             );
             let mut tree = WidgetTree::new(root);
 
@@ -277,7 +291,7 @@ where
                     let root = Box::new(
                         Screen::new(self.compose())
                             .with_horizontal_breakpoints(self.horizontal_breakpoints())
-                            .with_vertical_breakpoints(self.vertical_breakpoints())
+                            .with_vertical_breakpoints(self.vertical_breakpoints()),
                     );
                     tree = WidgetTree::new(root);
 
@@ -310,7 +324,13 @@ where
                 if needs_render {
                     // Resolve styles only for dirty widgets
                     let mut ancestors = Vec::new();
-                    resolve_dirty_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors, false);
+                    resolve_dirty_styles(
+                        tree.root_mut(),
+                        &stylesheet,
+                        &theme,
+                        &mut ancestors,
+                        false,
+                    );
 
                     canvas.clear();
                     let region = Region::from_u16(0, 0, cols, rows);
