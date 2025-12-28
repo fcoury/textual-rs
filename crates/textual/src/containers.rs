@@ -43,6 +43,10 @@ impl<M> Widget<M> for Center<M> {
         self.child.desired_size()
     }
 
+    fn on_resize(&mut self, size: Size) {
+        self.child.on_resize(size);
+    }
+
     fn render(&self, canvas: &mut Canvas, region: Region) {
         if !self.child.is_visible() {
             return;
@@ -154,6 +158,10 @@ impl<M> Widget<M> for Middle<M> {
             return Size { width: 0, height: 0 };
         }
         self.child.desired_size()
+    }
+
+    fn on_resize(&mut self, size: Size) {
+        self.child.on_resize(size);
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {

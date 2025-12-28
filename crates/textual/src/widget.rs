@@ -1,3 +1,4 @@
+pub mod screen;
 pub mod scrollbar;
 pub mod scrollbar_corner;
 pub mod switch;
@@ -19,6 +20,13 @@ pub trait Widget<M> {
     fn desired_size(&self) -> Size;
 
     fn for_each_child(&mut self, _f: &mut dyn FnMut(&mut dyn Widget<M>)) {}
+
+    /// Called when the terminal or parent container is resized.
+    ///
+    /// Use this to update responsive state (e.g., breakpoint classes based on width).
+    /// Containers should override this to propagate to children.
+    /// The default implementation does nothing.
+    fn on_resize(&mut self, _size: Size) {}
 
     /// Returns the widget's current pseudo-class states (focus, hover, active, disabled).
     ///
@@ -348,6 +356,14 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
         // Box<dyn Widget> should delegate to inner widget's type_name
         // but we can't call it through trait object, so return generic name
         "Widget"
+    }
+
+    fn on_resize(&mut self, size: Size) {
+        self.as_mut().on_resize(size);
+    }
+
+    fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
+        self.as_mut().for_each_child(f);
     }
 }
 

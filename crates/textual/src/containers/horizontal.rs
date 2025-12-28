@@ -61,6 +61,12 @@ impl<M> Widget<M> for Horizontal<M> {
         }
     }
 
+    fn on_resize(&mut self, size: Size) {
+        for child in &mut self.children {
+            child.on_resize(size);
+        }
+    }
+
     fn is_dirty(&self) -> bool {
         self.dirty
     }
