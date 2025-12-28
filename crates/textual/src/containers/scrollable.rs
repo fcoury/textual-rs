@@ -30,8 +30,8 @@ const PAGE_SCROLL_RATIO: f32 = 0.9;
 /// exceeds the viewport. It handles mouse wheel, keyboard navigation,
 /// and scrollbar interactions.
 pub struct ScrollableContainer<M> {
-    /// The content widget to scroll
-    content: Box<dyn Widget<M>>,
+    /// The content widget(s) to scroll
+    children: Vec<Box<dyn Widget<M>>>,
     /// Current scroll state (RefCell for interior mutability in render)
     scroll: RefCell<ScrollState>,
     /// Computed style from CSS
@@ -45,16 +45,37 @@ pub struct ScrollableContainer<M> {
 }
 
 impl<M> ScrollableContainer<M> {
-    /// Create a new scrollable container wrapping the given content.
-    pub fn new(content: Box<dyn Widget<M>>) -> Self {
+    /// Create a new scrollable container with the given children.
+    ///
+    /// # Panics
+    /// Panics if `children` does not contain exactly one child.
+    pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
+        assert!(
+            children.len() == 1,
+            "ScrollableContainer requires exactly 1 child, got {}",
+            children.len()
+        );
         Self {
-            content,
+            children,
             scroll: RefCell::new(ScrollState::default()),
             style: ComputedStyle::default(),
             dirty: true,
             scrollbar_hover: None,
             scrollbar_drag: None,
         }
+    }
+
+    /// Create a new scrollable container with a single child.
+    pub fn from_child(child: Box<dyn Widget<M>>) -> Self {
+        Self::new(vec![child])
+    }
+
+    fn content(&self) -> &dyn Widget<M> {
+        self.children[0].as_ref()
+    }
+
+    fn content_mut(&mut self) -> &mut dyn Widget<M> {
+        self.children[0].as_mut()
     }
 
     /// Get the scrollbar style from computed style.
@@ -79,7 +100,7 @@ impl<M> ScrollableContainer<M> {
                 if scroll.viewport_height <= 0 {
                     return false;
                 }
-                let content_height = self.content.desired_size().height as i32;
+                let content_height = self.content().desired_size().height as i32;
                 content_height > scroll.viewport_height
             }
             Overflow::Hidden => false,
@@ -103,7 +124,7 @@ impl<M> ScrollableContainer<M> {
                 if scroll.viewport_width <= 0 {
                     return false;
                 }
-                let content_width = self.content.desired_size().width as i32;
+                let content_width = self.content().desired_size().width as i32;
                 content_width > scroll.viewport_width
             }
             Overflow::Hidden => false,
@@ -207,7 +228,7 @@ impl<M> ScrollableContainer<M> {
     /// Update scroll state dimensions from content and viewport.
     /// Uses interior mutability so it can be called from render().
     fn update_scroll_dimensions(&self, content_region: Region) {
-        let content_size = self.content.desired_size();
+        let content_size = self.content().desired_size();
         let mut scroll = self.scroll.borrow_mut();
         scroll.set_virtual_size(content_size.width as i32, content_size.height as i32);
         scroll.set_viewport(content_region.width, content_region.height);
@@ -242,13 +263,13 @@ impl<M> Widget<M> for ScrollableContainer<M> {
     fn desired_size(&self) -> Size {
         // ScrollableContainer fills available space
         // Return content size as hint, but container should expand
-        self.content.desired_size()
+        self.content().desired_size()
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
         // Update scroll dimensions FIRST so show_*_scrollbar() has correct viewport info
         // This fixes keyboard-only scrolling and overflow:auto decisions on first render
-        let content_size = self.content.desired_size();
+        let content_size = self.content().desired_size();
         {
             let mut scroll = self.scroll.borrow_mut();
             scroll.set_virtual_size(content_size.width as i32, content_size.height as i32);
@@ -330,7 +351,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             content_render_region.width, content_render_region.height
         );
 
-        self.content.render(canvas, content_render_region);
+        self.content().render(canvas, content_render_region);
         canvas.pop_clip();
 
         // Render vertical scrollbar
@@ -387,7 +408,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
     }
 
     fn is_dirty(&self) -> bool {
-        self.dirty || self.content.is_dirty()
+        self.dirty || self.content().is_dirty()
     }
 
     fn mark_dirty(&mut self) {
@@ -396,15 +417,17 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 
     fn mark_clean(&mut self) {
         self.dirty = false;
-        self.content.mark_clean();
+        self.content_mut().mark_clean();
     }
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
-        f(self.content.as_mut());
+        for child in &mut self.children {
+            f(child.as_mut());
+        }
     }
 
     fn on_resize(&mut self, size: Size) {
-        self.content.on_resize(size);
+        self.content_mut().on_resize(size);
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
@@ -460,7 +483,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         }
 
         // Pass other keys to content
-        self.content.on_event(key)
+        self.content_mut().on_event(key)
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
@@ -501,7 +524,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 
                 // Pass to content if in content area
                 if content_region.contains_point(mx, my) {
-                    return self.content.on_mouse(event, self.scrolled_content_region(content_region));
+                    let scrolled = self.scrolled_content_region(content_region);
+                    return self.content_mut().on_mouse(event, scrolled);
                 }
                 None
             }
@@ -512,7 +536,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 } else if on_horizontal {
                     return self.handle_horizontal_scrollbar_click(event, h_region);
                 } else if content_region.contains_point(mx, my) {
-                    return self.content.on_mouse(event, self.scrolled_content_region(content_region));
+                    let scrolled = self.scrolled_content_region(content_region);
+                    return self.content_mut().on_mouse(event, scrolled);
                 }
                 None
             }
@@ -523,7 +548,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 }
                 // Pass to content
                 if content_region.contains_point(mx, my) {
-                    return self.content.on_mouse(event, self.scrolled_content_region(content_region));
+                    let scrolled = self.scrolled_content_region(content_region);
+                    return self.content_mut().on_mouse(event, scrolled);
                 }
                 None
             }
@@ -535,7 +561,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 }
                 // Pass to content
                 if content_region.contains_point(mx, my) {
-                    return self.content.on_mouse(event, self.scrolled_content_region(content_region));
+                    let scrolled = self.scrolled_content_region(content_region);
+                    return self.content_mut().on_mouse(event, scrolled);
                 }
                 None
             }
@@ -553,7 +580,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             _ => {
                 // Pass other events to content if in content area
                 if content_region.contains_point(mx, my) {
-                    return self.content.on_mouse(event, self.scrolled_content_region(content_region));
+                    let scrolled = self.scrolled_content_region(content_region);
+                    return self.content_mut().on_mouse(event, scrolled);
                 }
                 None
             }
@@ -561,32 +589,28 @@ impl<M> Widget<M> for ScrollableContainer<M> {
     }
 
     fn count_focusable(&self) -> usize {
-        self.content.count_focusable()
+        self.content().count_focusable()
     }
 
     fn clear_focus(&mut self) {
-        self.content.clear_focus();
+        self.content_mut().clear_focus();
     }
 
     fn focus_nth(&mut self, n: usize) -> bool {
-        self.content.focus_nth(n)
+        self.content_mut().focus_nth(n)
     }
 
     fn child_count(&self) -> usize {
-        1
+        self.children.len()
     }
 
     fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
-        if index == 0 {
-            Some(self.content.as_mut())
-        } else {
-            None
-        }
+        self.children.get_mut(index).map(|c| c.as_mut() as &mut dyn Widget<M>)
     }
 
     fn clear_hover(&mut self) {
         self.scrollbar_hover = None;
-        self.content.clear_hover();
+        self.content_mut().clear_hover();
     }
 }
 
@@ -607,7 +631,7 @@ impl<M> ScrollableContainer<M> {
         let my = event.row as i32;
         let pos_in_bar = my - region.y;
 
-        let content_size = self.content.desired_size();
+        let content_size = self.content().desired_size();
         let scroll = self.scroll.borrow();
         let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
             region.height,
@@ -644,7 +668,7 @@ impl<M> ScrollableContainer<M> {
         let mx = event.column as i32;
         let pos_in_bar = mx - region.x;
 
-        let content_size = self.content.desired_size();
+        let content_size = self.content().desired_size();
         let scroll = self.scroll.borrow();
         let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
             region.width,
@@ -684,7 +708,7 @@ impl<M> ScrollableContainer<M> {
         vertical: bool,
         grab_offset: i32,
     ) -> Option<M> {
-        let content_size = self.content.desired_size();
+        let content_size = self.content().desired_size();
 
         if vertical {
             let v_region = self.vertical_scrollbar_region(region);

@@ -1,4 +1,4 @@
-use textual::{App, Compose, Horizontal, KeyCode, MessageEnvelope, Result, Switch, Vertical, Widget, log, ui};
+use textual::{App, Center, Compose, Horizontal, KeyCode, MessageEnvelope, Middle, Result, Switch, Vertical, Widget, log, ui};
 
 enum Message {
     WifiToggled(bool),
@@ -27,19 +27,13 @@ impl Compose for SwitchApp {
     /// Note: We don't pass `.with_focus()` here anymore - focus is managed
     /// by the run loop via `clear_focus()` and `focus_nth()`.
     fn compose(&self) -> Box<dyn Widget<Message>> {
-        let wifi_msg = Message::WifiToggled as fn(bool) -> Message;
-        let bt_msg = Message::BluetoothToggled as fn(bool) -> Message;
-
         ui! {
             Middle {
                 Center {
-                    Vertical{
+                    Vertical {
                         Horizontal {
-                            // Widgets start with their initial value
-                            // They own their state and toggle it themselves
-                            // Use with_id() to identify the sender in messages
-                            Switch::new(false, wifi_msg).with_id("wifi-switch"),
-                            Switch::new(false, bt_msg).with_id("bluetooth-switch")
+                            Switch(false, Message::WifiToggled, id: "wifi-switch")
+                            Switch(false, Message::BluetoothToggled, id: "bluetooth-switch")
                         }
                     }
                 }

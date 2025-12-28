@@ -183,84 +183,216 @@ macro_rules! impl_widget_delegation {
     };
 }
 
-/// Declarative macro for building widget trees.
+/// Declarative macro for building widget trees with Dioxus-style DSL syntax.
 ///
-/// This macro provides a concise DSL for composing UI layouts without
-/// explicit `Box::new()` calls and nested function invocations.
+/// This macro provides a concise, ergonomic DSL for composing UI layouts.
+/// It supports positional arguments, named attributes, and nested children.
 ///
-/// # Supported Containers
+/// # Syntax
 ///
-/// - `Vertical { ... }` - Vertical layout container
-/// - `Horizontal { ... }` - Horizontal layout container
-/// - `Middle { ... }` - Vertically centers a single child
-/// - `Center { ... }` - Horizontally centers a single child
+/// ```ignore
+/// // Container with children only
+/// Vertical {
+///     child1
+///     child2
+/// }
+///
+/// // Widget with positional arg(s) only
+/// Static("Hello world")
+///
+/// // Widget with positional arg(s) and named attributes
+/// Static("Hello", id: "greeting", classes: "bold")
+///
+/// // Container with attributes and children
+/// Grid(id: "my-grid") {
+///     child1
+///     child2
+/// }
+///
+/// // Widget with callback
+/// Switch(false, |v| Msg::Toggle(v), id: "toggle")
+/// ```
+///
+/// # Attribute Mapping
+///
+/// Named attributes are converted to builder method calls:
+/// - `id: "foo"` → `.with_id("foo")`
+/// - `classes: "a b"` → `.with_classes("a b")`
+/// - `disabled: true` → `.with_disabled(true)`
 ///
 /// # Example
 ///
 /// ```ignore
-/// use textual::{ui, Vertical, Horizontal, Switch, Label};
+/// use textual::{ui, Vertical, Horizontal, Switch, Static};
 ///
 /// fn compose(&self) -> Box<dyn Widget<Message>> {
-///     ui!(
+///     ui! {
 ///         Vertical {
-///             Label::new("Header"),
+///             Static("Header", id: "header", classes: "bold")
+///
 ///             Horizontal {
-///                 Switch::new(false, |v| Message::Toggle(v)),
-///                 Label::new("Enable feature"),
-///             },
+///                 Switch(false, |v| Message::Toggle(v), id: "toggle")
+///                 Static("Enable feature")
+///             }
 ///         }
-///     )
+///     }
 /// }
 /// ```
 #[macro_export]
 macro_rules! ui {
-    // === Entry Points for Layouts ===
-    (Vertical { $($children:tt)* }) => {
-        $crate::ui!(@collect Vertical, [], $($children)*)
+    // ==========================================================================
+    // ENTRY POINTS
+    // ==========================================================================
+
+    // 1. Container with args/attrs AND children: Widget(args) { children }
+    ($widget:ident ( $($args:tt)* ) { $($children:tt)* }) => {{
+        let children: Vec<Box<dyn $crate::Widget<_>>> = $crate::ui!(@collect_children [] $($children)*);
+        Box::new($crate::ui!(@parse_args_container $widget, children, [], $($args)*)) as Box<dyn $crate::Widget<_>>
+    }};
+
+    // 2. Container with children only (no parens): Widget { children }
+    ($widget:ident { $($children:tt)* }) => {{
+        let children: Vec<Box<dyn $crate::Widget<_>>> = $crate::ui!(@collect_children [] $($children)*);
+        Box::new($widget::new(children)) as Box<dyn $crate::Widget<_>>
+    }};
+
+    // 3. Widget with args/attrs only (no children): Widget(args)
+    ($widget:ident ( $($args:tt)* )) => {
+        Box::new($crate::ui!(@parse_args_leaf $widget, [], $($args)*)) as Box<dyn $crate::Widget<_>>
     };
 
-    (Horizontal { $($children:tt)* }) => {
-        $crate::ui!(@collect Horizontal, [], $($children)*)
+    // ==========================================================================
+    // ARGUMENT PARSING (for leaf widgets - no children)
+    // Builds unboxed widget, applies all .with_*() calls
+    // ==========================================================================
+
+    // Named attribute: id: value - with trailing comma
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], id : $val:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_leaf $widget, [$($pos),*], $($rest)*).with_id($val)
+    };
+    // Named attribute: id: value - last attribute
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], id : $val:expr) => {
+        $widget::new($($pos),*).with_id($val)
     };
 
-    // === Entry Points for Single-child Wrappers ===
-    (Middle { $($inner:tt)* }) => {
-        Box::new($crate::Middle::new($crate::ui!($($inner)*)))
+    // Named attribute: classes: value
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], classes : $val:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_leaf $widget, [$($pos),*], $($rest)*).with_classes($val)
+    };
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], classes : $val:expr) => {
+        $widget::new($($pos),*).with_classes($val)
     };
 
-    (Center { $($inner:tt)* }) => {
-        Box::new($crate::Center::new($crate::ui!($($inner)*)))
+    // Named attribute: disabled: value
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], disabled : $val:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_leaf $widget, [$($pos),*], $($rest)*).with_disabled($val)
+    };
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], disabled : $val:expr) => {
+        $widget::new($($pos),*).with_disabled($val)
     };
 
-    // === The Collector (Muncher) ===
-    // This part moves items from the "todo" list into the "accumulator" list
-
-    // 1. Process a nested container child
-    (@collect $kind:ident, [$($acc:expr),*], $child:ident { $($inner:tt)* }, $($rest:tt)*) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($child { $($inner)* })], $($rest)*)
+    // Named attribute: loading: value
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], loading : $val:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_leaf $widget, [$($pos),*], $($rest)*).with_loading($val)
     };
-    (@collect $kind:ident, [$($acc:expr),*], $child:ident { $($inner:tt)* }) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($child { $($inner)* })])
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], loading : $val:expr) => {
+        $widget::new($($pos),*).with_loading($val)
     };
 
-    // 2. Process a leaf widget child (e.g. Switch::new)
-    (@collect $kind:ident, [$($acc:expr),*], $leaf:ident :: new ( $($args:tt)* ) $( . $meth:ident ( $($m_args:tt)* ) )* , $($rest:tt)*) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($leaf :: new ( $($args)* ) $( . $meth ( $($m_args)* ) )*)], $($rest)*)
+    // Named attribute: spinner_frame: value
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], spinner_frame : $val:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_leaf $widget, [$($pos),*], $($rest)*).with_spinner_frame($val)
     };
-    (@collect $kind:ident, [$($acc:expr),*], $leaf:ident :: new ( $($args:tt)* ) $( . $meth:ident ( $($m_args:tt)* ) )*) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($leaf :: new ( $($args)* ) $( . $meth ( $($m_args)* ) )*)])
-    };
-
-    // 3. Finalization: All children are in the accumulator, create the Boxed container
-    (@collect $kind:ident, [$($acc:expr),*]) => {
-        Box::new($kind::new(vec![$($acc),*]))
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], spinner_frame : $val:expr) => {
+        $widget::new($($pos),*).with_spinner_frame($val)
     };
 
-    // === Leaf Widget & Fallback ===
+    // Positional argument (any expression) - with trailing comma
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], $arg:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_leaf $widget, [$($pos,)* $arg], $($rest)*)
+    };
+
+    // Positional argument - no trailing comma (last positional, no attrs)
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*], $arg:expr) => {
+        $widget::new($($pos,)* $arg)
+    };
+
+    // Empty args - just construct
+    (@parse_args_leaf $widget:ident, [$($pos:expr),*],) => {
+        $widget::new($($pos),*)
+    };
+
+    // ==========================================================================
+    // ARGUMENT PARSING WITH CHILDREN (for containers)
+    // Builds unboxed widget with children, applies all .with_*() calls
+    // ==========================================================================
+
+    // Named attribute: id: value - with trailing comma
+    (@parse_args_container $widget:ident, $children:ident, [$($pos:expr),*], id : $val:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_container $widget, $children, [$($pos),*], $($rest)*).with_id($val)
+    };
+    // Named attribute: id: value - last attribute
+    (@parse_args_container $widget:ident, $children:ident, [$($pos:expr),*], id : $val:expr) => {
+        $widget::new($($pos,)* $children).with_id($val)
+    };
+
+    // Named attribute: classes: value
+    (@parse_args_container $widget:ident, $children:ident, [$($pos:expr),*], classes : $val:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_container $widget, $children, [$($pos),*], $($rest)*).with_classes($val)
+    };
+    (@parse_args_container $widget:ident, $children:ident, [$($pos:expr),*], classes : $val:expr) => {
+        $widget::new($($pos,)* $children).with_classes($val)
+    };
+
+    // Positional argument - with trailing comma
+    (@parse_args_container $widget:ident, $children:ident, [$($pos:expr),*], $arg:expr, $($rest:tt)*) => {
+        $crate::ui!(@parse_args_container $widget, $children, [$($pos,)* $arg], $($rest)*)
+    };
+
+    // Positional argument - last one
+    (@parse_args_container $widget:ident, $children:ident, [$($pos:expr),*], $arg:expr) => {
+        $widget::new($($pos,)* $arg, $children)
+    };
+
+    // Empty args - construct with children only
+    (@parse_args_container $widget:ident, $children:ident, [$($pos:expr),*],) => {
+        $widget::new($($pos,)* $children)
+    };
+
+    // ==========================================================================
+    // CHILD COLLECTION (no commas between children)
+    // ==========================================================================
+
+    // Empty: done collecting
+    (@collect_children [$($acc:expr),*]) => {
+        vec![$($acc),*]
+    };
+
+    // Child: Container with args and children - Widget(args) { children }
+    (@collect_children [$($acc:expr),*] $child:ident ( $($args:tt)* ) { $($inner:tt)* } $($rest:tt)*) => {
+        $crate::ui!(@collect_children [$($acc,)* $crate::ui!($child ( $($args)* ) { $($inner)* })] $($rest)*)
+    };
+
+    // Child: Container with children only - Widget { children }
+    (@collect_children [$($acc:expr),*] $child:ident { $($inner:tt)* } $($rest:tt)*) => {
+        $crate::ui!(@collect_children [$($acc,)* $crate::ui!($child { $($inner)* })] $($rest)*)
+    };
+
+    // Child: Widget with args - Widget(args)
+    (@collect_children [$($acc:expr),*] $child:ident ( $($args:tt)* ) $($rest:tt)*) => {
+        $crate::ui!(@collect_children [$($acc,)* $crate::ui!($child ( $($args)* ))] $($rest)*)
+    };
+
+    // ==========================================================================
+    // LEGACY SUPPORT (can be removed after migration)
+    // ==========================================================================
+
+    // Legacy: Widget::new(...).with_...(...) syntax
     ($leaf:ident :: new ( $($args:expr),* ) $( . $meth:ident ( $($m_args:expr),* ) )*) => {
-        Box::new($leaf::new( $($args),* ) $( . $meth ( $($m_args),* ) )*)
+        Box::new($leaf::new( $($args),* ) $( . $meth ( $($m_args),* ) )*) as Box<dyn $crate::Widget<_>>
     };
 
+    // Fallback: pass through expressions
     ($e:expr) => {
         $e
     };

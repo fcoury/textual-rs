@@ -94,7 +94,7 @@ impl Compose for ScrollApp {
         let content = TextList::new(lines);
 
         // Wrap in ScrollableContainer
-        Box::new(ScrollableContainer::new(Box::new(content)))
+        Box::new(ScrollableContainer::from_child(Box::new(content)))
     }
 }
 
