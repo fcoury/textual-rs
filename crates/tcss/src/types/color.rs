@@ -109,6 +109,54 @@ impl RgbaColor {
         Self::rgb(0, 0, 0)
     }
 
+    /// Returns a fully transparent color.
+    pub fn transparent() -> Self {
+        Self::rgba(0, 0, 0, 0.0)
+    }
+
+    /// Parses a hex color string (e.g., "#ff0000").
+    ///
+    /// Panics if the hex string is invalid. For fallible parsing, use `parse()`.
+    pub fn hex(hex: &str) -> Self {
+        Self::parse(hex).expect("invalid hex color")
+    }
+
+    /// Returns a copy of this color with the specified alpha value.
+    pub fn with_alpha(&self, alpha: f32) -> Self {
+        Self {
+            r: self.r,
+            g: self.g,
+            b: self.b,
+            a: alpha,
+            ansi: self.ansi,
+            auto: self.auto,
+            theme_var: self.theme_var.clone(),
+        }
+    }
+
+    /// Calculates the relative luminance of this color.
+    ///
+    /// Uses the sRGB luminance formula (ITU-R BT.709).
+    /// Returns a value between 0.0 (black) and 1.0 (white).
+    pub fn luminance(&self) -> f32 {
+        // Convert to linear RGB
+        let r = Self::srgb_to_linear(self.r as f32 / 255.0);
+        let g = Self::srgb_to_linear(self.g as f32 / 255.0);
+        let b = Self::srgb_to_linear(self.b as f32 / 255.0);
+
+        // ITU-R BT.709 coefficients
+        0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
+    /// Converts sRGB component to linear RGB.
+    fn srgb_to_linear(c: f32) -> f32 {
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    }
+
     pub fn theme_variable(name: &str) -> Self {
         Self {
             theme_var: Some(name.to_string()),
