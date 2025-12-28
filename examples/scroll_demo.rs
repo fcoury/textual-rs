@@ -84,7 +84,10 @@ impl Compose for ScrollApp {
                     3 => "▲",
                     _ => "■",
                 };
-                format!(" {} Line {:02}: This is a scrollable line of text.", emoji, i)
+                format!(
+                    " {} Line {:02}: This is a scrollable line of text.",
+                    emoji, i
+                )
             })
             .collect();
 
@@ -98,7 +101,7 @@ impl Compose for ScrollApp {
 impl App for ScrollApp {
     const CSS: &'static str = r#"
         ScrollableContainer {
-            overflow-y: scroll;
+            overflow-y: auto;
             overflow-x: hidden;
             scrollbar-color: #00CCFF;
             scrollbar-color-hover: #66DDFF;
