@@ -99,7 +99,11 @@ impl<M> Static<M> {
 
     /// Set CSS classes (space-separated).
     pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
-        self.classes = classes.into().split_whitespace().map(String::from).collect();
+        self.classes = classes
+            .into()
+            .split_whitespace()
+            .map(String::from)
+            .collect();
         self
     }
 
