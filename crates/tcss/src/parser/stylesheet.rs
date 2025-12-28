@@ -274,6 +274,8 @@ pub enum Declaration {
     ContentAlignHorizontal(AlignHorizontal),
     /// The `content-align-vertical` property for vertical content alignment.
     ContentAlignVertical(AlignVertical),
+    /// The `content-align` shorthand property for both horizontal and vertical alignment.
+    ContentAlign(AlignHorizontal, AlignVertical),
 
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),

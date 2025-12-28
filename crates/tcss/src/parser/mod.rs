@@ -195,6 +195,10 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         // Content alignment properties
         "content-align-horizontal" => map(values::parse_align_horizontal, Declaration::ContentAlignHorizontal)(input)?,
         "content-align-vertical" => map(values::parse_align_vertical, Declaration::ContentAlignVertical)(input)?,
+        "content-align" => {
+            let (input, (h, v)) = values::parse_content_align(input)?;
+            (input, Declaration::ContentAlign(h, v))
+        }
 
         _ => {
             // Robustly consume until semicolon or brace for unknown properties

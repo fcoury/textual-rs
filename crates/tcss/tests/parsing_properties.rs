@@ -13,7 +13,7 @@ use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
 use tcss::types::text::TextStyle;
-use tcss::types::{Layout, Overflow};
+use tcss::types::{AlignHorizontal, AlignVertical, Layout, Overflow};
 
 /// Helper to parse a simple rule and extract declarations
 fn parse_declarations(input: &str) -> Vec<Declaration> {
@@ -522,11 +522,12 @@ fn test_property_text_align() {
 }
 
 #[test]
-#[ignore = "content-align property not yet implemented"]
 fn test_property_content_align() {
     let decl = parse_first_declaration("Button { content-align: center middle; }");
-    // Should parse as Declaration::ContentAlign(Center, Middle)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    assert!(matches!(
+        decl,
+        Declaration::ContentAlign(AlignHorizontal::Center, AlignVertical::Middle)
+    ));
 }
 
 #[test]

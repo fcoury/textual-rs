@@ -345,6 +345,10 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::ContentAlignVertical(a) => {
             style.content_align_vertical = *a;
         }
+        Declaration::ContentAlign(h, v) => {
+            style.content_align_horizontal = *h;
+            style.content_align_vertical = *v;
+        }
 
         Declaration::Unknown(_) => {}
     }
