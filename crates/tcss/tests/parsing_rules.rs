@@ -382,7 +382,6 @@ fn test_rule_with_variable() {
 }
 
 #[test]
-#[ignore = "nested rules not yet implemented"]
 fn test_nested_rule() {
     let input = "
         #questions {
@@ -398,7 +397,6 @@ fn test_nested_rule() {
 }
 
 #[test]
-#[ignore = "nesting selector (&) not yet implemented"]
 fn test_nesting_selector() {
     let input = "
         .button {

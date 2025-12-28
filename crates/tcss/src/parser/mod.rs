@@ -169,6 +169,21 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "overflow-x" => map(values::parse_overflow, Declaration::OverflowX)(input)?,
         "overflow-y" => map(values::parse_overflow, Declaration::OverflowY)(input)?,
 
+        // Layout and Grid properties
+        "layout" => map(units::parse_layout, Declaration::Layout)(input)?,
+        "grid-size" => {
+            let (input, (cols, rows)) = units::parse_grid_size(input)?;
+            (input, Declaration::GridSize(cols, rows))
+        }
+        "grid-columns" => map(units::parse_scalar_list, Declaration::GridColumns)(input)?,
+        "grid-rows" => map(units::parse_scalar_list, Declaration::GridRows)(input)?,
+        "grid-gutter" => {
+            let (input, (v, h)) = units::parse_grid_gutter(input)?;
+            (input, Declaration::GridGutter(v, h))
+        }
+        "column-span" => map(units::parse_u16, Declaration::ColumnSpan)(input)?,
+        "row-span" => map(units::parse_u16, Declaration::RowSpan)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;

@@ -258,11 +258,10 @@ fn test_light_pseudo_class() {
 }
 
 // ============================================================================
-// STYLESHEETS REQUIRING NESTING (not yet implemented)
+// STYLESHEETS REQUIRING NESTING
 // ============================================================================
 
 #[test]
-#[ignore = "nesting with & selector not yet implemented"]
 fn test_nesting_inline_pseudo() {
     // From calculator.tcss
     let source = r#"
@@ -279,7 +278,6 @@ fn test_nesting_inline_pseudo() {
 }
 
 #[test]
-#[ignore = "nesting with & selector not yet implemented"]
 fn test_nesting_visible_class() {
     // From sidebar.py
     let source = r#"
@@ -296,7 +294,6 @@ fn test_nesting_visible_class() {
 }
 
 #[test]
-#[ignore = "nesting with & selector not yet implemented"]
 fn test_deep_nesting() {
     // From theme_sandbox.py - deeply nested styles
     let source = r#"
@@ -317,7 +314,6 @@ fn test_deep_nesting() {
 }
 
 #[test]
-#[ignore = "nesting with & selector not yet implemented"]
 fn test_nested_child_combinator() {
     // From theme_sandbox.py
     let source = r#"
@@ -334,7 +330,6 @@ fn test_nested_child_combinator() {
 }
 
 #[test]
-#[ignore = "nesting with & selector not yet implemented"]
 fn test_breakpoints_nesting() {
     // From breakpoints.py - complex nested breakpoint styles
     let source = r#"
@@ -457,7 +452,6 @@ fn test_transition_property() {
 }
 
 #[test]
-#[ignore = "grid properties not yet implemented"]
 fn test_grid_layout() {
     // From calculator.tcss
     let source = r#"

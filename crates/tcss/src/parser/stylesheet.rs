@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{BorderEdge, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing};
+use crate::types::{BorderEdge, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -238,6 +238,22 @@ pub enum Declaration {
     OverflowX(Overflow),
     /// The `overflow-y` property for vertical overflow behavior.
     OverflowY(Overflow),
+
+    // Layout and Grid properties
+    /// The `layout` property (vertical, horizontal, grid).
+    Layout(Layout),
+    /// The `grid-size` property (columns, optional rows).
+    GridSize(u16, Option<u16>),
+    /// The `grid-columns` property (column width definitions).
+    GridColumns(Vec<Scalar>),
+    /// The `grid-rows` property (row height definitions).
+    GridRows(Vec<Scalar>),
+    /// The `grid-gutter` property (vertical, optional horizontal spacing).
+    GridGutter(Scalar, Option<Scalar>),
+    /// The `column-span` property (child spans multiple columns).
+    ColumnSpan(u16),
+    /// The `row-span` property (child spans multiple rows).
+    RowSpan(u16),
 
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),

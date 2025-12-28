@@ -12,7 +12,7 @@ use tcss::parser::{Declaration, parse_rule};
 use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
-use tcss::types::Overflow;
+use tcss::types::{Layout, Overflow};
 
 /// Helper to parse a simple rule and extract declarations
 fn parse_declarations(input: &str) -> Vec<Declaration> {
@@ -463,11 +463,21 @@ fn test_property_dock_top() {
 }
 
 #[test]
-#[ignore = "layout property not yet implemented"]
 fn test_property_layout_horizontal() {
     let decl = parse_first_declaration("Button { layout: horizontal; }");
-    // Should parse as Declaration::Layout(Layout::Horizontal)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    assert!(matches!(decl, Declaration::Layout(Layout::Horizontal)));
+}
+
+#[test]
+fn test_property_layout_vertical() {
+    let decl = parse_first_declaration("Container { layout: vertical; }");
+    assert!(matches!(decl, Declaration::Layout(Layout::Vertical)));
+}
+
+#[test]
+fn test_property_layout_grid() {
+    let decl = parse_first_declaration("Panel { layout: grid; }");
+    assert!(matches!(decl, Declaration::Layout(Layout::Grid)));
 }
 
 #[test]

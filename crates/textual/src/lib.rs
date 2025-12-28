@@ -17,7 +17,7 @@ use futures::StreamExt;
 use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
-pub use containers::{Center, Middle, horizontal::Horizontal, scrollable::ScrollableContainer, vertical::Vertical};
+pub use containers::{Center, Middle, grid::Grid, horizontal::Horizontal, scrollable::ScrollableContainer, vertical::Vertical};
 pub use context::{AppContext, IntervalHandle};
 pub use error::Result;
 pub use log_init::init_logger;
@@ -29,7 +29,7 @@ pub use tcss::TcssError;
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
-pub use widget::{Compose, Widget, screen::Screen, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch};
+pub use widget::{Compose, Widget, placeholder::Placeholder, screen::Screen, screen::Breakpoint, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch};
 
 use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}, tree::WidgetTree};
 
@@ -99,6 +99,33 @@ where
     /// ```
     fn needs_recompose(&self) -> bool {
         false
+    }
+
+    /// Returns custom horizontal breakpoints for responsive layouts.
+    ///
+    /// Breakpoints are (threshold, class_name) pairs. The class is applied
+    /// when width >= threshold. The last matching breakpoint wins.
+    ///
+    /// Default: `[(0, "-narrow"), (80, "-wide")]`
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn horizontal_breakpoints(&self) -> &'static [(u16, &'static str)] {
+    ///     &[(0, "-narrow"), (40, "-normal"), (80, "-wide"), (120, "-very-wide")]
+    /// }
+    /// ```
+    fn horizontal_breakpoints(&self) -> &'static [(u16, &'static str)] {
+        widget::screen::DEFAULT_HORIZONTAL_BREAKPOINTS
+    }
+
+    /// Returns custom vertical breakpoints for responsive layouts.
+    ///
+    /// Breakpoints are (threshold, class_name) pairs. The class is applied
+    /// when height >= threshold. The last matching breakpoint wins.
+    ///
+    /// Default: `[(0, "-short"), (24, "-tall")]`
+    fn vertical_breakpoints(&self) -> &'static [(u16, &'static str)] {
+        widget::screen::DEFAULT_VERTICAL_BREAKPOINTS
     }
 
     /// Run the application event loop.
@@ -206,7 +233,11 @@ where
             // 2. Build the widget tree ONCE (persistent tree)
             // Use WidgetTree for O(d) focus-targeted dispatch and message bubbling
             // IMPLICIT SCREEN: Wrap the user's composed tree in a Screen widget
-            let root = Box::new(Screen::new(self.compose()));
+            let root = Box::new(
+                Screen::new(self.compose())
+                    .with_horizontal_breakpoints(self.horizontal_breakpoints())
+                    .with_vertical_breakpoints(self.vertical_breakpoints())
+            );
             let mut tree = WidgetTree::new(root);
 
             // Initialize Screen with current terminal size for breakpoints
@@ -243,7 +274,11 @@ where
                 // Rebuild widget tree if app state changed
                 if needs_recompose {
                     // IMPLICIT SCREEN: Wrap the user's composed tree in a Screen widget
-                    let root = Box::new(Screen::new(self.compose()));
+                    let root = Box::new(
+                        Screen::new(self.compose())
+                            .with_horizontal_breakpoints(self.horizontal_breakpoints())
+                            .with_vertical_breakpoints(self.vertical_breakpoints())
+                    );
                     tree = WidgetTree::new(root);
 
                     // Re-apply resize to new tree so breakpoints are correct

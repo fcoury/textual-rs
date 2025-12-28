@@ -4,6 +4,7 @@
 //! in layout and how they handle overflow:
 //!
 //! - [`Display`]: Whether a widget is rendered and takes space
+//! - [`Layout`]: How children are arranged (vertical, horizontal, grid)
 //! - [`Visibility`]: Whether a widget is visible (still takes space)
 //! - [`Overflow`]: How content exceeding bounds is handled
 //!
@@ -18,6 +19,7 @@
 //! .hidden { display: none; }
 //! .invisible { visibility: hidden; }
 //! .scrollable { overflow: auto; }
+//! .grid-container { layout: grid; }
 //! ```
 
 /// Controls whether a widget is rendered and participates in layout.
@@ -28,6 +30,20 @@ pub enum Display {
     Block,
     /// Widget is not rendered and takes no space.
     None,
+}
+
+/// Controls how children are arranged within a container.
+///
+/// Used with the `layout` CSS property.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Layout {
+    /// Stack children vertically (default).
+    #[default]
+    Vertical,
+    /// Stack children horizontally.
+    Horizontal,
+    /// Arrange children in a CSS Grid.
+    Grid,
 }
 
 /// Controls whether a widget is visually shown.
