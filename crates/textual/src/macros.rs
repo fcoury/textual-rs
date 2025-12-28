@@ -211,6 +211,10 @@ macro_rules! impl_widget_delegation {
 ///
 /// // Widget with callback
 /// Switch(false, |v| Msg::Toggle(v), id: "toggle")
+///
+/// // Multiple root widgets (auto-wrapped in Vertical)
+/// Label("First line")
+/// Label("Second line")
 /// ```
 ///
 /// # Attribute Mapping
@@ -241,23 +245,67 @@ macro_rules! impl_widget_delegation {
 #[macro_export]
 macro_rules! ui {
     // ==========================================================================
-    // ENTRY POINTS
+    // ROOT FINALIZATION - Handle single vs multiple root widgets
+    // (Must come before the catch-all entry point)
     // ==========================================================================
 
-    // 1. Container with args/attrs AND children: Widget(args) { children }
-    ($widget:ident ( $($args:tt)* ) { $($children:tt)* }) => {{
+    // Multiple widgets at root - wrap in Vertical
+    (@root_finalize [$first:expr, $($rest:expr),+]) => {
+        Box::new($crate::Vertical::new(vec![$first, $($rest),+])) as Box<dyn $crate::Widget<_>>
+    };
+
+    // Single widget at root - return directly
+    (@root_finalize [$single:expr]) => {
+        $single
+    };
+
+    // Empty - compile error
+    (@root_finalize []) => {
+        compile_error!("ui! macro requires at least one widget")
+    };
+
+    // ==========================================================================
+    // ROOT COLLECTION - Collect widgets at root level
+    // ==========================================================================
+
+    // Done collecting - finalize
+    (@root_collect [$($acc:expr),*]) => {
+        $crate::ui!(@root_finalize [$($acc),*])
+    };
+
+    // Root: Container with args and children - Widget(args) { children }
+    (@root_collect [$($acc:expr),*] $widget:ident ( $($args:tt)* ) { $($inner:tt)* } $($rest:tt)*) => {
+        $crate::ui!(@root_collect [$($acc,)* $crate::ui!(@widget $widget ( $($args)* ) { $($inner)* })] $($rest)*)
+    };
+
+    // Root: Container with children only - Widget { children }
+    (@root_collect [$($acc:expr),*] $widget:ident { $($inner:tt)* } $($rest:tt)*) => {
+        $crate::ui!(@root_collect [$($acc,)* $crate::ui!(@widget $widget { $($inner)* })] $($rest)*)
+    };
+
+    // Root: Widget with args - Widget(args)
+    (@root_collect [$($acc:expr),*] $widget:ident ( $($args:tt)* ) $($rest:tt)*) => {
+        $crate::ui!(@root_collect [$($acc,)* $crate::ui!(@widget $widget ( $($args)* ))] $($rest)*)
+    };
+
+    // ==========================================================================
+    // WIDGET BUILDERS - Build individual widgets (used by root and child collectors)
+    // ==========================================================================
+
+    // Widget with args/attrs AND children: Widget(args) { children }
+    (@widget $widget:ident ( $($args:tt)* ) { $($children:tt)* }) => {{
         let children: Vec<Box<dyn $crate::Widget<_>>> = $crate::ui!(@collect_children [] $($children)*);
         Box::new($crate::ui!(@parse_args_container $widget, children, [], $($args)*)) as Box<dyn $crate::Widget<_>>
     }};
 
-    // 2. Container with children only (no parens): Widget { children }
-    ($widget:ident { $($children:tt)* }) => {{
+    // Widget with children only (no parens): Widget { children }
+    (@widget $widget:ident { $($children:tt)* }) => {{
         let children: Vec<Box<dyn $crate::Widget<_>>> = $crate::ui!(@collect_children [] $($children)*);
         Box::new($widget::new(children)) as Box<dyn $crate::Widget<_>>
     }};
 
-    // 3. Widget with args/attrs only (no children): Widget(args)
-    ($widget:ident ( $($args:tt)* )) => {
+    // Widget with args/attrs only (no children): Widget(args)
+    (@widget $widget:ident ( $($args:tt)* )) => {
         Box::new($crate::ui!(@parse_args_leaf $widget, [], $($args)*)) as Box<dyn $crate::Widget<_>>
     };
 
@@ -370,17 +418,17 @@ macro_rules! ui {
 
     // Child: Container with args and children - Widget(args) { children }
     (@collect_children [$($acc:expr),*] $child:ident ( $($args:tt)* ) { $($inner:tt)* } $($rest:tt)*) => {
-        $crate::ui!(@collect_children [$($acc,)* $crate::ui!($child ( $($args)* ) { $($inner)* })] $($rest)*)
+        $crate::ui!(@collect_children [$($acc,)* $crate::ui!(@widget $child ( $($args)* ) { $($inner)* })] $($rest)*)
     };
 
     // Child: Container with children only - Widget { children }
     (@collect_children [$($acc:expr),*] $child:ident { $($inner:tt)* } $($rest:tt)*) => {
-        $crate::ui!(@collect_children [$($acc,)* $crate::ui!($child { $($inner)* })] $($rest)*)
+        $crate::ui!(@collect_children [$($acc,)* $crate::ui!(@widget $child { $($inner)* })] $($rest)*)
     };
 
     // Child: Widget with args - Widget(args)
     (@collect_children [$($acc:expr),*] $child:ident ( $($args:tt)* ) $($rest:tt)*) => {
-        $crate::ui!(@collect_children [$($acc,)* $crate::ui!($child ( $($args)* ))] $($rest)*)
+        $crate::ui!(@collect_children [$($acc,)* $crate::ui!(@widget $child ( $($args)* ))] $($rest)*)
     };
 
     // ==========================================================================
@@ -392,8 +440,11 @@ macro_rules! ui {
         Box::new($leaf::new( $($args),* ) $( . $meth ( $($m_args),* ) )*) as Box<dyn $crate::Widget<_>>
     };
 
-    // Fallback: pass through expressions
-    ($e:expr) => {
-        $e
+    // ==========================================================================
+    // ENTRY POINT - Route all input through root collector
+    // (Must be LAST - catches all remaining patterns)
+    // ==========================================================================
+    ($($tokens:tt)*) => {
+        $crate::ui!(@root_collect [] $($tokens)*)
     };
 }
