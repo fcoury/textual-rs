@@ -1,3 +1,4 @@
+pub mod label;
 pub mod placeholder;
 pub mod screen;
 pub mod scrollbar;
@@ -65,6 +66,67 @@ pub trait Widget<M> {
     }
 
     // Default style management
+
+    /// Returns the default CSS for this widget type.
+    ///
+    /// Override this method to provide built-in styles for your widget.
+    /// Default CSS has lower precedence than app-level CSS, allowing users
+    /// to override widget defaults in their `App::CSS`.
+    ///
+    /// The base Widget implementation provides sensible defaults for all widgets,
+    /// including scrollbar theming. Override this in subclasses to add widget-specific
+    /// styles while preserving the base defaults.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// fn default_css(&self) -> &'static str {
+    ///     r#"
+    ///     Label {
+    ///         width: auto;
+    ///         height: auto;
+    ///     }
+    ///     Label.error {
+    ///         color: red;
+    ///     }
+    ///     "#
+    /// }
+    /// ```
+    fn default_css(&self) -> &'static str {
+        ""
+    }
+
+    /// Returns the base widget CSS that applies to all widgets.
+    ///
+    /// This is collected once during style resolution and provides defaults
+    /// for scrollbar theming and other universal properties. Individual widget
+    /// `default_css()` implementations add to (not replace) these base styles.
+    fn base_widget_css() -> &'static str
+    where
+        Self: Sized,
+    {
+        r#"
+        Widget {
+            scrollbar-background: $scrollbar-background;
+            scrollbar-background-hover: $scrollbar-background-hover;
+            scrollbar-background-active: $scrollbar-background-active;
+            scrollbar-color: $scrollbar;
+            scrollbar-color-hover: $scrollbar-hover;
+            scrollbar-color-active: $scrollbar-active;
+            scrollbar-corner-color: $scrollbar-corner-color;
+            scrollbar-size-vertical: 2;
+            scrollbar-size-horizontal: 1;
+            link-background: $link-background;
+            link-background-hover: $link-background-hover;
+            link-color: $link-color;
+            link-color-hover: $link-color-hover;
+            link-style: $link-style;
+            link-style-hover: $link-style-hover;
+            background: transparent;
+        }
+        "#
+    }
+
     fn set_style(&mut self, _style: ComputedStyle) {}
 
     fn get_style(&self) -> ComputedStyle {
@@ -259,6 +321,10 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn set_style(&mut self, style: ComputedStyle) {
         self.as_mut().set_style(style);
+    }
+
+    fn default_css(&self) -> &'static str {
+        self.as_ref().default_css()
     }
 
     fn get_meta(&self) -> WidgetMeta {
