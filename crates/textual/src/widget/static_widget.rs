@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 
 use tcss::types::{AlignHorizontal, AlignVertical};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use unicode_width::UnicodeWidthStr;
 
 use crate::content::Content;
 use crate::render_cache::RenderCache;
@@ -295,9 +296,10 @@ impl<M> Widget<M> for Static<M> {
 
     fn desired_size(&self) -> Size {
         let text = self.text();
-        // Width = text length, height = 1 line
-        // TODO: Support multi-line content
-        Size::new(text.len() as u16, 1)
+        // Width = cell width (Unicode-aware), height = line count
+        let width = text.lines().map(|l| l.width()).max().unwrap_or(0);
+        let height = text.lines().count().max(1);
+        Size::new(width as u16, height as u16)
     }
 
     fn get_meta(&self) -> WidgetMeta {
