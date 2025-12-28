@@ -33,6 +33,8 @@ impl Compose for MyApp {
 }
 
 impl App for MyApp {
+    const CSS: &'static str = include_str!("grid_columns.tcss");
+
     fn handle_message(&mut self, _envelope: textual::MessageEnvelope<Self::Message>) {}
 
     fn on_key(&mut self, key: textual::KeyCode) {

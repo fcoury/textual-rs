@@ -1,12 +1,20 @@
+pub mod border_box;
+pub mod border_chars;
+pub mod border_render;
 pub mod canvas;
 pub mod containers;
+pub mod content;
 pub mod context;
 pub mod error;
+pub mod fraction;
 mod log_init;
 pub mod message;
+pub mod render_cache;
 pub mod scroll;
 pub mod scrollbar;
+pub mod segment;
 pub mod style_resolver;
+pub mod strip;
 pub mod tree;
 pub mod visual;
 pub mod widget;
@@ -24,6 +32,7 @@ pub use containers::{
 };
 pub use context::{AppContext, IntervalHandle};
 pub use error::Result;
+pub use fraction::Fraction;
 pub use log_init::init_logger;
 pub use message::MessageEnvelope;
 pub use scroll::{ScrollMessage, ScrollState};

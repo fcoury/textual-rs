@@ -5,6 +5,8 @@ use crossterm::{
 use std::io::Write;
 use tcss::types::RgbaColor;
 
+use crate::strip::Strip;
+
 /// The physical dimensions of a widget or terminal.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Size {
@@ -222,6 +224,31 @@ impl Canvas {
                 };
             }
             current_x += 1;
+        }
+    }
+
+    /// Renders a Strip at the given position.
+    ///
+    /// Iterates through each segment in the strip and renders its text
+    /// with the appropriate styling. The strip is rendered left-to-right
+    /// starting at (x, y).
+    pub fn render_strip(&mut self, strip: &Strip, x: i32, y: i32) {
+        let mut current_x = x;
+
+        for segment in strip.segments() {
+            let fg = segment.fg().cloned();
+            let bg = segment.bg().cloned();
+            self.put_str(current_x, y, segment.text(), fg, bg);
+            current_x += segment.cell_length() as i32;
+        }
+    }
+
+    /// Renders multiple Strips starting at the given position.
+    ///
+    /// Each strip is rendered on a successive line, starting at `start_y`.
+    pub fn render_strips(&mut self, strips: &[Strip], x: i32, start_y: i32) {
+        for (i, strip) in strips.iter().enumerate() {
+            self.render_strip(strip, x, start_y + i as i32);
         }
     }
 

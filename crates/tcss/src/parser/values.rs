@@ -207,6 +207,36 @@ pub fn parse_overflow(input: &str) -> IResult<&str, crate::types::Overflow> {
     }
 }
 
+/// Parse horizontal alignment: `left`, `center`, or `right`.
+pub fn parse_align_horizontal(input: &str) -> IResult<&str, crate::types::AlignHorizontal> {
+    use crate::types::AlignHorizontal;
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "left" => Ok((input, AlignHorizontal::Left)),
+        "center" => Ok((input, AlignHorizontal::Center)),
+        "right" => Ok((input, AlignHorizontal::Right)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parse vertical alignment: `top`, `middle`, or `bottom`.
+pub fn parse_align_vertical(input: &str) -> IResult<&str, crate::types::AlignVertical> {
+    use crate::types::AlignVertical;
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "top" => Ok((input, AlignVertical::Top)),
+        "middle" => Ok((input, AlignVertical::Middle)),
+        "bottom" => Ok((input, AlignVertical::Bottom)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
 /// Parse a text style: one or more space-separated keywords or a theme variable.
 ///
 /// Supported keywords: `bold`, `dim`, `italic`, `underline`, `underline2`,

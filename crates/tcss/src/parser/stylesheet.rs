@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{BorderEdge, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
+use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -268,6 +268,12 @@ pub enum Declaration {
     LinkStyle(TextStyle),
     /// The `link-style-hover` property for link text style on hover.
     LinkStyleHover(TextStyle),
+
+    // Content alignment properties
+    /// The `content-align-horizontal` property for horizontal content alignment.
+    ContentAlignHorizontal(AlignHorizontal),
+    /// The `content-align-vertical` property for vertical content alignment.
+    ContentAlignVertical(AlignVertical),
 
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),

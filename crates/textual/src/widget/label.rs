@@ -1,6 +1,10 @@
+use tcss::types::{AlignHorizontal, AlignVertical};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
-use tcss::types::RgbaColor;
 
+use crate::content::Content;
+use crate::render_cache::RenderCache;
+use crate::segment::Style;
+use crate::strip::Strip;
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, VisualType, Widget};
 
 #[derive(Debug, Clone)]
@@ -96,19 +100,91 @@ impl Label {
         }
     }
 
-    /// Get the effective foreground color (from CSS or default).
-    fn effective_foreground(&self) -> Option<RgbaColor> {
-        self.style.color.clone()
-    }
-
-    /// Get the effective background color (from CSS or default).
-    fn effective_background(&self) -> Option<RgbaColor> {
-        self.style.background.clone()
-    }
-
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
+    }
+
+    /// Convert ComputedStyle to rendering Style.
+    fn rendering_style(&self) -> Style {
+        Style {
+            fg: self.style.color.clone(),
+            bg: self.style.background.clone(),
+            bold: self.style.text_style.bold,
+            dim: self.style.text_style.dim,
+            italic: self.style.text_style.italic,
+            underline: self.style.text_style.underline,
+            strike: self.style.text_style.strike,
+            reverse: self.style.text_style.reverse,
+        }
+    }
+
+    /// Apply content alignment to lines.
+    fn align_content(
+        &self,
+        lines: &[Strip],
+        width: usize,
+        height: usize,
+        style: Style,
+    ) -> Vec<Strip> {
+        if width == 0 || height == 0 {
+            return vec![];
+        }
+
+        let h_align = self.style.content_align_horizontal;
+        let v_align = self.style.content_align_vertical;
+
+        // Calculate vertical offset
+        let content_height = lines.len();
+        let v_offset = match v_align {
+            AlignVertical::Top => 0,
+            AlignVertical::Middle => height.saturating_sub(content_height) / 2,
+            AlignVertical::Bottom => height.saturating_sub(content_height),
+        };
+
+        // Build aligned lines with vertical padding
+        let mut result = Vec::with_capacity(height);
+        let pad_style = Some(style);
+
+        // Add top padding
+        for _ in 0..v_offset {
+            result.push(Strip::blank(width, pad_style.clone()));
+        }
+
+        // Add content lines with horizontal alignment
+        for line in lines.iter().take(height - v_offset) {
+            let aligned = match h_align {
+                AlignHorizontal::Left => line.adjust_cell_length(width, pad_style.clone()),
+                AlignHorizontal::Center => {
+                    let line_len = line.cell_length();
+                    let left_pad = width.saturating_sub(line_len) / 2;
+                    if left_pad > 0 {
+                        let left = Strip::blank(left_pad, pad_style.clone());
+                        Strip::join(vec![left, line.clone()]).adjust_cell_length(width, pad_style.clone())
+                    } else {
+                        line.adjust_cell_length(width, pad_style.clone())
+                    }
+                }
+                AlignHorizontal::Right => {
+                    let line_len = line.cell_length();
+                    let left_pad = width.saturating_sub(line_len);
+                    if left_pad > 0 {
+                        let left = Strip::blank(left_pad, pad_style.clone());
+                        Strip::join(vec![left, line.clone()]).adjust_cell_length(width, pad_style.clone())
+                    } else {
+                        line.adjust_cell_length(width, pad_style.clone())
+                    }
+                }
+            };
+            result.push(aligned);
+        }
+
+        // Add bottom padding
+        while result.len() < height {
+            result.push(Strip::blank(width, pad_style.clone()));
+        }
+
+        result
     }
 }
 
@@ -118,30 +194,36 @@ impl<M> Widget<M> for Label {
             return;
         }
 
-        let text = self.text();
-        let fg = self.effective_foreground();
-        let bg = self.effective_background();
+        let width = region.width as usize;
+        let height = region.height as usize;
 
-        // Fill background if specified
-        if let Some(ref bg_color) = bg {
-            for y in region.y..(region.y + region.height) {
-                for x in region.x..(region.x + region.width) {
-                    canvas.put_char(x, y, ' ', None, Some(bg_color.clone()));
-                }
-            }
+        // 1. Create rendering style from computed CSS
+        let style = self.rendering_style();
+
+        // 2. Create render cache for border handling
+        let cache = RenderCache::new(&self.style);
+        let (inner_width, inner_height) = cache.inner_size(width, height);
+
+        // 3. Parse content into strips
+        let content = Content::new(self.text()).with_style(style.clone());
+        let lines = if inner_width > 0 {
+            content.wrap(inner_width)
+        } else {
+            vec![]
+        };
+
+        // 4. Apply content alignment
+        let aligned_lines = self.align_content(&lines, inner_width, inner_height, style.clone());
+
+        // 5. Render each line with borders
+        for y in 0..height {
+            // Get content line index (accounting for borders)
+            let content_y = if cache.has_border() { y.saturating_sub(1) } else { y };
+            let content_line = aligned_lines.get(content_y);
+
+            let strip = cache.render_line(y, height, width, content_line, None);
+            canvas.render_strip(&strip, region.x, region.y + y as i32);
         }
-
-        // Render text at top-left of region
-        // TODO: Support text-align for horizontal alignment
-        // TODO: Support multi-line text with word wrapping
-        let x = region.x;
-        let y = region.y;
-
-        // Truncate text if it exceeds region width
-        let max_chars = region.width as usize;
-        let display_text: String = text.chars().take(max_chars).collect();
-
-        canvas.put_str(x, y, &display_text, fg, bg);
     }
 
     fn desired_size(&self) -> Size {

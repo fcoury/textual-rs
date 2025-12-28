@@ -22,6 +22,7 @@
 use tcss::types::{Scalar, Unit};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
+use crate::fraction::Fraction;
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
 
 /// A grid container that arranges children in a 2D grid.
@@ -141,27 +142,41 @@ impl<M> Grid<M> {
         // Count auto tracks
         let auto_count = track_specs.iter().filter(|s| s.unit == Unit::Auto).count();
 
-        // Second pass: distribute remaining space to fr and auto
+        // Second pass: distribute remaining space to fr and auto using Fraction
+        // to avoid floating-point accumulation errors. Remainder is carried forward
+        // so extra pixels naturally go to LATER tracks (matching Textual behavior).
         if total_fr > 0.0 {
-            let fr_unit = remaining as f64 / total_fr;
+            // Scale fr values to integers (multiply by 1000 to preserve precision)
+            let total_fr_scaled = (total_fr * 1000.0) as i64;
+            let mut remainder = Fraction::ZERO;
+
             for (i, spec) in track_specs.iter().enumerate() {
                 if spec.unit == Unit::Fraction {
-                    sizes[i] = (spec.value * fr_unit) as i32;
+                    let fr_scaled = (spec.value * 1000.0) as i64;
+                    let raw = Fraction::new(remaining as i64 * fr_scaled, total_fr_scaled) + remainder;
+                    sizes[i] = raw.floor() as i32;
+                    remainder = raw.fract();
                 }
             }
         } else if auto_count > 0 {
-            // No fr units, distribute to auto
-            let auto_size = remaining / auto_count as i32;
+            // No fr units, distribute equally to auto tracks
+            let mut remainder = Fraction::ZERO;
+
             for (i, spec) in track_specs.iter().enumerate() {
                 if spec.unit == Unit::Auto {
-                    sizes[i] = auto_size;
+                    let raw = Fraction::new(remaining as i64, auto_count as i64) + remainder;
+                    sizes[i] = raw.floor() as i32;
+                    remainder = raw.fract();
                 }
             }
         } else if specs.is_empty() {
             // No specs at all: equal distribution
-            let per_track = available_for_tracks / count as i32;
+            let mut remainder = Fraction::ZERO;
+
             for size in &mut sizes {
-                *size = per_track;
+                let raw = Fraction::new(available_for_tracks as i64, count as i64) + remainder;
+                *size = raw.floor() as i32;
+                remainder = raw.fract();
             }
         }
 
