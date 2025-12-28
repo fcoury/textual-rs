@@ -29,7 +29,7 @@ pub use tcss::TcssError;
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
-pub use widget::{Compose, Widget, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch};
+pub use widget::{Compose, Widget, screen::Screen, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch};
 
 use crate::{error::TextualError, style_resolver::{resolve_dirty_styles, resolve_styles}, tree::WidgetTree};
 
@@ -205,8 +205,12 @@ where
 
             // 2. Build the widget tree ONCE (persistent tree)
             // Use WidgetTree for O(d) focus-targeted dispatch and message bubbling
-            let root = self.compose();
+            // IMPLICIT SCREEN: Wrap the user's composed tree in a Screen widget
+            let root = Box::new(Screen::new(self.compose()));
             let mut tree = WidgetTree::new(root);
+
+            // Initialize Screen with current terminal size for breakpoints
+            tree.root_mut().on_resize(Size::new(cols, rows));
 
             // Set initial focus and cache the focus path
             tree.root_mut().clear_focus();
@@ -238,8 +242,13 @@ where
             while !self.should_quit() {
                 // Rebuild widget tree if app state changed
                 if needs_recompose {
-                    let root = self.compose();
+                    // IMPLICIT SCREEN: Wrap the user's composed tree in a Screen widget
+                    let root = Box::new(Screen::new(self.compose()));
                     tree = WidgetTree::new(root);
+
+                    // Re-apply resize to new tree so breakpoints are correct
+                    tree.root_mut().on_resize(Size::new(cols, rows));
+
                     tree.root_mut().clear_focus();
                     tree.root_mut().focus_nth(self.focus_index());
                     tree.update_focus(self.focus_index());
@@ -307,6 +316,10 @@ where
                                 cols = nw;
                                 rows = nh;
                                 canvas = Canvas::new(cols, rows);
+
+                                // Propagate resize to Screen for breakpoint updates
+                                tree.root_mut().on_resize(Size::new(cols, rows));
+
                                 needs_render = true;
                             }
                             Some(Ok(Event::Mouse(mouse_event))) => {

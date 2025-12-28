@@ -12,6 +12,13 @@ pub struct Size {
     pub height: u16,
 }
 
+impl Size {
+    /// Create a new Size with the given dimensions.
+    pub fn new(width: u16, height: u16) -> Self {
+        Self { width, height }
+    }
+}
+
 /// A signed rectangular region for layout and clipping.
 ///
 /// Coordinates are signed (i32) to allow off-screen positioning (e.g. scrolling).

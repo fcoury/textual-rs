@@ -403,6 +403,10 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         f(self.content.as_mut());
     }
 
+    fn on_resize(&mut self, size: Size) {
+        self.content.on_resize(size);
+    }
+
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
         // Handle scroll keys
         match key {
