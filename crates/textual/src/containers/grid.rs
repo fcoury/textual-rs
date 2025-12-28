@@ -19,8 +19,8 @@
 //! }
 //! ```
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 use tcss::types::{Scalar, Unit};
+use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
 
@@ -81,16 +81,22 @@ impl<M> Grid<M> {
         match scalar.unit {
             Unit::Cells => scalar.value as i32,
             Unit::Percent => ((scalar.value / 100.0) * available as f64) as i32,
-            Unit::Auto => available, // Auto fills available space
+            Unit::Auto => available,     // Auto fills available space
             Unit::Fraction => available, // fr handled specially in distribution
-            _ => scalar.value as i32, // Default to treating as cells
+            _ => scalar.value as i32,    // Default to treating as cells
         }
     }
 
     /// Distribute available space among tracks (columns or rows).
     ///
     /// Handles fr units, fixed sizes, and auto sizing.
-    fn distribute_space(&self, specs: &[Scalar], count: usize, available: i32, gutter: i32) -> Vec<i32> {
+    fn distribute_space(
+        &self,
+        specs: &[Scalar],
+        count: usize,
+        available: i32,
+        gutter: i32,
+    ) -> Vec<i32> {
         if count == 0 {
             return vec![];
         }
@@ -168,7 +174,6 @@ impl<M> Grid<M> {
 
         sizes
     }
-
 }
 
 /// Calculate the region for a child at the given grid position.
@@ -202,7 +207,12 @@ fn child_region(
     let width = col_widths.get(col).copied().unwrap_or(1);
     let height = row_heights.get(row).copied().unwrap_or(1);
 
-    Region { x, y, width, height }
+    Region {
+        x,
+        y,
+        width,
+        height,
+    }
 }
 
 impl<M> Widget<M> for Grid<M> {
@@ -227,18 +237,10 @@ impl<M> Widget<M> for Grid<M> {
         let gutter_h = self.resolve_scalar(&self.style.grid.gutter.1, region.width);
 
         // Distribute space
-        let col_widths = self.distribute_space(
-            &self.style.grid.column_widths,
-            cols,
-            region.width,
-            gutter_h,
-        );
-        let row_heights = self.distribute_space(
-            &self.style.grid.row_heights,
-            rows,
-            region.height,
-            gutter_v,
-        );
+        let col_widths =
+            self.distribute_space(&self.style.grid.column_widths, cols, region.width, gutter_h);
+        let row_heights =
+            self.distribute_space(&self.style.grid.row_heights, rows, region.height, gutter_v);
 
         // Render children
         let mut col = 0;
@@ -254,9 +256,13 @@ impl<M> Widget<M> for Grid<M> {
             }
 
             let cell_region = child_region(
-                col, row,
-                &col_widths, &row_heights,
-                region, gutter_h, gutter_v,
+                col,
+                row,
+                &col_widths,
+                &row_heights,
+                region,
+                gutter_h,
+                gutter_v,
             );
 
             child.render(canvas, cell_region);
@@ -356,18 +362,10 @@ impl<M> Widget<M> for Grid<M> {
         let gutter_v = self.resolve_scalar(&self.style.grid.gutter.0, region.height);
         let gutter_h = self.resolve_scalar(&self.style.grid.gutter.1, region.width);
 
-        let col_widths = self.distribute_space(
-            &self.style.grid.column_widths,
-            cols,
-            region.width,
-            gutter_h,
-        );
-        let row_heights = self.distribute_space(
-            &self.style.grid.row_heights,
-            rows,
-            region.height,
-            gutter_v,
-        );
+        let col_widths =
+            self.distribute_space(&self.style.grid.column_widths, cols, region.width, gutter_h);
+        let row_heights =
+            self.distribute_space(&self.style.grid.row_heights, rows, region.height, gutter_v);
 
         let mut col = 0;
         let mut row = 0;
@@ -382,9 +380,13 @@ impl<M> Widget<M> for Grid<M> {
             }
 
             let cell_region = child_region(
-                col, row,
-                &col_widths, &row_heights,
-                region, gutter_h, gutter_v,
+                col,
+                row,
+                &col_widths,
+                &row_heights,
+                region,
+                gutter_h,
+                gutter_v,
             );
 
             if cell_region.contains_point(mx, my) {
