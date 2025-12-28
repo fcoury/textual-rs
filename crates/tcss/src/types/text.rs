@@ -45,7 +45,7 @@
 ///
 /// assert!(!style.is_none()); // Has active styles
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct TextStyle {
     /// Bold/increased intensity.
     pub bold: bool,
@@ -67,6 +67,8 @@ pub struct TextStyle {
     pub strike: bool,
     /// Overline text (extended attribute).
     pub overline: bool,
+    /// Theme variable name (e.g., "link-style") for runtime resolution.
+    pub theme_var: Option<String>,
 }
 
 impl TextStyle {
@@ -75,14 +77,45 @@ impl TextStyle {
         Self::default()
     }
 
-    /// Check if no styles are applied.
+    /// Creates a theme variable reference.
+    ///
+    /// The variable will be resolved from the active theme at cascade time.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tcss::types::TextStyle;
+    ///
+    /// let style = TextStyle::theme_variable("link-style");
+    /// assert_eq!(style.theme_var, Some("link-style".to_string()));
+    /// ```
+    pub fn theme_variable(name: &str) -> Self {
+        Self {
+            theme_var: Some(name.to_string()),
+            ..Default::default()
+        }
+    }
+
+    /// Check if no styles are applied (and no theme variable reference).
     pub fn is_none(&self) -> bool {
-        *self == Self::default()
+        self.theme_var.is_none()
+            && !self.bold
+            && !self.dim
+            && !self.italic
+            && !self.underline
+            && !self.underline2
+            && !self.blink
+            && !self.blink2
+            && !self.reverse
+            && !self.strike
+            && !self.overline
     }
 
     /// Merges another style into this one.
     /// Used during the CSS cascade where multiple rules apply to one widget.
-    pub fn merge(&mut self, other: TextStyle) {
+    ///
+    /// Note: If `other` has a theme_var, it replaces this style's theme_var.
+    pub fn merge(&mut self, other: &TextStyle) {
         if other.bold {
             self.bold = true;
         }
@@ -112,6 +145,10 @@ impl TextStyle {
         }
         if other.overline {
             self.overline = true;
+        }
+        // Theme variable from the other style takes precedence
+        if other.theme_var.is_some() {
+            self.theme_var = other.theme_var.clone();
         }
     }
 }

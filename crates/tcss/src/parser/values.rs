@@ -20,6 +20,7 @@
 use crate::types::border::{BorderEdge, BorderKind};
 use crate::types::color::RgbaColor;
 use crate::types::scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarVisibility};
+use crate::types::text::TextStyle;
 use nom::{
     IResult, bytes::complete::take_while1, character::complete::{digit1, multispace1}, combinator::opt,
     sequence::preceded,
@@ -204,4 +205,69 @@ pub fn parse_overflow(input: &str) -> IResult<&str, crate::types::Overflow> {
             nom::error::ErrorKind::Tag,
         ))),
     }
+}
+
+/// Parse a text style: one or more space-separated keywords or a theme variable.
+///
+/// Supported keywords: `bold`, `dim`, `italic`, `underline`, `underline2`,
+/// `blink`, `blink2`, `reverse`, `strike`, `overline`, `none`.
+///
+/// Theme variables: `$link-style`, `$link-style-hover`, etc.
+///
+/// # Examples
+///
+/// - `"bold"` → TextStyle { bold: true, .. }
+/// - `"bold underline"` → TextStyle { bold: true, underline: true, .. }
+/// - `"none"` → TextStyle::default()
+/// - `"$link-style"` → TextStyle { theme_var: Some("link-style"), .. }
+pub fn parse_text_style(input: &str) -> IResult<&str, TextStyle> {
+    let input = input.trim_start();
+
+    // Find where the text style value ends (at ; or })
+    let end = input
+        .find(|c: char| c == ';' || c == '}')
+        .unwrap_or(input.len());
+    let value_str = input[..end].trim();
+
+    if value_str.is_empty() {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
+
+    // Handle theme variables ($link-style, etc.)
+    if value_str.starts_with('$') {
+        return Ok((&input[end..], TextStyle::theme_variable(&value_str[1..])));
+    }
+
+    let mut style = TextStyle::default();
+
+    // Split by whitespace and parse each keyword
+    for keyword in value_str.split_whitespace() {
+        match keyword.to_lowercase().as_str() {
+            "none" => {
+                // none resets all styles
+                style = TextStyle::default();
+            }
+            "bold" => style.bold = true,
+            "dim" => style.dim = true,
+            "italic" => style.italic = true,
+            "underline" => style.underline = true,
+            "underline2" => style.underline2 = true,
+            "blink" => style.blink = true,
+            "blink2" => style.blink2 = true,
+            "reverse" => style.reverse = true,
+            "strike" => style.strike = true,
+            "overline" => style.overline = true,
+            _ => {
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Tag,
+                )));
+            }
+        }
+    }
+
+    Ok((&input[end..], style))
 }
