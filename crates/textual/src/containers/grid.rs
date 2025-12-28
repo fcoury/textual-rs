@@ -4,7 +4,7 @@
 //! - Fixed column/row counts via `grid-size`
 //! - Flexible column/row sizes via `grid-columns` and `grid-rows`
 //! - Gutter spacing via `grid-gutter`
-//! - Column/row spanning for children
+//! - Column/row spanning for children via `row-span` and `column-span`
 //!
 //! ## CSS Properties
 //!
@@ -17,6 +17,12 @@
 //!     grid-gutter: 1;            /* 1 cell spacing */
 //!     grid-gutter: 1 2;          /* vertical horizontal */
 //! }
+//!
+//! /* Child spanning */
+//! #my-widget {
+//!     row-span: 2;               /* span 2 rows */
+//!     column-span: 3;            /* span 3 columns */
+//! }
 //! ```
 
 use tcss::types::{Scalar, Unit};
@@ -24,6 +30,78 @@ use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 use crate::fraction::Fraction;
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
+
+/// Pre-computed track (column or row) with offset and size.
+///
+/// Used to efficiently calculate spanning regions without re-computing
+/// offsets for each cell. Matches Python Textual's `_resolve.py` output.
+#[derive(Debug, Clone, Copy)]
+struct ResolvedTrack {
+    /// Offset from the start of the grid region (in cells).
+    offset: i32,
+    /// Size of this track (in cells).
+    size: i32,
+}
+
+/// Tracks which grid cells are occupied by widgets.
+///
+/// Implements Tetris-style placement: widgets are placed left-to-right,
+/// top-to-bottom, skipping cells that are already occupied by spanning widgets.
+struct OccupancyGrid {
+    cells: Vec<Vec<bool>>, // [row][col]
+    rows: usize,
+    cols: usize,
+}
+
+impl OccupancyGrid {
+    fn new(rows: usize, cols: usize) -> Self {
+        Self {
+            cells: vec![vec![false; cols]; rows],
+            rows,
+            cols,
+        }
+    }
+
+    /// Find the next unoccupied cell starting from (row, col).
+    /// Scans left-to-right, top-to-bottom (matches Python Textual).
+    fn find_next_free(&self, mut row: usize, mut col: usize) -> Option<(usize, usize)> {
+        while row < self.rows {
+            while col < self.cols {
+                if !self.cells[row][col] {
+                    return Some((row, col));
+                }
+                col += 1;
+            }
+            col = 0;
+            row += 1;
+        }
+        None
+    }
+
+    /// Mark cells as occupied for a widget spanning from (row, col).
+    fn occupy(&mut self, row: usize, col: usize, row_span: usize, col_span: usize) {
+        for r in row..(row + row_span).min(self.rows) {
+            for c in col..(col + col_span).min(self.cols) {
+                self.cells[r][c] = true;
+            }
+        }
+    }
+
+    /// Check if a widget can fit at (row, col) with given spans.
+    fn can_fit(&self, row: usize, col: usize, row_span: usize, col_span: usize) -> bool {
+        if row + row_span > self.rows || col + col_span > self.cols {
+            return false;
+        }
+        for r in row..(row + row_span) {
+            for c in col..(col + col_span) {
+                if self.cells[r][c] {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
 
 /// A grid container that arranges children in a 2D grid.
 ///
@@ -189,38 +267,79 @@ impl<M> Grid<M> {
 
         sizes
     }
+
+    /// Distribute space and pre-compute offsets for tracks.
+    ///
+    /// Returns a vector of `ResolvedTrack` with pre-computed offsets,
+    /// matching Python Textual's `_resolve.py` output format.
+    fn resolve_tracks(
+        &self,
+        specs: &[Scalar],
+        count: usize,
+        available: i32,
+        gutter: i32,
+    ) -> Vec<ResolvedTrack> {
+        let sizes = self.distribute_space(specs, count, available, gutter);
+        let mut offset = 0;
+        sizes
+            .into_iter()
+            .map(|size| {
+                let track = ResolvedTrack { offset, size };
+                offset += size + gutter;
+                track
+            })
+            .collect()
+    }
 }
 
-/// Calculate the region for a child at the given grid position.
+/// Calculate the region for a child at the given grid position with span support.
 fn child_region(
     col: usize,
     row: usize,
-    col_widths: &[i32],
-    row_heights: &[i32],
+    col_span: usize,
+    row_span: usize,
+    columns: &[ResolvedTrack],
+    rows: &[ResolvedTrack],
     region: Region,
     gutter_h: i32,
     gutter_v: i32,
 ) -> Region {
-    // Calculate x position
-    let mut x = region.x;
-    for (i, &w) in col_widths.iter().enumerate() {
-        if i >= col {
-            break;
-        }
-        x += w + gutter_h;
-    }
+    // Start position from pre-computed offsets
+    let x = region.x + columns.get(col).map(|t| t.offset).unwrap_or(0);
+    let y = region.y + rows.get(row).map(|t| t.offset).unwrap_or(0);
 
-    // Calculate y position
-    let mut y = region.y;
-    for (i, &h) in row_heights.iter().enumerate() {
-        if i >= row {
-            break;
+    // Calculate span width: sum of cell sizes + gutters between them
+    let end_col = (col + col_span).min(columns.len());
+    let width = if col < columns.len() {
+        let start_offset = columns[col].offset;
+        if end_col < columns.len() {
+            // Width = next column's offset - our offset - trailing gutter
+            columns[end_col].offset - start_offset - gutter_h
+        } else {
+            // Spans to edge: sum remaining sizes + gutters
+            columns[col..]
+                .iter()
+                .map(|t| t.size)
+                .sum::<i32>()
+                + (end_col - col).saturating_sub(1) as i32 * gutter_h
         }
-        y += h + gutter_v;
-    }
+    } else {
+        0
+    };
 
-    let width = col_widths.get(col).copied().unwrap_or(1);
-    let height = row_heights.get(row).copied().unwrap_or(1);
+    // Calculate span height (same logic)
+    let end_row = (row + row_span).min(rows.len());
+    let height = if row < rows.len() {
+        let start_offset = rows[row].offset;
+        if end_row < rows.len() {
+            rows[end_row].offset - start_offset - gutter_v
+        } else {
+            rows[row..].iter().map(|t| t.size).sum::<i32>()
+                + (end_row - row).saturating_sub(1) as i32 * gutter_v
+        }
+    } else {
+        0
+    };
 
     Region {
         x,
@@ -251,42 +370,97 @@ impl<M> Widget<M> for Grid<M> {
         let gutter_v = self.resolve_scalar(&self.style.grid.gutter.0, region.height);
         let gutter_h = self.resolve_scalar(&self.style.grid.gutter.1, region.width);
 
-        // Distribute space
-        let col_widths =
-            self.distribute_space(&self.style.grid.column_widths, cols, region.width, gutter_h);
-        let row_heights =
-            self.distribute_space(&self.style.grid.row_heights, rows, region.height, gutter_v);
+        // Resolve tracks with pre-computed offsets (matches Python Textual)
+        let columns = self.resolve_tracks(
+            &self.style.grid.column_widths,
+            cols,
+            region.width,
+            gutter_h,
+        );
+        let row_tracks = self.resolve_tracks(
+            &self.style.grid.row_heights,
+            rows,
+            region.height,
+            gutter_v,
+        );
 
-        // Render children
-        let mut col = 0;
-        let mut row = 0;
+        // Create occupancy grid for Tetris-style placement
+        let mut occupancy = OccupancyGrid::new(rows, cols);
+        let mut current_row = 0;
+        let mut current_col = 0;
 
         for child in &self.children {
             if !child.is_visible() {
                 continue;
             }
 
-            if row >= rows {
-                break; // No more space
-            }
+            // Get span values from child's computed style
+            let child_style = child.get_style();
+            let col_span = (child_style.grid_placement.column_span as usize).max(1);
+            let row_span = (child_style.grid_placement.row_span as usize).max(1);
 
-            let cell_region = child_region(
-                col,
-                row,
-                &col_widths,
-                &row_heights,
-                region,
-                gutter_h,
-                gutter_v,
-            );
+            // Find next position where this widget fits (Tetris algorithm)
+            let placed = loop {
+                match occupancy.find_next_free(current_row, current_col) {
+                    Some((r, c)) => {
+                        current_row = r;
+                        current_col = c;
 
-            child.render(canvas, cell_region);
+                        // Clamp spans to grid bounds
+                        let effective_col_span = col_span.min(cols - current_col);
+                        let effective_row_span = row_span.min(rows - current_row);
 
-            // Advance position
-            col += 1;
-            if col >= cols {
-                col = 0;
-                row += 1;
+                        if occupancy.can_fit(
+                            current_row,
+                            current_col,
+                            effective_row_span,
+                            effective_col_span,
+                        ) {
+                            // Mark cells as occupied
+                            occupancy.occupy(
+                                current_row,
+                                current_col,
+                                effective_row_span,
+                                effective_col_span,
+                            );
+
+                            // Calculate spanning region
+                            let cell_region = child_region(
+                                current_col,
+                                current_row,
+                                effective_col_span,
+                                effective_row_span,
+                                &columns,
+                                &row_tracks,
+                                region,
+                                gutter_h,
+                                gutter_v,
+                            );
+
+                            child.render(canvas, cell_region);
+
+                            // Advance to next column for next widget
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                            break true;
+                        } else {
+                            // Can't fit here, try next cell
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                        }
+                    }
+                    None => break false, // No more space in grid
+                }
+            };
+
+            if !placed || current_row >= rows {
+                break; // Grid is full
             }
         }
 
@@ -377,43 +551,96 @@ impl<M> Widget<M> for Grid<M> {
         let gutter_v = self.resolve_scalar(&self.style.grid.gutter.0, region.height);
         let gutter_h = self.resolve_scalar(&self.style.grid.gutter.1, region.width);
 
-        let col_widths =
-            self.distribute_space(&self.style.grid.column_widths, cols, region.width, gutter_h);
-        let row_heights =
-            self.distribute_space(&self.style.grid.row_heights, rows, region.height, gutter_v);
+        // Resolve tracks with pre-computed offsets (matches Python Textual)
+        let columns = self.resolve_tracks(
+            &self.style.grid.column_widths,
+            cols,
+            region.width,
+            gutter_h,
+        );
+        let row_tracks = self.resolve_tracks(
+            &self.style.grid.row_heights,
+            rows,
+            region.height,
+            gutter_v,
+        );
 
-        let mut col = 0;
-        let mut row = 0;
+        // Mirror the render placement algorithm (Tetris-style)
+        let mut occupancy = OccupancyGrid::new(rows, cols);
+        let mut current_row = 0;
+        let mut current_col = 0;
 
         for child in &mut self.children {
             if !child.is_visible() {
                 continue;
             }
 
-            if row >= rows {
-                break;
-            }
+            let child_style = child.get_style();
+            let col_span = (child_style.grid_placement.column_span as usize).max(1);
+            let row_span = (child_style.grid_placement.row_span as usize).max(1);
 
-            let cell_region = child_region(
-                col,
-                row,
-                &col_widths,
-                &row_heights,
-                region,
-                gutter_h,
-                gutter_v,
-            );
+            // Same placement logic as render()
+            loop {
+                match occupancy.find_next_free(current_row, current_col) {
+                    Some((r, c)) => {
+                        current_row = r;
+                        current_col = c;
 
-            if cell_region.contains_point(mx, my) {
-                if let Some(msg) = child.on_mouse(event, cell_region) {
-                    return Some(msg);
+                        let effective_col_span = col_span.min(cols - current_col);
+                        let effective_row_span = row_span.min(rows - current_row);
+
+                        if occupancy.can_fit(
+                            current_row,
+                            current_col,
+                            effective_row_span,
+                            effective_col_span,
+                        ) {
+                            occupancy.occupy(
+                                current_row,
+                                current_col,
+                                effective_row_span,
+                                effective_col_span,
+                            );
+
+                            let cell_region = child_region(
+                                current_col,
+                                current_row,
+                                effective_col_span,
+                                effective_row_span,
+                                &columns,
+                                &row_tracks,
+                                region,
+                                gutter_h,
+                                gutter_v,
+                            );
+
+                            // Check if mouse is in this cell
+                            if cell_region.contains_point(mx, my) {
+                                if let Some(msg) = child.on_mouse(event, cell_region) {
+                                    return Some(msg);
+                                }
+                            }
+
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                            break;
+                        } else {
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                        }
+                    }
+                    None => break,
                 }
             }
 
-            col += 1;
-            if col >= cols {
-                col = 0;
-                row += 1;
+            if current_row >= rows {
+                break;
             }
         }
 
@@ -468,5 +695,141 @@ impl<M> Widget<M> for Grid<M> {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_occupancy_grid_basic() {
+        let mut grid = OccupancyGrid::new(3, 3);
+        assert!(grid.can_fit(0, 0, 2, 2));
+        grid.occupy(0, 0, 2, 2);
+        assert!(!grid.can_fit(0, 0, 1, 1));
+        assert!(!grid.can_fit(1, 1, 1, 1));
+        assert!(grid.can_fit(0, 2, 1, 1));
+        assert!(grid.can_fit(2, 0, 1, 1));
+    }
+
+    #[test]
+    fn test_find_next_free() {
+        let mut grid = OccupancyGrid::new(2, 3);
+        grid.occupy(0, 0, 1, 2);
+        assert_eq!(grid.find_next_free(0, 0), Some((0, 2)));
+        grid.occupy(0, 2, 1, 1);
+        assert_eq!(grid.find_next_free(0, 0), Some((1, 0)));
+    }
+
+    #[test]
+    fn test_resolved_track_offsets() {
+        // Simulating 3 columns of 26 each with gutter 1
+        let tracks = vec![
+            ResolvedTrack { offset: 0, size: 26 },
+            ResolvedTrack { offset: 27, size: 26 },
+            ResolvedTrack { offset: 54, size: 26 },
+        ];
+
+        // Verify offset progression includes gutter
+        assert_eq!(tracks[0].offset, 0);
+        assert_eq!(tracks[1].offset, 27); // 0 + 26 + 1 gutter
+        assert_eq!(tracks[2].offset, 54); // 27 + 26 + 1 gutter
+    }
+
+    #[test]
+    fn test_span_width_calculation() {
+        let tracks = vec![
+            ResolvedTrack { offset: 0, size: 26 },
+            ResolvedTrack { offset: 27, size: 26 },
+            ResolvedTrack { offset: 54, size: 26 },
+        ];
+        let gutter = 1;
+
+        // 2-column span starting at col 0
+        // Width should be: col0 + gutter + col1 = 26 + 1 + 26 = 53
+        let col = 0;
+        let col_span = 2;
+        let end_col = col + col_span;
+
+        let width = tracks[end_col].offset - tracks[col].offset - gutter;
+        assert_eq!(width, 53);
+    }
+
+    #[test]
+    fn test_occupancy_grid_out_of_bounds() {
+        let grid = OccupancyGrid::new(2, 2);
+        // Can't fit something that exceeds grid bounds
+        assert!(!grid.can_fit(0, 0, 3, 1)); // 3 rows but only 2 available
+        assert!(!grid.can_fit(0, 0, 1, 3)); // 3 cols but only 2 available
+        assert!(!grid.can_fit(1, 1, 2, 2)); // Starting at (1,1), needs 2x2 but only 1x1 available
+    }
+
+    #[test]
+    fn test_find_next_free_filled_grid() {
+        let mut grid = OccupancyGrid::new(2, 2);
+        grid.occupy(0, 0, 2, 2); // Fill entire grid
+        assert_eq!(grid.find_next_free(0, 0), None);
+    }
+
+    #[test]
+    fn test_child_region_single_cell() {
+        let columns = vec![
+            ResolvedTrack { offset: 0, size: 10 },
+            ResolvedTrack { offset: 11, size: 10 },
+        ];
+        let rows = vec![
+            ResolvedTrack { offset: 0, size: 5 },
+            ResolvedTrack { offset: 6, size: 5 },
+        ];
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 21,
+            height: 11,
+        };
+
+        // Single cell at (0, 0)
+        let r = child_region(0, 0, 1, 1, &columns, &rows, region, 1, 1);
+        assert_eq!(r.x, 0);
+        assert_eq!(r.y, 0);
+        assert_eq!(r.width, 10);
+        assert_eq!(r.height, 5);
+
+        // Single cell at (1, 1)
+        let r = child_region(1, 1, 1, 1, &columns, &rows, region, 1, 1);
+        assert_eq!(r.x, 11);
+        assert_eq!(r.y, 6);
+        assert_eq!(r.width, 10);
+        assert_eq!(r.height, 5);
+    }
+
+    #[test]
+    fn test_child_region_spanning() {
+        let columns = vec![
+            ResolvedTrack { offset: 0, size: 10 },
+            ResolvedTrack { offset: 11, size: 10 },
+            ResolvedTrack { offset: 22, size: 10 },
+        ];
+        let rows = vec![
+            ResolvedTrack { offset: 0, size: 5 },
+            ResolvedTrack { offset: 6, size: 5 },
+            ResolvedTrack { offset: 12, size: 5 },
+        ];
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 32,
+            height: 17,
+        };
+
+        // 2x2 span starting at (0, 0)
+        let r = child_region(0, 0, 2, 2, &columns, &rows, region, 1, 1);
+        assert_eq!(r.x, 0);
+        assert_eq!(r.y, 0);
+        // Width: columns[2].offset - columns[0].offset - gutter = 22 - 0 - 1 = 21
+        assert_eq!(r.width, 21);
+        // Height: rows[2].offset - rows[0].offset - gutter = 12 - 0 - 1 = 11
+        assert_eq!(r.height, 11);
     }
 }

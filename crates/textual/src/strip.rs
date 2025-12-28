@@ -13,6 +13,7 @@
 
 use crate::segment::{Segment, Style};
 use tcss::types::text::AlignHorizontal;
+use tcss::types::RgbaColor;
 
 /// An immutable horizontal line of segments.
 ///
@@ -290,6 +291,29 @@ impl Strip {
             }
         }
     }
+
+    /// Applies a tint color to all segments in this strip.
+    ///
+    /// This is post-processing that tints both fg and bg colors using
+    /// Textual's linear interpolation formula:
+    /// `result = base + (overlay - base) * alpha`
+    ///
+    /// Returns a new strip with tinted colors. If the tint is fully
+    /// transparent (alpha = 0), returns a clone of the original strip.
+    pub fn apply_tint(&self, tint: &RgbaColor) -> Strip {
+        // Skip if tint is fully transparent
+        if tint.a == 0.0 {
+            return self.clone();
+        }
+
+        let tinted_segments: Vec<Segment> = self
+            .segments
+            .iter()
+            .map(|seg| seg.apply_tint(tint))
+            .collect();
+
+        Strip::from_segments(tinted_segments)
+    }
 }
 
 #[cfg(test)]
@@ -481,5 +505,102 @@ mod tests {
         let strip = Strip::from_segment(Segment::new("Hello World"));
         let aligned = strip.text_align(AlignHorizontal::Center, 5, None);
         assert_eq!(aligned.text(), "Hello");
+    }
+
+    // ==================== TINT TESTS ====================
+
+    #[test]
+    fn strip_apply_tint_colors_fg_and_bg() {
+        // Create a strip with both fg and bg colors
+        let style = Style::with_colors(
+            RgbaColor::rgb(200, 200, 200), // light gray fg
+            RgbaColor::rgb(0, 0, 100),     // dark blue bg
+        );
+        let strip = Strip::from_segment(Segment::styled("Hello", style));
+
+        // Apply 40% magenta tint
+        let tint = RgbaColor::rgba(255, 0, 255, 0.4);
+        let tinted = strip.apply_tint(&tint);
+
+        // Verify fg was tinted (should have more red/magenta)
+        let seg = &tinted.segments()[0];
+        let tinted_fg = seg.style().unwrap().fg.as_ref().unwrap();
+        // Original fg: (200, 200, 200)
+        // Tint: (255, 0, 255, 0.4)
+        // Expected r: 200 + (255 - 200) * 0.4 = 200 + 22 = 222
+        // Expected g: 200 + (0 - 200) * 0.4 = 200 - 80 = 120
+        // Expected b: 200 + (255 - 200) * 0.4 = 200 + 22 = 222
+        assert_eq!(tinted_fg.r, 222);
+        assert_eq!(tinted_fg.g, 120);
+        assert_eq!(tinted_fg.b, 222);
+
+        // Verify bg was also tinted
+        let tinted_bg = seg.style().unwrap().bg.as_ref().unwrap();
+        // Original bg: (0, 0, 100)
+        // Expected r: 0 + (255 - 0) * 0.4 = 102
+        // Expected g: 0 + (0 - 0) * 0.4 = 0
+        // Expected b: 100 + (255 - 100) * 0.4 = 100 + 62 = 162
+        assert_eq!(tinted_bg.r, 102);
+        assert_eq!(tinted_bg.g, 0);
+        assert_eq!(tinted_bg.b, 162);
+    }
+
+    #[test]
+    fn strip_apply_tint_zero_alpha_no_change() {
+        let style = Style::with_fg(RgbaColor::rgb(100, 150, 200));
+        let strip = Strip::from_segment(Segment::styled("Test", style));
+
+        // Apply transparent tint (alpha = 0)
+        let tint = RgbaColor::rgba(255, 0, 0, 0.0);
+        let tinted = strip.apply_tint(&tint);
+
+        // Colors should be unchanged
+        let seg = &tinted.segments()[0];
+        let fg = seg.style().unwrap().fg.as_ref().unwrap();
+        assert_eq!(fg.r, 100);
+        assert_eq!(fg.g, 150);
+        assert_eq!(fg.b, 200);
+    }
+
+    #[test]
+    fn strip_apply_tint_preserves_text() {
+        let strip = Strip::from_segment(Segment::styled(
+            "Preserved",
+            Style::with_fg(RgbaColor::rgb(255, 255, 255)),
+        ));
+        let tint = RgbaColor::rgba(255, 0, 0, 0.5);
+        let tinted = strip.apply_tint(&tint);
+
+        // Text should be unchanged
+        assert_eq!(tinted.text(), "Preserved");
+        assert_eq!(tinted.cell_length(), 9);
+    }
+
+    #[test]
+    fn strip_apply_tint_multiple_segments() {
+        let segments = vec![
+            Segment::styled("Red", Style::with_fg(RgbaColor::rgb(255, 0, 0))),
+            Segment::styled("Green", Style::with_fg(RgbaColor::rgb(0, 255, 0))),
+        ];
+        let strip = Strip::from_segments(segments);
+
+        // Apply blue tint
+        let tint = RgbaColor::rgba(0, 0, 255, 0.5);
+        let tinted = strip.apply_tint(&tint);
+
+        // Both segments should be tinted
+        assert_eq!(tinted.segments().len(), 2);
+
+        // First segment: red (255, 0, 0) + 50% blue = (128, 0, 128)
+        let fg1 = tinted.segments()[0].style().unwrap().fg.as_ref().unwrap();
+        assert_eq!(fg1.r, 128);
+        assert_eq!(fg1.g, 0);
+        assert_eq!(fg1.b, 128);
+
+        // Second segment: green (0, 255, 0) + 50% blue = (0, 128, 128)
+        let fg2 = tinted.segments()[1].style().unwrap().fg.as_ref().unwrap();
+        assert_eq!(fg2.r, 0);
+        assert_eq!(fg2.g, 128);
+        assert_eq!(fg2.b, 128);
     }
 }

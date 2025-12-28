@@ -257,17 +257,34 @@ impl<M> Widget<M> for Static<M> {
         // 4. Apply content alignment
         let aligned_lines = self.align_content(&lines, inner_width, inner_height, style.clone());
 
-        // 5. Render each line with borders
+        // 5. Calculate content region boundaries (accounting for borders and padding)
+        let border_offset = if cache.has_border() { 1 } else { 0 };
+        let content_start = border_offset + cache.padding_top();
+        let content_end = height.saturating_sub(border_offset + cache.padding_bottom());
+
+        // 6. Render each line with borders and padding
         for y in 0..height {
-            // Get content line index (accounting for borders)
-            let content_y = if cache.has_border() {
-                y.saturating_sub(1)
+            // Determine if this row should have content or be blank (padding row)
+            let content_line = if y >= content_start && y < content_end {
+                let content_y = y - content_start;
+                aligned_lines.get(content_y)
+            } else if y >= border_offset && y < height - border_offset {
+                // This is a padding row (inside borders but outside content area)
+                None
             } else {
-                y
+                // Border row - no content
+                None
             };
-            let content_line = aligned_lines.get(content_y);
 
             let strip = cache.render_line(y, height, width, content_line, None);
+
+            // 7. Apply tint as post-processing (tints both fg and bg colors)
+            let strip = if let Some(tint) = &self.style.tint {
+                strip.apply_tint(tint)
+            } else {
+                strip
+            };
+
             canvas.render_strip(&strip, region.x, region.y + y as i32);
         }
     }

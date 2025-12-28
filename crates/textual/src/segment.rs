@@ -270,6 +270,37 @@ impl Segment {
             style,
         }
     }
+
+    /// Applies a tint color to this segment's fg and bg colors.
+    ///
+    /// Uses Textual's linear interpolation formula:
+    /// `result = base + (overlay - base) * alpha`
+    ///
+    /// Returns a new segment with tinted colors.
+    pub fn apply_tint(&self, tint: &RgbaColor) -> Segment {
+        // Skip if tint is fully transparent
+        if tint.a == 0.0 {
+            return self.clone();
+        }
+
+        let new_style = self.style.as_ref().map(|s| {
+            Style {
+                fg: s.fg.as_ref().map(|c| c.tint(tint)),
+                bg: s.bg.as_ref().map(|c| c.tint(tint)),
+                bold: s.bold,
+                dim: s.dim,
+                italic: s.italic,
+                underline: s.underline,
+                strike: s.strike,
+                reverse: s.reverse,
+            }
+        });
+
+        Segment {
+            text: self.text.clone(),
+            style: new_style,
+        }
+    }
 }
 
 impl Default for Segment {

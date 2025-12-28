@@ -131,7 +131,7 @@ fn repeat_char_segment(fill: &Segment, count: usize) -> Segment {
     }
 }
 
-/// Renders a middle row (left border + content + right border).
+/// Renders a middle row (left border + padding + content + padding + right border).
 ///
 /// This is used for rows between the top and bottom borders.
 pub fn render_middle_row(
@@ -139,6 +139,8 @@ pub fn render_middle_row(
     content: Option<&Strip>,
     width: usize,
     pad_style: Option<Style>,
+    padding_left: usize,
+    padding_right: usize,
 ) -> Strip {
     let (left, _fill, right) = box_segments;
 
@@ -154,13 +156,28 @@ pub fn render_middle_row(
 
     let inner_width = width - 2;
 
-    let middle = match content {
-        Some(strip) => strip.adjust_cell_length(inner_width, pad_style),
-        None => Strip::blank(inner_width, pad_style),
-    };
+    // Calculate content width after accounting for horizontal padding
+    let content_width = inner_width.saturating_sub(padding_left + padding_right);
 
     let mut segments = vec![left.clone()];
-    segments.extend(middle.segments().iter().cloned());
+
+    // Add left padding
+    if padding_left > 0 {
+        segments.push(Segment::blank(padding_left, pad_style.clone()));
+    }
+
+    // Add content (or blank if no content)
+    let content_strip = match content {
+        Some(strip) => strip.adjust_cell_length(content_width, pad_style.clone()),
+        None => Strip::blank(content_width, pad_style.clone()),
+    };
+    segments.extend(content_strip.segments().iter().cloned());
+
+    // Add right padding
+    if padding_right > 0 {
+        segments.push(Segment::blank(padding_right, pad_style));
+    }
+
     segments.push(right.clone());
 
     Strip::from_segments(segments)
@@ -224,7 +241,7 @@ mod tests {
     #[test]
     fn render_middle_row_basic() {
         let middle = make_round_middle();
-        let row = render_middle_row(&middle, None, 10, None);
+        let row = render_middle_row(&middle, None, 10, None, 0, 0);
         assert_eq!(row.text(), "│        │");
         assert_eq!(row.cell_length(), 10);
     }
@@ -233,7 +250,27 @@ mod tests {
     fn render_middle_row_with_content() {
         let middle = make_round_middle();
         let content = Strip::from_segment(Segment::new("Hello"));
-        let row = render_middle_row(&middle, Some(&content), 10, None);
+        let row = render_middle_row(&middle, Some(&content), 10, None, 0, 0);
         assert_eq!(row.text(), "│Hello   │");
+    }
+
+    #[test]
+    fn render_middle_row_with_padding() {
+        let middle = make_round_middle();
+        let content = Strip::from_segment(Segment::new("Hi"));
+        let row = render_middle_row(&middle, Some(&content), 10, None, 2, 2);
+        // Width 10: │(1) + padding_left(2) + content(4, "Hi" + 2 spaces) + padding_right(2) + │(1)
+        // Content area is 4 cells (inner_width 8 - padding 4), "Hi" is 2 cells, padded to 4
+        assert_eq!(row.text(), "│  Hi    │");
+        assert_eq!(row.cell_length(), 10);
+    }
+
+    #[test]
+    fn render_middle_row_padding_no_content() {
+        let middle = make_round_middle();
+        let row = render_middle_row(&middle, None, 10, None, 2, 2);
+        // │ + 2 padding + 4 blank + 2 padding + │
+        assert_eq!(row.text(), "│        │");
+        assert_eq!(row.cell_length(), 10);
     }
 }

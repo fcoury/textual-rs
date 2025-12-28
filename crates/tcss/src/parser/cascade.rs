@@ -242,6 +242,9 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Background(c) => {
             style.background = Some(resolve_theme_color(c, theme));
         }
+        Declaration::Tint(c) => {
+            style.tint = Some(resolve_theme_color(c, theme));
+        }
         Declaration::Width(s) => style.width = Some(*s),
         Declaration::Height(s) => style.height = Some(*s),
         Declaration::Margin(s) => style.margin = *s,

@@ -35,6 +35,7 @@ pub fn parse_ident(input: &str) -> IResult<&str, &str> {
 
 /// Parse a color value.
 /// Handles: hex (#rgb, #rrggbb), rgb(), rgba(), hsl(), hsla(), named colors, auto, transparent
+/// Also handles optional alpha percentage suffix: `magenta 40%` -> magenta with 40% alpha
 pub fn parse_color(input: &str) -> IResult<&str, RgbaColor> {
     let input = input.trim_start();
     let end = find_color_end(input);
@@ -47,20 +48,56 @@ pub fn parse_color(input: &str) -> IResult<&str, RgbaColor> {
     }
 
     let color_str = &input[..end];
+    let remaining = &input[end..];
 
     // Handle Theme Variables ($primary, etc.)
     if color_str.starts_with('$') {
         // Strip the '$' and store the name
-        return Ok((&input[end..], RgbaColor::theme_variable(&color_str[1..])));
+        return Ok((remaining, RgbaColor::theme_variable(&color_str[1..])));
     }
 
     match RgbaColor::parse(color_str) {
-        Ok(color) => Ok((&input[end..], color)),
+        Ok(color) => {
+            // Try to parse optional alpha percentage suffix (e.g., " 40%")
+            let (remaining, color) = parse_optional_alpha(remaining, color);
+            Ok((remaining, color))
+        }
         Err(_) => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
         ))),
     }
+}
+
+/// Parse an optional alpha percentage suffix (e.g., " 40%").
+/// Returns the remaining input and the color with updated alpha.
+fn parse_optional_alpha(input: &str, mut color: RgbaColor) -> (&str, RgbaColor) {
+    // Try to parse: whitespace + number + '%'
+    let trimmed = input.trim_start();
+
+    // Look for pattern: digits followed by '%'
+    let mut end = 0;
+    let mut found_digits = false;
+    for (i, c) in trimmed.char_indices() {
+        if c.is_ascii_digit() || c == '.' {
+            found_digits = true;
+            end = i + c.len_utf8();
+        } else if c == '%' && found_digits {
+            // Parse the percentage
+            let percent_str = &trimmed[..end];
+            if let Ok(percent) = percent_str.parse::<f32>() {
+                color.a = percent / 100.0;
+                // Return after the '%'
+                return (&trimmed[end + 1..], color);
+            }
+            break;
+        } else {
+            break;
+        }
+    }
+
+    // No alpha percentage found, return original
+    (input, color)
 }
 
 /// Find the end of a color token, respecting parentheses.

@@ -145,6 +145,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
     let (input, declaration) = match property {
         "color" => map(values::parse_color, Declaration::Color)(input)?,
         "background" => map(values::parse_color, Declaration::Background)(input)?,
+        "tint" => map(values::parse_color, Declaration::Tint)(input)?,
         "width" => map(units::parse_scalar, Declaration::Width)(input)?,
         "height" => map(units::parse_scalar, Declaration::Height)(input)?,
         "margin" => map(units::parse_spacing, Declaration::Margin)(input)?,
