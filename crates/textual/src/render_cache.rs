@@ -6,7 +6,7 @@
 use tcss::types::ComputedStyle;
 use tcss::types::border::BorderKind;
 
-use crate::border_box::{get_box, BoxSegments};
+use crate::border_box::{BoxSegments, get_box};
 use crate::border_render::{render_middle_row, render_row};
 use crate::segment::Style;
 use crate::strip::Strip;
@@ -186,7 +186,10 @@ impl RenderCache {
 
     /// Returns the padding style for blank areas.
     fn pad_style(&self) -> Option<Style> {
-        self.style.background.as_ref().map(|bg| Style::with_bg(bg.clone()))
+        self.style
+            .background
+            .as_ref()
+            .map(|bg| Style::with_bg(bg.clone()))
     }
 }
 
@@ -226,8 +229,8 @@ fn style_from_computed(computed: &ComputedStyle) -> Style {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tcss::types::border::{Border, BorderEdge};
     use tcss::types::RgbaColor;
+    use tcss::types::border::{Border, BorderEdge};
 
     fn style_with_round_border() -> ComputedStyle {
         let mut style = ComputedStyle::default();
