@@ -55,7 +55,7 @@ fn test_first_line_is_rendered_at_scroll_zero() {
 
     // Create content with 5 lines
     let content = TestLines::new(5);
-    let mut container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let mut container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     // Set overflow to auto so scrollbar logic is active
     let mut style = ComputedStyle::default();
@@ -81,7 +81,7 @@ fn test_all_visible_lines_are_rendered() {
     let region = Region::new(0, 0, 30, 5);
 
     let content = TestLines::new(10);
-    let mut container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let mut container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     let mut style = ComputedStyle::default();
     style.overflow_y = Overflow::Auto;
@@ -112,7 +112,7 @@ fn test_scrollbar_hidden_by_default_overflow() {
     // With default overflow:hidden, no scrollbar should be rendered even when
     // content exceeds viewport. Content is simply clipped.
     let content = TestLines::new(50);
-    let container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     let mut canvas = Canvas::new(30, 10);
     let region = Region::new(0, 0, 30, 10);
@@ -148,7 +148,7 @@ fn test_scrollbar_hidden_by_default_overflow() {
 #[test]
 fn test_scrollbar_visible_with_overflow_auto() {
     let content = TestLines::new(50);
-    let mut container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let mut container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     // Set overflow to auto - scrollbar should appear when content exceeds viewport
     let mut style = ComputedStyle::default();
@@ -178,7 +178,7 @@ fn test_scrollbar_visible_with_overflow_auto() {
 #[test]
 fn test_scrollbar_visible_with_overflow_scroll() {
     let content = TestLines::new(5); // Content fits in viewport
-    let mut container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let mut container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     // Set overflow to scroll - scrollbar should ALWAYS appear
     let mut style = ComputedStyle::default();
@@ -202,7 +202,7 @@ fn test_scrollbar_visible_with_overflow_scroll() {
 #[test]
 fn test_line_01_visible_with_overflow_y_scroll() {
     let content = TestLines::new(50);
-    let mut container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let mut container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     // Set overflow-y: scroll (horizontal should default to Hidden)
     let mut style = ComputedStyle::default();
@@ -225,7 +225,7 @@ fn test_line_01_visible_with_overflow_y_scroll() {
 #[test]
 fn test_no_horizontal_scrollbar_when_overflow_hidden() {
     let content = TestLines::new(50);
-    let mut container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let mut container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     // Only vertical scroll, no horizontal
     let mut style = ComputedStyle::default();
@@ -317,7 +317,7 @@ fn test_css_style_application() {
 
     // Create container
     let content = TestLines::new(50);
-    let mut container = ScrollableContainer::<Msg>::new(Box::new(content));
+    let mut container = ScrollableContainer::<Msg>::from_child(Box::new(content));
 
     // Get widget meta for CSS matching
     let meta = container.get_meta();

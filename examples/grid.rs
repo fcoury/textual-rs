@@ -1,4 +1,4 @@
-use textual::{App, Compose, Grid, KeyCode, Static, Widget};
+use textual::{App, Compose, Grid, KeyCode, Static, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
@@ -17,17 +17,17 @@ impl Compose for MyApp {
     type Message = Message;
 
     fn compose(&self) -> Box<dyn Widget<Self::Message>> {
-        Box::new(Grid::new(vec![
-            Box::new(
-                Static::new("Grid cell 1\n\nrow-span: 3;\ncolumn-span: 2;").with_id("static1"),
-            ),
-            Box::new(Static::new("Grid cell 2").with_id("static2")),
-            Box::new(Static::new("Grid cell 3").with_id("static3")),
-            Box::new(Static::new("Grid cell 4").with_id("static4")),
-            Box::new(Static::new("Grid cell 5").with_id("static5")),
-            Box::new(Static::new("Grid cell 6").with_id("static6")),
-            Box::new(Static::new("Grid cell 7").with_id("static7")),
-        ]))
+        ui! {
+            Grid {
+                Static("Grid cell 1\n\nrow-span: 3;\ncolumn-span: 2;", id: "static1")
+                Static("Grid cell 2", id: "static2")
+                Static("Grid cell 3", id: "static3")
+                Static("Grid cell 4", id: "static4")
+                Static("Grid cell 5", id: "static5")
+                Static("Grid cell 6", id: "static6")
+                Static("Grid cell 7", id: "static7")
+            }
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use textual::{App, Compose, Grid, KeyCode, Label, Widget};
+use textual::{App, Compose, Grid, KeyCode, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
@@ -17,13 +17,15 @@ impl Compose for MyApp {
     type Message = Message;
 
     fn compose(&self) -> Box<dyn Widget<Self::Message>> {
-        Box::new(Grid::new(vec![
-            Box::new(Label::new("1")),
-            Box::new(Label::new("2")),
-            Box::new(Label::new("3")),
-            Box::new(Label::new("4")),
-            Box::new(Label::new("5")),
-        ]))
+        ui! {
+            Grid {
+                Label("1")
+                Label("2")
+                Label("3")
+                Label("4")
+                Label("5")
+            }
+        }
     }
 }
 

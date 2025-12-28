@@ -15,8 +15,8 @@
 use std::time::Duration;
 
 use textual::{
-    App, AppContext, Compose, IntervalHandle, KeyCode, MessageEnvelope, Result, Switch, Vertical,
-    Widget, log, ui,
+    App, AppContext, Center, Compose, IntervalHandle, KeyCode, MessageEnvelope, Middle, Result,
+    Switch, Vertical, Widget, log, ui,
 };
 
 #[derive(Debug, Clone)]
@@ -78,19 +78,13 @@ impl Compose for ApiApp {
                 Center {
                     Vertical {
                         // WiFi switch - starts loading, then shows actual state
-                        Switch::new(self.wifi_enabled, Message::WifiToggled)
-                            .with_id("wifi")
-                            .with_loading(self.wifi_loading)
-                            .with_spinner_frame(self.spinner_frame),
+                        Switch(self.wifi_enabled, Message::WifiToggled,
+                            id: "wifi", loading: self.wifi_loading, spinner_frame: self.spinner_frame)
                         // Bluetooth switch - starts loading, then shows actual state
-                        Switch::new(self.bluetooth_enabled, Message::BluetoothToggled)
-                            .with_id("bluetooth")
-                            .with_loading(self.bluetooth_loading)
-                            .with_spinner_frame(self.spinner_frame),
+                        Switch(self.bluetooth_enabled, Message::BluetoothToggled,
+                            id: "bluetooth", loading: self.bluetooth_loading, spinner_frame: self.spinner_frame)
                         // Disabled switch - always disabled, shows how disabled state works
-                        Switch::new(false, Message::DisabledToggled)
-                            .with_id("disabled-demo")
-                            .with_disabled(true)
+                        Switch(false, Message::DisabledToggled, id: "disabled-demo", disabled: true)
                     }
                 }
             }
@@ -133,7 +127,11 @@ impl App for ApiApp {
             }
             KeyCode::BackTab | KeyCode::Up => {
                 // Cycle backward
-                self.focus_idx = if self.focus_idx == 0 { 1 } else { self.focus_idx - 1 };
+                self.focus_idx = if self.focus_idx == 0 {
+                    1
+                } else {
+                    self.focus_idx - 1
+                };
             }
             _ => {}
         }
@@ -166,7 +164,10 @@ impl App for ApiApp {
                 self.wifi_enabled = status;
             }
             Message::BluetoothLoaded(status) => {
-                log::info!("Bluetooth API returned: {}", if status { "ON" } else { "OFF" });
+                log::info!(
+                    "Bluetooth API returned: {}",
+                    if status { "ON" } else { "OFF" }
+                );
                 self.bluetooth_loading = false;
                 self.bluetooth_enabled = status;
 
@@ -178,14 +179,16 @@ impl App for ApiApp {
                 }
             }
             Message::WifiToggled(enabled) => {
-                log::info!("WiFi toggled to {} by {:?}",
+                log::info!(
+                    "WiFi toggled to {} by {:?}",
                     enabled,
                     envelope.sender_id.as_deref().unwrap_or("unknown")
                 );
                 self.wifi_enabled = enabled;
             }
             Message::BluetoothToggled(enabled) => {
-                log::info!("Bluetooth toggled to {} by {:?}",
+                log::info!(
+                    "Bluetooth toggled to {} by {:?}",
                     enabled,
                     envelope.sender_id.as_deref().unwrap_or("unknown")
                 );

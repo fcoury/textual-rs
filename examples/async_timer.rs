@@ -8,8 +8,8 @@
 use std::time::Duration;
 
 use textual::{
-    App, AppContext, Compose, IntervalHandle, KeyCode, MessageEnvelope, Result, Switch, Vertical,
-    Widget, log, ui,
+    App, AppContext, Center, Compose, IntervalHandle, KeyCode, MessageEnvelope, Middle, Result,
+    Switch, Vertical, Widget, log, ui,
 };
 
 #[derive(Debug, Clone)]
@@ -71,8 +71,7 @@ impl Compose for TimerApp {
             Middle {
                 Center {
                     Vertical {
-                        Switch::new(self.timer_enabled, Message::SwitchToggled)
-                            .with_id("timer-toggle")
+                        Switch(self.timer_enabled, Message::SwitchToggled, id: "timer-toggle")
                     }
                 }
             }
