@@ -8,6 +8,7 @@ pub mod context;
 pub mod error;
 pub mod fraction;
 mod log_init;
+mod macros;
 pub mod message;
 pub mod render_cache;
 pub mod scroll;
@@ -39,7 +40,8 @@ pub use scroll::{ScrollMessage, ScrollState};
 pub use scrollbar::{ScrollBarRender, ScrollbarGlyphs};
 pub use tcss::TcssError;
 pub use visual::VisualType;
-pub use widget::label::Label;
+pub use widget::label::{Label, LabelVariant};
+pub use widget::static_widget::Static;
 
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
@@ -421,58 +423,4 @@ where
             Ok(())
         }
     }
-}
-
-#[macro_export]
-macro_rules! ui {
-    // === Entry Points for Layouts ===
-    (Vertical { $($children:tt)* }) => {
-        $crate::ui!(@collect Vertical, [], $($children)*)
-    };
-
-    (Horizontal { $($children:tt)* }) => {
-        $crate::ui!(@collect Horizontal, [], $($children)*)
-    };
-
-    // === Entry Points for Single-child Wrappers ===
-    (Middle { $($inner:tt)* }) => {
-        Box::new($crate::Middle::new($crate::ui!($($inner)*)))
-    };
-
-    (Center { $($inner:tt)* }) => {
-        Box::new($crate::Center::new($crate::ui!($($inner)*)))
-    };
-
-    // === The Collector (Muncher) ===
-    // This part moves items from the "todo" list into the "accumulator" list
-
-    // 1. Process a nested container child
-    (@collect $kind:ident, [$($acc:expr),*], $child:ident { $($inner:tt)* }, $($rest:tt)*) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($child { $($inner)* })], $($rest)*)
-    };
-    (@collect $kind:ident, [$($acc:expr),*], $child:ident { $($inner:tt)* }) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($child { $($inner)* })])
-    };
-
-    // 2. Process a leaf widget child (e.g. Switch::new)
-    (@collect $kind:ident, [$($acc:expr),*], $leaf:ident :: new ( $($args:tt)* ) $( . $meth:ident ( $($m_args:tt)* ) )* , $($rest:tt)*) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($leaf :: new ( $($args)* ) $( . $meth ( $($m_args)* ) )*)], $($rest)*)
-    };
-    (@collect $kind:ident, [$($acc:expr),*], $leaf:ident :: new ( $($args:tt)* ) $( . $meth:ident ( $($m_args:tt)* ) )*) => {
-        $crate::ui!(@collect $kind, [$($acc,)* $crate::ui!($leaf :: new ( $($args)* ) $( . $meth ( $($m_args)* ) )*)])
-    };
-
-    // 3. Finalization: All children are in the accumulator, create the Boxed container
-    (@collect $kind:ident, [$($acc:expr),*]) => {
-        Box::new($kind::new(vec![$($acc),*]))
-    };
-
-    // === Leaf Widget & Fallback ===
-    ($leaf:ident :: new ( $($args:expr),* ) $( . $meth:ident ( $($m_args:expr),* ) )*) => {
-        Box::new($leaf::new( $($args),* ) $( . $meth ( $($m_args),* ) )*)
-    };
-
-    ($e:expr) => {
-        $e
-    };
 }

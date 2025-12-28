@@ -3,6 +3,7 @@ pub mod placeholder;
 pub mod screen;
 pub mod scrollbar;
 pub mod scrollbar_corner;
+pub mod static_widget;
 pub mod switch;
 
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
