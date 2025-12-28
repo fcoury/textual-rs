@@ -43,7 +43,7 @@ pub use layout::{Display, Layout, Overflow, Visibility};
 pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
-pub use theme::Theme;
+pub use theme::{ColorSystem, Theme};
 
 /// The final computed style for a widget after cascade resolution.
 ///
