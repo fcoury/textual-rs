@@ -11,6 +11,7 @@
 //! - [`Theme`]: Color theme definitions
 //! - [`ComputedStyle`]: Final computed styles for a widget
 //! - [`ScrollbarStyle`]: Scrollbar styling and configuration
+//! - [`LinkStyle`]: Link styling (colors and text styles)
 //!
 //! ## Module Organization
 //!
@@ -20,6 +21,7 @@
 //! - [`text`]: Text styling and alignment
 //! - [`layout`]: Display modes, layout modes, visibility, and overflow
 //! - [`grid`]: CSS Grid configuration and child placement
+//! - [`link`]: Link styling configuration
 //! - [`theme`]: Theme color palettes
 //! - [`scrollbar`]: Scrollbar styling, sizes, and visibility
 
@@ -28,6 +30,7 @@ pub mod color;
 pub mod geometry;
 pub mod grid;
 pub mod layout;
+pub mod link;
 pub mod scrollbar;
 pub mod text;
 pub mod theme;
@@ -37,6 +40,7 @@ pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing, Unit};
 pub use grid::{GridPlacement, GridStyle};
 pub use layout::{Display, Layout, Overflow, Visibility};
+pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
 pub use theme::Theme;
@@ -90,6 +94,9 @@ pub struct ComputedStyle {
 
     // Scrollbar styling
     pub scrollbar: ScrollbarStyle,
+
+    // Link styling
+    pub link: LinkStyle,
 }
 
 impl Default for ComputedStyle {
@@ -120,6 +127,7 @@ impl Default for ComputedStyle {
             overflow_x: Overflow::default(),
             overflow_y: Overflow::default(),
             scrollbar: ScrollbarStyle::default(),
+            link: LinkStyle::default(),
         }
     }
 }

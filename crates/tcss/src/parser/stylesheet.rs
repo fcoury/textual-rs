@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{BorderEdge, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing};
+use crate::types::{BorderEdge, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -254,6 +254,20 @@ pub enum Declaration {
     ColumnSpan(u16),
     /// The `row-span` property (child spans multiple rows).
     RowSpan(u16),
+
+    // Link properties
+    /// The `link-color` property for link text color.
+    LinkColor(RgbaColor),
+    /// The `link-color-hover` property for link text color on hover.
+    LinkColorHover(RgbaColor),
+    /// The `link-background` property for link background color.
+    LinkBackground(RgbaColor),
+    /// The `link-background-hover` property for link background color on hover.
+    LinkBackgroundHover(RgbaColor),
+    /// The `link-style` property for link text style (bold, underline, etc.).
+    LinkStyle(TextStyle),
+    /// The `link-style-hover` property for link text style on hover.
+    LinkStyleHover(TextStyle),
 
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),
