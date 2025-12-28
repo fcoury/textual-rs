@@ -338,6 +338,14 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.link.style_hover = resolve_theme_style(s, theme);
         }
 
+        // Content alignment properties
+        Declaration::ContentAlignHorizontal(a) => {
+            style.content_align_horizontal = *a;
+        }
+        Declaration::ContentAlignVertical(a) => {
+            style.content_align_vertical = *a;
+        }
+
         Declaration::Unknown(_) => {}
     }
 }

@@ -192,6 +192,10 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "link-style" => map(values::parse_text_style, Declaration::LinkStyle)(input)?,
         "link-style-hover" => map(values::parse_text_style, Declaration::LinkStyleHover)(input)?,
 
+        // Content alignment properties
+        "content-align-horizontal" => map(values::parse_align_horizontal, Declaration::ContentAlignHorizontal)(input)?,
+        "content-align-vertical" => map(values::parse_align_vertical, Declaration::ContentAlignVertical)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;
