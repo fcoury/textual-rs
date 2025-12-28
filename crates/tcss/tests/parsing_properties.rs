@@ -12,6 +12,7 @@ use tcss::parser::{Declaration, parse_rule};
 use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
+use tcss::types::text::TextStyle;
 use tcss::types::{Layout, Overflow};
 
 /// Helper to parse a simple rule and extract declarations
@@ -767,5 +768,171 @@ fn test_scrollbar_multiple_properties() {
         assert_eq!(*c, RgbaColor::rgb(34, 34, 34));
     } else {
         panic!("expected ScrollbarBackground");
+    }
+}
+
+// ============================================================================
+// LINK PROPERTIES
+// ============================================================================
+
+#[test]
+fn test_property_link_color() {
+    let decl = parse_first_declaration("Link { link-color: blue; }");
+    if let Declaration::LinkColor(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(0, 0, 255));
+    } else {
+        panic!("expected LinkColor declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_link_color_hex() {
+    let decl = parse_first_declaration("Link { link-color: #1e90ff; }");
+    if let Declaration::LinkColor(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(30, 144, 255));
+    } else {
+        panic!("expected LinkColor declaration");
+    }
+}
+
+#[test]
+fn test_property_link_color_hover() {
+    let decl = parse_first_declaration("Link { link-color-hover: cyan; }");
+    if let Declaration::LinkColorHover(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(0, 255, 255));
+    } else {
+        panic!("expected LinkColorHover declaration");
+    }
+}
+
+#[test]
+fn test_property_link_background() {
+    let decl = parse_first_declaration("Link { link-background: yellow; }");
+    if let Declaration::LinkBackground(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(255, 255, 0));
+    } else {
+        panic!("expected LinkBackground declaration");
+    }
+}
+
+#[test]
+fn test_property_link_background_hover() {
+    let decl = parse_first_declaration("Link { link-background-hover: #333333; }");
+    if let Declaration::LinkBackgroundHover(c) = decl {
+        assert_eq!(c, RgbaColor::rgb(51, 51, 51));
+    } else {
+        panic!("expected LinkBackgroundHover declaration");
+    }
+}
+
+#[test]
+fn test_property_link_style_single() {
+    let decl = parse_first_declaration("Link { link-style: underline; }");
+    if let Declaration::LinkStyle(s) = decl {
+        assert!(s.underline);
+        assert!(!s.bold);
+        assert!(!s.italic);
+    } else {
+        panic!("expected LinkStyle declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_link_style_multiple() {
+    let decl = parse_first_declaration("Link { link-style: bold underline; }");
+    if let Declaration::LinkStyle(s) = decl {
+        assert!(s.bold);
+        assert!(s.underline);
+        assert!(!s.italic);
+    } else {
+        panic!("expected LinkStyle declaration");
+    }
+}
+
+#[test]
+fn test_property_link_style_hover() {
+    let decl = parse_first_declaration("Link { link-style-hover: bold italic reverse; }");
+    if let Declaration::LinkStyleHover(s) = decl {
+        assert!(s.bold);
+        assert!(s.italic);
+        assert!(s.reverse);
+        assert!(!s.underline);
+    } else {
+        panic!("expected LinkStyleHover declaration");
+    }
+}
+
+#[test]
+fn test_property_link_style_none() {
+    let decl = parse_first_declaration("Link { link-style: none; }");
+    if let Declaration::LinkStyle(s) = decl {
+        assert_eq!(s, TextStyle::default());
+    } else {
+        panic!("expected LinkStyle declaration");
+    }
+}
+
+#[test]
+fn test_property_link_style_all_modifiers() {
+    let decl = parse_first_declaration("Link { link-style: bold dim italic underline blink reverse strike; }");
+    if let Declaration::LinkStyle(s) = decl {
+        assert!(s.bold);
+        assert!(s.dim);
+        assert!(s.italic);
+        assert!(s.underline);
+        assert!(s.blink);
+        assert!(s.reverse);
+        assert!(s.strike);
+    } else {
+        panic!("expected LinkStyle declaration");
+    }
+}
+
+#[test]
+fn test_link_multiple_properties() {
+    let decls = parse_declarations(
+        "Link { link-color: blue; link-background: transparent; link-style: underline; }"
+    );
+    assert_eq!(decls.len(), 3);
+
+    if let Declaration::LinkColor(c) = &decls[0] {
+        assert_eq!(*c, RgbaColor::rgb(0, 0, 255));
+    } else {
+        panic!("expected LinkColor");
+    }
+
+    if let Declaration::LinkBackground(c) = &decls[1] {
+        assert!(c.is_transparent());
+    } else {
+        panic!("expected LinkBackground");
+    }
+
+    if let Declaration::LinkStyle(s) = &decls[2] {
+        assert!(s.underline);
+    } else {
+        panic!("expected LinkStyle");
+    }
+}
+
+#[test]
+fn test_property_link_style_theme_variable() {
+    let decl = parse_first_declaration("Link { link-style: $link-style; }");
+    if let Declaration::LinkStyle(s) = decl {
+        assert_eq!(s.theme_var, Some("link-style".to_string()));
+        // When using a theme variable, the style flags should be default (false)
+        assert!(!s.underline);
+        assert!(!s.bold);
+    } else {
+        panic!("expected LinkStyle declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_link_style_hover_theme_variable() {
+    let decl = parse_first_declaration("Link { link-style-hover: $link-style-hover; }");
+    if let Declaration::LinkStyleHover(s) = decl {
+        assert_eq!(s.theme_var, Some("link-style-hover".to_string()));
+    } else {
+        panic!("expected LinkStyleHover declaration, got {:?}", decl);
     }
 }
