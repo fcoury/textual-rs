@@ -318,6 +318,26 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.grid_placement.row_span = *n;
         }
 
+        // Link properties
+        Declaration::LinkColor(c) => {
+            style.link.color = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::LinkColorHover(c) => {
+            style.link.color_hover = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::LinkBackground(c) => {
+            style.link.background = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::LinkBackgroundHover(c) => {
+            style.link.background_hover = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::LinkStyle(s) => {
+            style.link.style = resolve_theme_style(s, theme);
+        }
+        Declaration::LinkStyleHover(s) => {
+            style.link.style_hover = resolve_theme_style(s, theme);
+        }
+
         Declaration::Unknown(_) => {}
     }
 }
@@ -343,5 +363,13 @@ fn resolve_theme_color(color: &RgbaColor, theme: &Theme) -> RgbaColor {
         resolved
     } else {
         color.clone()
+    }
+}
+
+fn resolve_theme_style(style: &crate::types::TextStyle, theme: &Theme) -> crate::types::TextStyle {
+    if let Some(var_name) = &style.theme_var {
+        theme.get_style(var_name).unwrap_or_default()
+    } else {
+        style.clone()
     }
 }

@@ -184,6 +184,14 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "column-span" => map(units::parse_u16, Declaration::ColumnSpan)(input)?,
         "row-span" => map(units::parse_u16, Declaration::RowSpan)(input)?,
 
+        // Link properties
+        "link-color" => map(values::parse_color, Declaration::LinkColor)(input)?,
+        "link-color-hover" => map(values::parse_color, Declaration::LinkColorHover)(input)?,
+        "link-background" => map(values::parse_color, Declaration::LinkBackground)(input)?,
+        "link-background-hover" => map(values::parse_color, Declaration::LinkBackgroundHover)(input)?,
+        "link-style" => map(values::parse_text_style, Declaration::LinkStyle)(input)?,
+        "link-style-hover" => map(values::parse_text_style, Declaration::LinkStyleHover)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;
