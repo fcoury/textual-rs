@@ -290,6 +290,122 @@ impl<M> Grid<M> {
             })
             .collect()
     }
+
+    /// Compute regions for all visible children using Tetris-style placement.
+    ///
+    /// Returns a vector of (child_index, Region) pairs for each visible child
+    /// that fits within the grid. This shared logic is used by both `render`
+    /// and `on_mouse` to ensure consistent placement.
+    fn compute_child_regions(&self, region: Region) -> Vec<(usize, Region)> {
+        let visible_count = self.visible_children();
+        if visible_count == 0 {
+            return Vec::new();
+        }
+
+        let cols = self.column_count();
+        let rows = self.row_count(visible_count);
+
+        // Get gutter values
+        let gutter_v = self.resolve_scalar(&self.style.grid.gutter.0, region.height);
+        let gutter_h = self.resolve_scalar(&self.style.grid.gutter.1, region.width);
+
+        // Resolve tracks with pre-computed offsets (matches Python Textual)
+        let columns = self.resolve_tracks(
+            &self.style.grid.column_widths,
+            cols,
+            region.width,
+            gutter_h,
+        );
+        let row_tracks = self.resolve_tracks(
+            &self.style.grid.row_heights,
+            rows,
+            region.height,
+            gutter_v,
+        );
+
+        // Create occupancy grid for Tetris-style placement
+        let mut occupancy = OccupancyGrid::new(rows, cols);
+        let mut current_row = 0;
+        let mut current_col = 0;
+        let mut result = Vec::new();
+
+        for (child_index, child) in self.children.iter().enumerate() {
+            if !child.is_visible() {
+                continue;
+            }
+
+            // Get span values from child's computed style
+            let child_style = child.get_style();
+            let col_span = (child_style.grid_placement.column_span as usize).max(1);
+            let row_span = (child_style.grid_placement.row_span as usize).max(1);
+
+            // Find next position where this widget fits (Tetris algorithm)
+            let placed = loop {
+                match occupancy.find_next_free(current_row, current_col) {
+                    Some((r, c)) => {
+                        current_row = r;
+                        current_col = c;
+
+                        // Clamp spans to grid bounds
+                        let effective_col_span = col_span.min(cols - current_col);
+                        let effective_row_span = row_span.min(rows - current_row);
+
+                        if occupancy.can_fit(
+                            current_row,
+                            current_col,
+                            effective_row_span,
+                            effective_col_span,
+                        ) {
+                            // Mark cells as occupied
+                            occupancy.occupy(
+                                current_row,
+                                current_col,
+                                effective_row_span,
+                                effective_col_span,
+                            );
+
+                            // Calculate spanning region
+                            let cell_region = child_region(
+                                current_col,
+                                current_row,
+                                effective_col_span,
+                                effective_row_span,
+                                &columns,
+                                &row_tracks,
+                                region,
+                                gutter_h,
+                                gutter_v,
+                            );
+
+                            result.push((child_index, cell_region));
+
+                            // Advance to next column for next widget
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                            break true;
+                        } else {
+                            // Can't fit here, try next cell
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                        }
+                    }
+                    None => break false, // No more space in grid
+                }
+            };
+
+            if !placed || current_row >= rows {
+                break; // Grid is full
+            }
+        }
+
+        result
+    }
 }
 
 /// Calculate the region for a child at the given grid position with span support.
@@ -357,111 +473,8 @@ impl<M> Widget<M> for Grid<M> {
 
         canvas.push_clip(region);
 
-        let visible_count = self.visible_children();
-        if visible_count == 0 {
-            canvas.pop_clip();
-            return;
-        }
-
-        let cols = self.column_count();
-        let rows = self.row_count(visible_count);
-
-        // Get gutter values
-        let gutter_v = self.resolve_scalar(&self.style.grid.gutter.0, region.height);
-        let gutter_h = self.resolve_scalar(&self.style.grid.gutter.1, region.width);
-
-        // Resolve tracks with pre-computed offsets (matches Python Textual)
-        let columns = self.resolve_tracks(
-            &self.style.grid.column_widths,
-            cols,
-            region.width,
-            gutter_h,
-        );
-        let row_tracks = self.resolve_tracks(
-            &self.style.grid.row_heights,
-            rows,
-            region.height,
-            gutter_v,
-        );
-
-        // Create occupancy grid for Tetris-style placement
-        let mut occupancy = OccupancyGrid::new(rows, cols);
-        let mut current_row = 0;
-        let mut current_col = 0;
-
-        for child in &self.children {
-            if !child.is_visible() {
-                continue;
-            }
-
-            // Get span values from child's computed style
-            let child_style = child.get_style();
-            let col_span = (child_style.grid_placement.column_span as usize).max(1);
-            let row_span = (child_style.grid_placement.row_span as usize).max(1);
-
-            // Find next position where this widget fits (Tetris algorithm)
-            let placed = loop {
-                match occupancy.find_next_free(current_row, current_col) {
-                    Some((r, c)) => {
-                        current_row = r;
-                        current_col = c;
-
-                        // Clamp spans to grid bounds
-                        let effective_col_span = col_span.min(cols - current_col);
-                        let effective_row_span = row_span.min(rows - current_row);
-
-                        if occupancy.can_fit(
-                            current_row,
-                            current_col,
-                            effective_row_span,
-                            effective_col_span,
-                        ) {
-                            // Mark cells as occupied
-                            occupancy.occupy(
-                                current_row,
-                                current_col,
-                                effective_row_span,
-                                effective_col_span,
-                            );
-
-                            // Calculate spanning region
-                            let cell_region = child_region(
-                                current_col,
-                                current_row,
-                                effective_col_span,
-                                effective_row_span,
-                                &columns,
-                                &row_tracks,
-                                region,
-                                gutter_h,
-                                gutter_v,
-                            );
-
-                            child.render(canvas, cell_region);
-
-                            // Advance to next column for next widget
-                            current_col += 1;
-                            if current_col >= cols {
-                                current_col = 0;
-                                current_row += 1;
-                            }
-                            break true;
-                        } else {
-                            // Can't fit here, try next cell
-                            current_col += 1;
-                            if current_col >= cols {
-                                current_col = 0;
-                                current_row += 1;
-                            }
-                        }
-                    }
-                    None => break false, // No more space in grid
-                }
-            };
-
-            if !placed || current_row >= rows {
-                break; // Grid is full
-            }
+        for (child_index, cell_region) in self.compute_child_regions(region) {
+            self.children[child_index].render(canvas, cell_region);
         }
 
         canvas.pop_clip();
@@ -540,107 +553,15 @@ impl<M> Widget<M> for Grid<M> {
             return None;
         }
 
-        let visible_count = self.visible_children();
-        if visible_count == 0 {
-            return None;
-        }
+        // Compute regions first (borrows self immutably)
+        let child_regions = self.compute_child_regions(region);
 
-        let cols = self.column_count();
-        let rows = self.row_count(visible_count);
-
-        let gutter_v = self.resolve_scalar(&self.style.grid.gutter.0, region.height);
-        let gutter_h = self.resolve_scalar(&self.style.grid.gutter.1, region.width);
-
-        // Resolve tracks with pre-computed offsets (matches Python Textual)
-        let columns = self.resolve_tracks(
-            &self.style.grid.column_widths,
-            cols,
-            region.width,
-            gutter_h,
-        );
-        let row_tracks = self.resolve_tracks(
-            &self.style.grid.row_heights,
-            rows,
-            region.height,
-            gutter_v,
-        );
-
-        // Mirror the render placement algorithm (Tetris-style)
-        let mut occupancy = OccupancyGrid::new(rows, cols);
-        let mut current_row = 0;
-        let mut current_col = 0;
-
-        for child in &mut self.children {
-            if !child.is_visible() {
-                continue;
-            }
-
-            let child_style = child.get_style();
-            let col_span = (child_style.grid_placement.column_span as usize).max(1);
-            let row_span = (child_style.grid_placement.row_span as usize).max(1);
-
-            // Same placement logic as render()
-            loop {
-                match occupancy.find_next_free(current_row, current_col) {
-                    Some((r, c)) => {
-                        current_row = r;
-                        current_col = c;
-
-                        let effective_col_span = col_span.min(cols - current_col);
-                        let effective_row_span = row_span.min(rows - current_row);
-
-                        if occupancy.can_fit(
-                            current_row,
-                            current_col,
-                            effective_row_span,
-                            effective_col_span,
-                        ) {
-                            occupancy.occupy(
-                                current_row,
-                                current_col,
-                                effective_row_span,
-                                effective_col_span,
-                            );
-
-                            let cell_region = child_region(
-                                current_col,
-                                current_row,
-                                effective_col_span,
-                                effective_row_span,
-                                &columns,
-                                &row_tracks,
-                                region,
-                                gutter_h,
-                                gutter_v,
-                            );
-
-                            // Check if mouse is in this cell
-                            if cell_region.contains_point(mx, my) {
-                                if let Some(msg) = child.on_mouse(event, cell_region) {
-                                    return Some(msg);
-                                }
-                            }
-
-                            current_col += 1;
-                            if current_col >= cols {
-                                current_col = 0;
-                                current_row += 1;
-                            }
-                            break;
-                        } else {
-                            current_col += 1;
-                            if current_col >= cols {
-                                current_col = 0;
-                                current_row += 1;
-                            }
-                        }
-                    }
-                    None => break,
+        // Then iterate and dispatch mouse events (borrows self mutably)
+        for (child_index, cell_region) in child_regions {
+            if cell_region.contains_point(mx, my) {
+                if let Some(msg) = self.children[child_index].on_mouse(event, cell_region) {
+                    return Some(msg);
                 }
-            }
-
-            if current_row >= rows {
-                break;
             }
         }
 
