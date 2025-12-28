@@ -452,3 +452,31 @@ fn test_color_with_leading_whitespace() {
     let (_, color) = parse_color("  red").unwrap();
     assert_eq!(color, RgbaColor::rgb(255, 0, 0));
 }
+
+#[test]
+fn test_color_with_alpha_percentage() {
+    // Tint syntax: `magenta 40%` means magenta with 40% alpha
+    let (remaining, color) = parse_color("magenta 40%").unwrap();
+    assert!(remaining.is_empty());
+    assert_eq!(color.r, 255);
+    assert_eq!(color.g, 0);
+    assert_eq!(color.b, 255);
+    assert!((color.a - 0.4).abs() < 0.01);
+}
+
+#[test]
+fn test_color_with_alpha_percentage_hex() {
+    let (remaining, color) = parse_color("#ff0000 50%").unwrap();
+    assert!(remaining.is_empty());
+    assert_eq!(color.r, 255);
+    assert_eq!(color.g, 0);
+    assert_eq!(color.b, 0);
+    assert!((color.a - 0.5).abs() < 0.01);
+}
+
+#[test]
+fn test_color_no_alpha_percentage() {
+    // Color without alpha percentage should have alpha = 1.0
+    let (_, color) = parse_color("blue").unwrap();
+    assert_eq!(color.a, 1.0);
+}

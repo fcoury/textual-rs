@@ -11,7 +11,7 @@ use crate::border_render::{render_middle_row, render_row};
 use crate::segment::Style;
 use crate::strip::Strip;
 
-/// Orchestrates line-by-line rendering with borders.
+/// Orchestrates line-by-line rendering with borders and padding.
 ///
 /// The RenderCache handles the logic of determining what to render for each
 /// row of a widget: top border, content rows, or bottom border.
@@ -22,6 +22,11 @@ pub struct RenderCache {
     has_border: bool,
     /// The computed style for this widget.
     style: ComputedStyle,
+    /// Padding in cells (top, right, bottom, left).
+    padding_top: usize,
+    padding_right: usize,
+    padding_bottom: usize,
+    padding_left: usize,
 }
 
 impl RenderCache {
@@ -40,10 +45,20 @@ impl RenderCache {
             None
         };
 
+        // Extract padding (convert Scalar to cells)
+        let padding_top = style.padding.top.value as usize;
+        let padding_right = style.padding.right.value as usize;
+        let padding_bottom = style.padding.bottom.value as usize;
+        let padding_left = style.padding.left.value as usize;
+
         Self {
             border_box,
             has_border,
             style: style.clone(),
+            padding_top,
+            padding_right,
+            padding_bottom,
+            padding_left,
         }
     }
 
@@ -54,16 +69,43 @@ impl RenderCache {
 
     /// Returns the inner content region dimensions.
     ///
-    /// If the widget has borders, the content area is 2 cells smaller in
-    /// each dimension (1 cell for each border edge).
+    /// Accounts for both borders and padding. If the widget has borders,
+    /// the content area is 2 cells smaller in each dimension (1 cell for
+    /// each border edge). Padding is then subtracted from the remaining space.
     pub fn inner_size(&self, width: usize, height: usize) -> (usize, usize) {
-        if self.has_border && width >= 2 && height >= 2 {
+        // First, account for borders
+        let (w, h) = if self.has_border && width >= 2 && height >= 2 {
             (width - 2, height - 2)
         } else if self.has_border {
             (0, 0)
         } else {
             (width, height)
-        }
+        };
+
+        // Then account for padding
+        let padded_w = w.saturating_sub(self.padding_left + self.padding_right);
+        let padded_h = h.saturating_sub(self.padding_top + self.padding_bottom);
+        (padded_w, padded_h)
+    }
+
+    /// Returns the top padding in cells.
+    pub fn padding_top(&self) -> usize {
+        self.padding_top
+    }
+
+    /// Returns the right padding in cells.
+    pub fn padding_right(&self) -> usize {
+        self.padding_right
+    }
+
+    /// Returns the bottom padding in cells.
+    pub fn padding_bottom(&self) -> usize {
+        self.padding_bottom
+    }
+
+    /// Returns the left padding in cells.
+    pub fn padding_left(&self) -> usize {
+        self.padding_left
     }
 
     /// Renders a single line of the widget.
@@ -92,11 +134,33 @@ impl RenderCache {
         }
 
         if !self.has_border || self.border_box.is_none() {
-            // No border - just return content or blank
-            return match content_line {
-                Some(strip) => strip.adjust_cell_length(width, self.pad_style()),
-                None => Strip::blank(width, self.pad_style()),
+            // No border - but still apply horizontal padding
+            let content_width = width.saturating_sub(self.padding_left + self.padding_right);
+            let content_strip = match content_line {
+                Some(strip) => strip.adjust_cell_length(content_width, self.pad_style()),
+                None => Strip::blank(content_width, self.pad_style()),
             };
+
+            if self.padding_left == 0 && self.padding_right == 0 {
+                return content_strip;
+            }
+
+            // Build: padding_left + content + padding_right
+            let mut segments = Vec::new();
+            if self.padding_left > 0 {
+                segments.push(crate::segment::Segment::blank(
+                    self.padding_left,
+                    self.pad_style(),
+                ));
+            }
+            segments.extend(content_strip.segments().iter().cloned());
+            if self.padding_right > 0 {
+                segments.push(crate::segment::Segment::blank(
+                    self.padding_right,
+                    self.pad_style(),
+                ));
+            }
+            return Strip::from_segments(segments);
         }
 
         let box_segs = self.border_box.as_ref().unwrap();
@@ -108,8 +172,15 @@ impl RenderCache {
             // Bottom border row
             render_row(&box_segs[2], width, None, None)
         } else {
-            // Content row with side borders
-            render_middle_row(&box_segs[1], content_line, width, self.pad_style())
+            // Content row with side borders and padding
+            render_middle_row(
+                &box_segs[1],
+                content_line,
+                width,
+                self.pad_style(),
+                self.padding_left,
+                self.padding_right,
+            )
         }
     }
 
@@ -218,5 +289,68 @@ mod tests {
         let content = Strip::from_segment(crate::segment::Segment::new("Hi"));
         let line = cache.render_line(1, 3, 10, Some(&content), None);
         assert_eq!(line.text(), "│Hi      │");
+    }
+
+    // Padding tests
+
+    fn style_with_padding(top: f64, right: f64, bottom: f64, left: f64) -> ComputedStyle {
+        use tcss::types::Scalar;
+        let mut style = ComputedStyle::default();
+        style.padding.top = Scalar::cells(top);
+        style.padding.right = Scalar::cells(right);
+        style.padding.bottom = Scalar::cells(bottom);
+        style.padding.left = Scalar::cells(left);
+        style
+    }
+
+    #[test]
+    fn inner_size_with_padding() {
+        let style = style_with_padding(2.0, 2.0, 2.0, 2.0);
+        let cache = RenderCache::new(&style);
+        // 20x10 widget with 2-cell padding each side = 16x6 content
+        assert_eq!(cache.inner_size(20, 10), (16, 6));
+    }
+
+    #[test]
+    fn inner_size_with_asymmetric_padding() {
+        let style = style_with_padding(1.0, 2.0, 1.0, 2.0);
+        let cache = RenderCache::new(&style);
+        // 20x10 widget: width - 4 = 16, height - 2 = 8
+        assert_eq!(cache.inner_size(20, 10), (16, 8));
+    }
+
+    #[test]
+    fn inner_size_with_border_and_padding() {
+        let mut style = style_with_round_border();
+        style.padding.top = tcss::types::Scalar::cells(1.0);
+        style.padding.right = tcss::types::Scalar::cells(1.0);
+        style.padding.bottom = tcss::types::Scalar::cells(1.0);
+        style.padding.left = tcss::types::Scalar::cells(1.0);
+        let cache = RenderCache::new(&style);
+        // 20x10 - 2 border - 2 padding each dimension = 16x6
+        // width: 20 - 2 (border) - 2 (padding l+r) = 16
+        // height: 10 - 2 (border) - 2 (padding t+b) = 6
+        assert_eq!(cache.inner_size(20, 10), (16, 6));
+    }
+
+    #[test]
+    fn padding_getters() {
+        let style = style_with_padding(1.0, 2.0, 3.0, 4.0);
+        let cache = RenderCache::new(&style);
+        assert_eq!(cache.padding_top(), 1);
+        assert_eq!(cache.padding_right(), 2);
+        assert_eq!(cache.padding_bottom(), 3);
+        assert_eq!(cache.padding_left(), 4);
+    }
+
+    #[test]
+    fn render_line_no_border_with_padding() {
+        let style = style_with_padding(0.0, 2.0, 0.0, 2.0);
+        let cache = RenderCache::new(&style);
+        let content = Strip::from_segment(crate::segment::Segment::new("Hi"));
+        let line = cache.render_line(0, 1, 10, Some(&content), None);
+        // 2 spaces (padding_left) + "Hi" + 4 spaces (content padding) + 2 spaces (padding_right)
+        assert_eq!(line.text(), "  Hi      ");
+        assert_eq!(line.cell_length(), 10);
     }
 }

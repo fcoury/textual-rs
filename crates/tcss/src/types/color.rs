@@ -219,6 +219,41 @@ impl RgbaColor {
         Self::from_hsl(h, s, new_l, self.a)
     }
 
+    /// Applies a tint color using Textual's linear interpolation formula.
+    ///
+    /// Formula: `result = base + (overlay - base) * alpha`
+    ///
+    /// This blends the overlay color on top of self using the overlay's alpha
+    /// as the blend factor. The result preserves self's alpha value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tcss::types::RgbaColor;
+    ///
+    /// let base = RgbaColor::rgb(100, 100, 100);  // Gray
+    /// let tint = RgbaColor::rgba(255, 0, 0, 0.5);  // 50% red
+    /// let result = base.tint(&tint);
+    /// // result.r = 100 + (255 - 100) * 0.5 = 177.5 ≈ 178
+    /// // result.g = 100 + (0 - 100) * 0.5 = 50
+    /// // result.b = 100 + (0 - 100) * 0.5 = 50
+    /// ```
+    pub fn tint(&self, overlay: &RgbaColor) -> RgbaColor {
+        let alpha = overlay.a;
+
+        // Linear interpolation: base + (overlay - base) * alpha
+        let out_r = self.r as f32 + (overlay.r as f32 - self.r as f32) * alpha;
+        let out_g = self.g as f32 + (overlay.g as f32 - self.g as f32) * alpha;
+        let out_b = self.b as f32 + (overlay.b as f32 - self.b as f32) * alpha;
+
+        Self::rgba(
+            out_r.round().clamp(0.0, 255.0) as u8,
+            out_g.round().clamp(0.0, 255.0) as u8,
+            out_b.round().clamp(0.0, 255.0) as u8,
+            self.a, // Keep original alpha
+        )
+    }
+
     /// Parse a color string in various formats.
     ///
     /// Supported formats:
@@ -979,5 +1014,76 @@ mod theme_math_tests {
         let black = RgbaColor::black();
         let still_black = black.darken(5.0);
         assert_eq!(still_black, RgbaColor::black());
+    }
+
+    // ==================== TINT TESTS ====================
+
+    #[test]
+    fn test_tint_gray_with_50_percent_red() {
+        // Base: gray (100, 100, 100)
+        // Overlay: 50% red (255, 0, 0, 0.5)
+        // Formula: base + (overlay - base) * alpha
+        // r: 100 + (255 - 100) * 0.5 = 100 + 77.5 = 177.5 ≈ 178
+        // g: 100 + (0 - 100) * 0.5 = 100 - 50 = 50
+        // b: 100 + (0 - 100) * 0.5 = 100 - 50 = 50
+        let base = RgbaColor::rgb(100, 100, 100);
+        let overlay = RgbaColor::rgba(255, 0, 0, 0.5);
+        let result = base.tint(&overlay);
+
+        assert_eq!(result.r, 178);
+        assert_eq!(result.g, 50);
+        assert_eq!(result.b, 50);
+        assert_eq!(result.a, 1.0); // Original alpha preserved
+    }
+
+    #[test]
+    fn test_tint_with_40_percent_magenta() {
+        // Base: white (255, 255, 255)
+        // Overlay: 40% magenta (255, 0, 255, 0.4)
+        // r: 255 + (255 - 255) * 0.4 = 255
+        // g: 255 + (0 - 255) * 0.4 = 255 - 102 = 153
+        // b: 255 + (255 - 255) * 0.4 = 255
+        let base = RgbaColor::rgb(255, 255, 255);
+        let overlay = RgbaColor::rgba(255, 0, 255, 0.4);
+        let result = base.tint(&overlay);
+
+        assert_eq!(result.r, 255);
+        assert_eq!(result.g, 153);
+        assert_eq!(result.b, 255);
+    }
+
+    #[test]
+    fn test_tint_zero_alpha_returns_original() {
+        // When overlay alpha is 0, the result should match the base color
+        let base = RgbaColor::rgb(100, 150, 200);
+        let overlay = RgbaColor::rgba(255, 0, 0, 0.0);
+        let result = base.tint(&overlay);
+
+        assert_eq!(result.r, base.r);
+        assert_eq!(result.g, base.g);
+        assert_eq!(result.b, base.b);
+    }
+
+    #[test]
+    fn test_tint_full_alpha_returns_overlay_color() {
+        // When overlay alpha is 1, the result should match the overlay color
+        let base = RgbaColor::rgb(100, 150, 200);
+        let overlay = RgbaColor::rgba(50, 75, 100, 1.0);
+        let result = base.tint(&overlay);
+
+        assert_eq!(result.r, 50);
+        assert_eq!(result.g, 75);
+        assert_eq!(result.b, 100);
+    }
+
+    #[test]
+    fn test_tint_preserves_base_alpha() {
+        // The base color's alpha should be preserved after tinting
+        let base = RgbaColor::rgba(100, 100, 100, 0.7);
+        let overlay = RgbaColor::rgba(255, 0, 0, 0.5);
+        let result = base.tint(&overlay);
+
+        // Original alpha should be preserved
+        assert!((result.a - 0.7).abs() < 0.01);
     }
 }
