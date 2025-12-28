@@ -3,17 +3,17 @@ use textual::{App, Compose, Grid, KeyCode, Static, Widget, ui};
 #[derive(Clone)]
 enum Message {}
 
-struct MyApp {
+struct GridApp {
     quit: bool,
 }
 
-impl MyApp {
+impl GridApp {
     fn new() -> Self {
         Self { quit: false }
     }
 }
 
-impl Compose for MyApp {
+impl Compose for GridApp {
     type Message = Message;
 
     fn compose(&self) -> Box<dyn Widget<Self::Message>> {
@@ -31,7 +31,7 @@ impl Compose for MyApp {
     }
 }
 
-impl App for MyApp {
+impl App for GridApp {
     const CSS: &'static str = include_str!("grid.tcss");
 
     fn on_key(&mut self, key: textual::KeyCode) {
@@ -46,6 +46,6 @@ impl App for MyApp {
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = MyApp::new();
+    let mut app = GridApp::new();
     app.run()
 }
