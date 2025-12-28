@@ -13,8 +13,8 @@ pub mod render_cache;
 pub mod scroll;
 pub mod scrollbar;
 pub mod segment;
-pub mod style_resolver;
 pub mod strip;
+pub mod style_resolver;
 pub mod tree;
 pub mod visual;
 pub mod widget;
@@ -73,7 +73,7 @@ where
     /// - `envelope.sender_type` - type name of the widget that produced the message
     ///
     /// Use pattern matching on `envelope.message` to handle each variant of your Message enum.
-    fn handle_message(&mut self, envelope: MessageEnvelope<Self::Message>);
+    fn handle_message(&mut self, _envelope: MessageEnvelope<Self::Message>) {}
 
     /// Handle global key events (e.g., 'q' to quit).
     /// Called after widget event handling.

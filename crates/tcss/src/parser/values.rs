@@ -237,6 +237,19 @@ pub fn parse_align_vertical(input: &str) -> IResult<&str, crate::types::AlignVer
     }
 }
 
+/// Parse content-align shorthand: `<horizontal> <vertical>`.
+///
+/// Examples: "center middle", "left top", "right bottom"
+pub fn parse_content_align(
+    input: &str,
+) -> IResult<&str, (crate::types::AlignHorizontal, crate::types::AlignVertical)> {
+    let (input, h) = parse_align_horizontal(input)?;
+    let (input, _) = multispace1(input)?;
+    let (input, v) = parse_align_vertical(input)?;
+
+    Ok((input, (h, v)))
+}
+
 /// Parse a text style: one or more space-separated keywords or a theme variable.
 ///
 /// Supported keywords: `bold`, `dim`, `italic`, `underline`, `underline2`,
