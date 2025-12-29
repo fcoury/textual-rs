@@ -2,6 +2,7 @@
 //!
 //! Tests for scrollbar visibility and content rendering.
 
+use textual::canvas::TextAttributes;
 use textual::containers::scrollable::ScrollableContainer;
 use textual::widget::Widget;
 use textual::{Canvas, Region, Size};
@@ -38,7 +39,7 @@ impl<M> Widget<M> for TestLines {
         for i in 0..self.count {
             let y = region.y + i as i32;
             let line = format!("Line {:02}", i + 1);
-            canvas.put_str(region.x, y, &line, None, None);
+            canvas.put_str(region.x, y, &line, None, None, TextAttributes::default());
         }
     }
 }

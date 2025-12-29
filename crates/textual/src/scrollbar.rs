@@ -5,6 +5,7 @@
 //! using Unicode block characters.
 
 use crate::{Canvas, Region};
+use crate::canvas::TextAttributes;
 use tcss::types::RgbaColor;
 
 /// Glyphs for smooth scrollbar thumb edges.
@@ -69,6 +70,7 @@ impl ScrollBarRender {
                     ScrollbarGlyphs::BODY,
                     None,
                     Some(track_color.clone()),
+                    TextAttributes::default(),
                 );
             }
         }
@@ -127,7 +129,7 @@ impl ScrollBarRender {
                     (ScrollbarGlyphs::BODY, Some(thumb_color.clone()), Some(thumb_color.clone()))
                 };
 
-                canvas.put_char(screen_x, screen_y, glyph, fg, bg);
+                canvas.put_char(screen_x, screen_y, glyph, fg, bg, TextAttributes::default());
             }
         }
     }
@@ -168,6 +170,7 @@ impl ScrollBarRender {
                     ScrollbarGlyphs::BODY,
                     None,
                     Some(track_color.clone()),
+                    TextAttributes::default(),
                 );
             }
         }
@@ -225,7 +228,7 @@ impl ScrollBarRender {
                     (ScrollbarGlyphs::BODY, Some(thumb_color.clone()), Some(thumb_color.clone()))
                 };
 
-                canvas.put_char(screen_x, screen_y, glyph, fg, bg);
+                canvas.put_char(screen_x, screen_y, glyph, fg, bg, TextAttributes::default());
             }
         }
     }

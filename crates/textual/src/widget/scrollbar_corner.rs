@@ -3,6 +3,7 @@
 //! When both horizontal and vertical scrollbars are visible, there's a
 //! corner gap that needs to be filled. This widget handles that.
 
+use crate::canvas::TextAttributes;
 use crate::{Canvas, Region, Size, Widget};
 use tcss::types::{RgbaColor, ScrollbarStyle};
 use tcss::ComputedStyle;
@@ -83,7 +84,7 @@ impl<M> Widget<M> for ScrollBarCorner {
             // Clone bg once per row to avoid repeated allocations
             let row_bg = bg.clone();
             for x in 0..render_width {
-                canvas.put_char(region.x + x, region.y + y, ' ', None, Some(row_bg.clone()));
+                canvas.put_char(region.x + x, region.y + y, ' ', None, Some(row_bg.clone()), TextAttributes::default());
             }
         }
     }

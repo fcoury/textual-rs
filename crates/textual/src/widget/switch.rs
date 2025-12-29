@@ -1,5 +1,6 @@
 use tcss::{ComputedStyle, WidgetStates};
 
+use crate::canvas::TextAttributes;
 use crate::{Canvas, KeyCode, MouseEvent, MouseEventKind, Region, Size, Widget};
 
 /// Braille spinner animation frames for loading state.
@@ -177,6 +178,7 @@ where
                 &display,
                 self.style.color.clone(),
                 self.style.background.clone(),
+                TextAttributes::default(),
             );
             return;
         }
@@ -194,6 +196,7 @@ where
             &display,
             self.style.color.clone(),
             self.style.background.clone(),
+            TextAttributes::default(),
         );
     }
 
