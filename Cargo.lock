@@ -320,6 +320,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rich"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -403,6 +410,7 @@ dependencies = [
  "log",
  "once_cell",
  "phf",
+ "rich",
  "tcss",
  "thiserror",
  "tokio",
