@@ -34,10 +34,10 @@ impl BreakpointApp {
 impl Compose for BreakpointApp {
     type Message = Message;
 
-    fn compose(&self) -> Box<dyn Widget<Self::Message>> {
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         // Create a grid of placeholders - the grid-size is controlled by CSS
         // based on the current breakpoint class
-        Box::new(Grid::new(vec![
+        vec![Box::new(Grid::new(vec![
             Box::new(Placeholder::new("Item 1")),
             Box::new(Placeholder::new("Item 2")),
             Box::new(Placeholder::new("Item 3")),
@@ -50,7 +50,7 @@ impl Compose for BreakpointApp {
             Box::new(Placeholder::new("Item 10")),
             Box::new(Placeholder::new("Item 11")),
             Box::new(Placeholder::new("Item 12")),
-        ]))
+        ]))]
     }
 }
 

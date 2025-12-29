@@ -267,6 +267,13 @@ impl<M> Widget<M> for ScrollableContainer<M> {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if region.width <= 0 || region.height <= 0 {
+            return;
+        }
+
+        // 1. Render background/border and get inner region
+        let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
+
         // Update scroll dimensions FIRST so show_*_scrollbar() has correct viewport info
         // This fixes keyboard-only scrolling and overflow:auto decisions on first render
         let content_size = self.content().desired_size();
@@ -279,8 +286,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             let est_v_size = match self.style.overflow_y {
                 Overflow::Scroll => style.size.vertical as i32,
                 Overflow::Auto => {
-                    // If content is taller than region, we'll need scrollbar
-                    if content_size.height as i32 > region.height {
+                    // If content is taller than inner_region, we'll need scrollbar
+                    if content_size.height as i32 > inner_region.height {
                         style.size.vertical as i32
                     } else {
                         0
@@ -291,7 +298,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             let est_h_size = match self.style.overflow_x {
                 Overflow::Scroll => style.size.horizontal as i32,
                 Overflow::Auto => {
-                    if content_size.width as i32 > region.width {
+                    if content_size.width as i32 > inner_region.width {
                         style.size.horizontal as i32
                     } else {
                         0
@@ -300,18 +307,18 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 Overflow::Hidden => 0,
             };
             scroll.set_viewport(
-                (region.width - est_v_size).max(0),
-                (region.height - est_h_size).max(0),
+                (inner_region.width - est_v_size).max(0),
+                (inner_region.height - est_h_size).max(0),
             );
         }
 
-        let content_region = self.content_region(region);
+        let content_region = self.content_region(inner_region);
 
         // Verbose render diagnostics (use RUST_LOG=trace to enable)
         let scroll = self.scroll.borrow();
         log::trace!(
-            "ScrollableContainer::render - region: ({}, {}, {}, {}), content_region: ({}, {}, {}, {})",
-            region.x, region.y, region.width, region.height,
+            "ScrollableContainer::render - inner_region: ({}, {}, {}, {}), content_region: ({}, {}, {}, {})",
+            inner_region.x, inner_region.y, inner_region.width, inner_region.height,
             content_region.x, content_region.y, content_region.width, content_region.height
         );
         log::trace!(
@@ -354,9 +361,9 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         self.content().render(canvas, content_render_region);
         canvas.pop_clip();
 
-        // Render vertical scrollbar
+        // Render vertical scrollbar ON TOP of chrome
         if self.show_vertical_scrollbar() {
-            let v_region = self.vertical_scrollbar_region(region);
+            let v_region = self.vertical_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.vertical_colors();
 
             ScrollBarRender::render_vertical(
@@ -370,9 +377,9 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             );
         }
 
-        // Render horizontal scrollbar
+        // Render horizontal scrollbar ON TOP of chrome
         if self.show_horizontal_scrollbar() {
-            let h_region = self.horizontal_scrollbar_region(region);
+            let h_region = self.horizontal_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.horizontal_colors();
 
             ScrollBarRender::render_horizontal(
@@ -388,7 +395,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 
         // Render corner if both scrollbars visible
         if self.show_vertical_scrollbar() && self.show_horizontal_scrollbar() {
-            let corner_region = self.corner_region(region);
+            let corner_region = self.corner_region(inner_region);
             let style = self.scrollbar_style();
             let corner = ScrollBarCorner::new(
                 style.size.vertical,

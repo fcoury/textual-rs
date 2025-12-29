@@ -4,7 +4,7 @@
 //! verifying consistency with VerticalLayout.
 
 use tcss::types::{ComputedStyle, Scalar};
-use textual::canvas::Region;
+use textual::canvas::{Region, Size};
 use textual::layouts::{HorizontalLayout, Layout};
 
 // =============================================================================
@@ -22,7 +22,7 @@ fn test_horizontal_layout_margin_left_offsets_x() {
     child_style.margin.left = Scalar::cells(5.0);
     child_style.width = Some(Scalar::cells(20.0));
 
-    let children = vec![(0, child_style)];
+    let children = vec![(0, child_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 1);
@@ -48,7 +48,7 @@ fn test_horizontal_layout_margin_right_advances_x() {
     let mut child2_style = ComputedStyle::default();
     child2_style.width = Some(Scalar::cells(15.0));
 
-    let children = vec![(0, child1_style), (1, child2_style)];
+    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 2);
@@ -74,7 +74,7 @@ fn test_horizontal_layout_margin_top_offsets_y() {
     child_style.margin.top = Scalar::cells(3.0);
     child_style.width = Some(Scalar::cells(20.0));
 
-    let children = vec![(0, child_style)];
+    let children = vec![(0, child_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 1);
@@ -99,7 +99,7 @@ fn test_horizontal_layout_vertical_margins_reduce_height() {
     child_style.width = Some(Scalar::cells(20.0));
     // Height defaults to available height (20)
 
-    let children = vec![(0, child_style)];
+    let children = vec![(0, child_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 1);
@@ -125,7 +125,7 @@ fn test_horizontal_layout_all_margins() {
     child_style.margin.bottom = Scalar::cells(3.0);
     child_style.width = Some(Scalar::cells(20.0));
 
-    let children = vec![(0, child_style)];
+    let children = vec![(0, child_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 1);
@@ -162,7 +162,7 @@ fn test_horizontal_layout_multiple_children_with_margins() {
     child2.margin.right = Scalar::cells(5.0);
     child2.width = Some(Scalar::cells(15.0));
 
-    let children = vec![(0, child1), (1, child2)];
+    let children = vec![(0, child1, Size::new(10, 3)), (1, child2, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 2);
@@ -207,7 +207,7 @@ fn test_horizontal_margin_collapsing_between_siblings() {
     child2_style.width = Some(Scalar::cells(10.0));
     child2_style.margin.left = Scalar::cells(5.0);
 
-    let children = vec![(0, child1_style), (1, child2_style)];
+    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 2);
@@ -245,7 +245,7 @@ fn test_horizontal_margin_collapsing_equal_margins() {
     child2_style.width = Some(Scalar::cells(10.0));
     child2_style.margin.left = Scalar::cells(4.0);
 
-    let children = vec![(0, child1_style), (1, child2_style)];
+    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     // Child 2 at x = 0 + 10 + max(4,4) = 14
@@ -269,7 +269,7 @@ fn test_horizontal_margin_collapsing_first_child_keeps_left_margin() {
     child_style.width = Some(Scalar::cells(10.0));
     child_style.margin.left = Scalar::cells(5.0);
 
-    let children = vec![(0, child_style)];
+    let children = vec![(0, child_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     // First child should start at x = 0 + 5 = 5
@@ -304,7 +304,7 @@ fn test_horizontal_margin_collapsing_three_children() {
     child3_style.width = Some(Scalar::cells(10.0));
     child3_style.margin.left = Scalar::cells(3.0);
 
-    let children = vec![(0, child1_style), (1, child2_style), (2, child3_style)];
+    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3)), (2, child3_style, Size::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 3);

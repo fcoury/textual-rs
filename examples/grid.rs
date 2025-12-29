@@ -16,7 +16,7 @@ impl GridApp {
 impl Compose for GridApp {
     type Message = Message;
 
-    fn compose(&self) -> Box<dyn Widget<Self::Message>> {
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
             Grid {
                 Static("Grid cell 1\n\nrow-span: 3;\ncolumn-span: 2;", id: "static1")

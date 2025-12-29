@@ -115,3 +115,53 @@ pub fn resolve_height_fixed(child_style: &ComputedStyle, available_height: i32) 
 pub fn resolve_height_fill(child_style: &ComputedStyle, available_height: i32) -> i32 {
     resolve_height(child_style, available_height, true)
 }
+
+/// Resolve width, using intrinsic size for `auto`.
+///
+/// This function differs from `resolve_width` in how it handles `Unit::Auto`:
+/// - `resolve_width`: Auto fills available space
+/// - `resolve_width_with_intrinsic`: Auto uses the widget's intrinsic/desired width
+///
+/// This matches Python Textual's behavior where `width: auto` means "size to content".
+pub fn resolve_width_with_intrinsic(
+    child_style: &ComputedStyle,
+    intrinsic_width: u16,
+    available_width: i32,
+) -> i32 {
+    if let Some(width) = &child_style.width {
+        match width.unit {
+            Unit::Cells => width.value as i32,
+            Unit::Percent => ((width.value / 100.0) * available_width as f64) as i32,
+            Unit::Auto => intrinsic_width as i32, // Use intrinsic, not fill!
+            _ => width.value as i32,
+        }
+    } else {
+        // No width specified: fill available (default behavior)
+        available_width
+    }
+}
+
+/// Resolve height, using intrinsic size for `auto`.
+///
+/// This function differs from `resolve_height` in how it handles `Unit::Auto`:
+/// - `resolve_height`: Auto fills available space (in horizontal layouts) or uses default
+/// - `resolve_height_with_intrinsic`: Auto uses the widget's intrinsic/desired height
+///
+/// This matches Python Textual's behavior where `height: auto` means "size to content".
+pub fn resolve_height_with_intrinsic(
+    child_style: &ComputedStyle,
+    intrinsic_height: u16,
+    available_height: i32,
+) -> i32 {
+    if let Some(height) = &child_style.height {
+        match height.unit {
+            Unit::Cells => height.value as i32,
+            Unit::Percent => ((height.value / 100.0) * available_height as f64) as i32,
+            Unit::Auto => intrinsic_height as i32, // Use intrinsic!
+            _ => height.value as i32,
+        }
+    } else {
+        // No height specified: fill available (default behavior)
+        available_height
+    }
+}

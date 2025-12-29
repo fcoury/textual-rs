@@ -23,12 +23,13 @@ mod vertical;
 pub use grid::GridLayout;
 pub use horizontal::HorizontalLayout;
 pub use size_resolver::{
-    resolve_height, resolve_height_fill, resolve_height_fixed, resolve_width, resolve_width_fill,
-    resolve_width_fixed, DEFAULT_FIXED_HEIGHT, DEFAULT_FIXED_WIDTH,
+    resolve_height, resolve_height_fill, resolve_height_fixed, resolve_height_with_intrinsic,
+    resolve_width, resolve_width_fill, resolve_width_fixed, resolve_width_with_intrinsic,
+    DEFAULT_FIXED_HEIGHT, DEFAULT_FIXED_WIDTH,
 };
 pub use vertical::VerticalLayout;
 
-use crate::canvas::Region;
+use crate::canvas::{Region, Size};
 use tcss::types::{ComputedStyle, Layout as LayoutKind};
 
 /// Result of layout arrangement - maps child indices to their computed regions.
@@ -51,12 +52,12 @@ pub trait Layout {
     ///
     /// # Arguments
     /// * `parent_style` - The computed style of the parent container
-    /// * `children` - Vector of (child_index, child_style) for visible children
+    /// * `children` - Vector of (child_index, child_style, desired_size) for visible children
     /// * `available` - The region available for layout
     fn arrange(
         &mut self,
         parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle)],
+        children: &[(usize, ComputedStyle, Size)],
         available: Region,
     ) -> Vec<WidgetPlacement>;
 
@@ -78,11 +79,11 @@ pub trait Layout {
 ///
 /// # Arguments
 /// * `parent_style` - The computed style of the parent container
-/// * `children` - Vector of (child_index, child_style) for visible children
+/// * `children` - Vector of (child_index, child_style, desired_size) for visible children
 /// * `available` - The region available for layout
 pub fn arrange_children(
     parent_style: &ComputedStyle,
-    children: &[(usize, ComputedStyle)],
+    children: &[(usize, ComputedStyle, Size)],
     available: Region,
 ) -> Vec<WidgetPlacement> {
     let mut placements = match parent_style.layout {
@@ -114,12 +115,12 @@ pub fn arrange_children(
 /// # Arguments
 /// * `pre_layout` - A callback that receives the layout for configuration
 /// * `parent_style` - The computed style of the parent container
-/// * `children` - Vector of (child_index, child_style) for visible children
+/// * `children` - Vector of (child_index, child_style, desired_size) for visible children
 /// * `available` - The region available for layout
 pub fn arrange_children_with_pre_layout<F>(
     pre_layout: F,
     parent_style: &ComputedStyle,
-    children: &[(usize, ComputedStyle)],
+    children: &[(usize, ComputedStyle, Size)],
     available: Region,
 ) -> Vec<WidgetPlacement>
 where

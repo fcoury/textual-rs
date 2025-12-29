@@ -1,9 +1,9 @@
 //! Vertical layout algorithm - stacks children top-to-bottom.
 
-use crate::canvas::Region;
+use crate::canvas::{Region, Size};
 use tcss::types::ComputedStyle;
 
-use super::size_resolver::{resolve_height_fixed, resolve_width_fill};
+use super::size_resolver::{resolve_height_fixed, resolve_width_with_intrinsic};
 use super::{Layout, WidgetPlacement};
 
 /// Vertical layout - stacks children top-to-bottom.
@@ -17,18 +17,18 @@ impl Layout for VerticalLayout {
     fn arrange(
         &mut self,
         _parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle)],
+        children: &[(usize, ComputedStyle, Size)],
         available: Region,
     ) -> Vec<WidgetPlacement> {
         let mut placements = Vec::with_capacity(children.len());
         let mut current_y = available.y;
         let mut prev_margin_bottom: i32 = 0;
 
-        for (i, (child_index, child_style)) in children.iter().enumerate() {
+        for (i, (child_index, child_style, desired_size)) in children.iter().enumerate() {
             // Resolve child dimensions from CSS
-            // Vertical layout: children fill width, have fixed/auto height
+            // Vertical layout: children use intrinsic width for auto, have fixed/auto height
             let height = resolve_height_fixed(child_style, available.height);
-            let width = resolve_width_fill(child_style, available.width);
+            let width = resolve_width_with_intrinsic(child_style, desired_size.width, available.width);
 
             // Get margin for positioning (Scalar.value is f64)
             let margin_top = child_style.margin.top.value as i32;

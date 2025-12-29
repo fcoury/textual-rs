@@ -2,6 +2,7 @@
 //!
 //! Screen is an implicit wrapper that provides:
 //! - A CSS-targetable root container (type name "Screen")
+//! - CSS-driven layout dispatch (grid, vertical, horizontal)
 //! - Responsive breakpoint classes based on terminal size
 //! - Resize event propagation to children
 //!
@@ -14,6 +15,7 @@
 //! The last matching breakpoint wins (iterate in order).
 
 use crate::canvas::{Canvas, Region, Size};
+use crate::layouts;
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
@@ -38,11 +40,12 @@ pub const DEFAULT_VERTICAL_BREAKPOINTS: &[Breakpoint] = &[
 /// `Screen` is responsible for:
 /// 1. Providing the root context for CSS matching (type name "Screen").
 /// 2. Managing responsive breakpoint classes based on terminal size.
+/// 3. Dispatching to layout algorithms based on the `layout` CSS property.
 ///
 /// It mimics Textual's Screen behavior where the app's content is implicitly
 /// wrapped in a Screen widget.
 pub struct Screen<M> {
-    child: Box<dyn Widget<M>>,
+    children: Vec<Box<dyn Widget<M>>>,
     /// Responsive classes are static strings from breakpoints, avoiding allocations.
     responsive_classes: Vec<&'static str>,
     style: ComputedStyle,
@@ -52,10 +55,10 @@ pub struct Screen<M> {
 }
 
 impl<M> Screen<M> {
-    /// Wraps a widget in a new Screen with default breakpoints.
-    pub fn new(child: Box<dyn Widget<M>>) -> Self {
+    /// Create a new Screen with the given children.
+    pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
         Self {
-            child,
+            children,
             responsive_classes: Vec::new(),
             style: ComputedStyle::default(),
             is_dirty: true,
@@ -109,54 +112,50 @@ impl<M> Screen<M> {
         }
     }
 
-    /// Calculate the aligned child region within the available region.
-    ///
-    /// Handles alignment (left/center/right, top/middle/bottom) and ensures
-    /// the child doesn't exceed the available space.
-    fn child_region(&self, region: Region) -> Region {
-        use tcss::types::{AlignHorizontal, AlignVertical};
+    /// Compute child placements using the appropriate layout algorithm.
+    fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
+        // Collect visible children with their styles and desired sizes
+        let children_with_styles: Vec<_> = self
+            .children
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.is_visible())
+            .map(|(i, c)| (i, c.get_style(), c.desired_size()))
+            .collect();
 
-        let child_size = self.child.desired_size();
-        let child_width = (child_size.width as i32).min(region.width);
-        let child_height = (child_size.height as i32).min(region.height);
-
-        // Clamp offsets to 0 to prevent negative offsets when content > container
-        let offset_x = match self.style.align_horizontal {
-            AlignHorizontal::Left => 0,
-            AlignHorizontal::Center => (region.width - child_width).max(0) / 2,
-            AlignHorizontal::Right => (region.width - child_width).max(0),
-        };
-
-        let offset_y = match self.style.align_vertical {
-            AlignVertical::Top => 0,
-            AlignVertical::Middle => (region.height - child_height).max(0) / 2,
-            AlignVertical::Bottom => (region.height - child_height).max(0),
-        };
-
-        Region {
-            x: region.x + offset_x,
-            y: region.y + offset_y,
-            width: child_width,
-            height: child_height,
-        }
+        // Dispatch to layout based on CSS
+        layouts::arrange_children(&self.style, &children_with_styles, region)
     }
 }
 
 impl<M> Widget<M> for Screen<M> {
     fn render(&self, canvas: &mut Canvas, region: Region) {
-        let child_region = self.child_region(region);
-        self.child.render(canvas, child_region);
+        if region.width <= 0 || region.height <= 0 {
+            return;
+        }
+
+        // Render background/border and get inner region
+        let inner_region =
+            crate::containers::render_container_chrome(canvas, region, &self.style);
+
+        for placement in self.compute_child_placements(inner_region) {
+            if let Some(child) = self.children.get(placement.child_index) {
+                child.render(canvas, placement.region);
+            }
+        }
     }
 
     fn desired_size(&self) -> Size {
-        // Screen always takes available space, but reports child's desire
-        self.child.desired_size()
+        // Screen fills available space
+        Size::new(u16::MAX, u16::MAX)
     }
 
     fn on_resize(&mut self, size: Size) {
         self.update_breakpoints(size.width, size.height);
         // Propagate resize to children
-        self.child.on_resize(size);
+        for child in &mut self.children {
+            child.on_resize(size);
+        }
     }
 
     fn get_meta(&self) -> WidgetMeta {
@@ -171,16 +170,18 @@ impl<M> Widget<M> for Screen<M> {
 
     // Delegate hierarchy traversal
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
-        f(&mut *self.child);
+        for child in &mut self.children {
+            f(child.as_mut());
+        }
     }
 
     fn child_count(&self) -> usize {
-        1
+        self.children.len()
     }
 
     fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
-        if index == 0 {
-            Some(&mut *self.child)
+        if index < self.children.len() {
+            Some(self.children[index].as_mut())
         } else {
             None
         }
@@ -188,17 +189,21 @@ impl<M> Widget<M> for Screen<M> {
 
     // Delegate state management
     fn is_dirty(&self) -> bool {
-        self.is_dirty || self.child.is_dirty()
+        self.is_dirty || self.children.iter().any(|c| c.is_dirty())
     }
 
     fn mark_dirty(&mut self) {
         self.is_dirty = true;
-        self.child.mark_dirty();
+        for child in &mut self.children {
+            child.mark_dirty();
+        }
     }
 
     fn mark_clean(&mut self) {
         self.is_dirty = false;
-        self.child.mark_clean();
+        for child in &mut self.children {
+            child.mark_clean();
+        }
     }
 
     fn set_style(&mut self, style: ComputedStyle) {
@@ -211,40 +216,106 @@ impl<M> Widget<M> for Screen<M> {
 
     // Delegate event handling
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
-        self.child.on_event(key)
+        for child in &mut self.children {
+            if !child.is_visible() {
+                continue;
+            }
+            if let Some(msg) = child.on_event(key) {
+                return Some(msg);
+            }
+        }
+        None
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
-        let child_region = self.child_region(region);
-        self.child.on_mouse(event, child_region)
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        if !region.contains_point(mx, my) {
+            return None;
+        }
+
+        // Compute placements and dispatch mouse events
+        let placements = self.compute_child_placements(region);
+
+        for placement in placements {
+            if placement.region.contains_point(mx, my) {
+                if let Some(child) = self.children.get_mut(placement.child_index) {
+                    if let Some(msg) = child.on_mouse(event, placement.region) {
+                        return Some(msg);
+                    }
+                }
+            }
+        }
+
+        None
     }
 
     fn set_hover(&mut self, is_hovered: bool) -> bool {
-        self.child.set_hover(is_hovered)
+        let mut changed = false;
+        for child in &mut self.children {
+            if child.set_hover(is_hovered) {
+                changed = true;
+            }
+        }
+        changed
     }
 
     fn clear_hover(&mut self) {
-        self.child.clear_hover();
+        for child in &mut self.children {
+            if child.is_visible() {
+                child.clear_hover();
+            }
+        }
     }
 
     fn set_active(&mut self, is_active: bool) -> bool {
-        self.child.set_active(is_active)
+        let mut changed = false;
+        for child in &mut self.children {
+            if child.set_active(is_active) {
+                changed = true;
+            }
+        }
+        changed
     }
 
     fn handle_message(&mut self, envelope: &mut crate::MessageEnvelope<M>) -> Option<M> {
-        self.child.handle_message(envelope)
+        for child in &mut self.children {
+            if let Some(msg) = child.handle_message(envelope) {
+                return Some(msg);
+            }
+        }
+        None
     }
 
     // Focus delegation
     fn count_focusable(&self) -> usize {
-        self.child.count_focusable()
+        self.children
+            .iter()
+            .filter(|c| c.is_visible())
+            .map(|c| c.count_focusable())
+            .sum()
     }
 
-    fn focus_nth(&mut self, n: usize) -> bool {
-        self.child.focus_nth(n)
+    fn focus_nth(&mut self, mut n: usize) -> bool {
+        for child in &mut self.children {
+            if !child.is_visible() {
+                continue;
+            }
+            let count = child.count_focusable();
+            if n < count {
+                return child.focus_nth(n);
+            }
+            n -= count;
+        }
+        false
     }
 
     fn clear_focus(&mut self) {
-        self.child.clear_focus();
+        for child in &mut self.children {
+            if child.is_visible() {
+                child.clear_focus();
+            }
+        }
     }
 }

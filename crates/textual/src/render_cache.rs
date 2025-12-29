@@ -37,8 +37,14 @@ impl RenderCache {
 
         let border_box = if has_border {
             let border_type = border_kind_to_str(border_kind);
-            let inner_style = style_from_computed(style);
-            let outer_style = inner_style.clone(); // For now, same as inner
+            // Use border color for the foreground, falling back to text color
+            let border_color = style.border.top.color.clone().or_else(|| style.color.clone());
+            let inner_style = Style {
+                fg: border_color.clone(),
+                bg: style.background.clone(),
+                ..Default::default()
+            };
+            let outer_style = inner_style.clone();
 
             Some(get_box(border_type, &inner_style, &outer_style))
         } else {
@@ -209,20 +215,6 @@ fn border_kind_to_str(kind: BorderKind) -> &'static str {
         BorderKind::Round => "round",
         BorderKind::Solid => "solid",
         BorderKind::Thick => "thick",
-    }
-}
-
-/// Creates a rendering Style from a ComputedStyle.
-fn style_from_computed(computed: &ComputedStyle) -> Style {
-    Style {
-        fg: computed.color.clone(),
-        bg: computed.background.clone(),
-        bold: false,
-        dim: false,
-        italic: false,
-        underline: false,
-        strike: false,
-        reverse: false,
     }
 }
 

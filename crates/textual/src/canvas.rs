@@ -392,10 +392,23 @@ impl Canvas {
 }
 
 fn to_crossterm_color(c: RgbaColor) -> Color {
-    Color::Rgb {
-        r: c.r,
-        g: c.g,
-        b: c.b,
+    // Terminals don't support true alpha transparency, so we pre-composite
+    // semi-transparent colors against black (terminal default background).
+    // Formula: result = base + (color - base) * alpha, where base = black (0,0,0)
+    // Simplified: result = color * alpha
+    let alpha = c.a;
+    if alpha >= 1.0 {
+        Color::Rgb {
+            r: c.r,
+            g: c.g,
+            b: c.b,
+        }
+    } else {
+        Color::Rgb {
+            r: (c.r as f32 * alpha).round() as u8,
+            g: (c.g as f32 * alpha).round() as u8,
+            b: (c.b as f32 * alpha).round() as u8,
+        }
     }
 }
 

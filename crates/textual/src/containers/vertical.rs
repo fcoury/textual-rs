@@ -1,8 +1,10 @@
 use crate::layouts::{resolve_height_fixed, resolve_width_fill};
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
+use tcss::ComputedStyle;
 
 pub struct Vertical<M> {
     pub children: Vec<Box<dyn Widget<M>>>,
+    style: ComputedStyle,
     dirty: bool,
 }
 
@@ -10,6 +12,7 @@ impl<M> Vertical<M> {
     pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
         Self {
             children,
+            style: ComputedStyle::default(),
             dirty: true, // Start dirty so initial styles are computed
         }
     }
@@ -54,9 +57,16 @@ impl<M> Widget<M> for Vertical<M> {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
-        canvas.push_clip(region);
+        if region.width <= 0 || region.height <= 0 {
+            return;
+        }
 
-        let mut current_y = region.y;
+        // 1. Render background/border and get inner region
+        let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
+
+        canvas.push_clip(inner_region);
+
+        let mut current_y = inner_region.y;
         let mut prev_margin_bottom: i32 = 0;
         let mut is_first = true;
 
@@ -69,8 +79,8 @@ impl<M> Widget<M> for Vertical<M> {
 
             // Resolve dimensions from child's CSS style
             // Vertical container: children fill width, have fixed/auto height
-            let child_height = resolve_height_fixed(&child_style, region.height);
-            let child_width = resolve_width_fill(&child_style, region.width);
+            let child_height = resolve_height_fixed(&child_style, inner_region.height);
+            let child_width = resolve_width_fill(&child_style, inner_region.width);
 
             // Get margin (Scalar.value is f64)
             let margin_top = child_style.margin.top.value as i32;
@@ -93,7 +103,7 @@ impl<M> Widget<M> for Vertical<M> {
             let adjusted_width = (child_width - margin_left - margin_right).max(0);
 
             let child_region = Region {
-                x: region.x + margin_left,
+                x: inner_region.x + margin_left,
                 y: current_y,
                 width: adjusted_width,
                 height: child_height,
@@ -130,6 +140,14 @@ impl<M> Widget<M> for Vertical<M> {
 
     fn mark_clean(&mut self) {
         self.dirty = false;
+    }
+
+    fn set_style(&mut self, style: ComputedStyle) {
+        self.style = style;
+    }
+
+    fn get_style(&self) -> ComputedStyle {
+        self.style.clone()
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {

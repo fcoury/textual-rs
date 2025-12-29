@@ -194,13 +194,16 @@ impl ColorSystem {
                 surface.darken(0.04)
             }
         });
-        let boost = self.boost.clone().unwrap_or_else(|| {
+        // Boost is a semi-transparent overlay that gets pre-composited against background.
+        // This produces the actual color to use (e.g., #1B1B1B for dark themes).
+        let boost_overlay = self.boost.clone().unwrap_or_else(|| {
             if self.dark {
                 RgbaColor::rgba(255, 255, 255, 0.04)
             } else {
                 RgbaColor::rgba(0, 0, 0, 0.04)
             }
         });
+        let boost = background.tint(&boost_overlay);
 
         // Secondary defaults to primary shifted
         let secondary = self.secondary.clone().unwrap_or_else(|| {

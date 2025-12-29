@@ -26,7 +26,7 @@ impl Compose for SwitchApp {
     ///
     /// Note: We don't pass `.with_focus()` here anymore - focus is managed
     /// by the run loop via `clear_focus()` and `focus_nth()`.
-    fn compose(&self) -> Box<dyn Widget<Message>> {
+    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
         ui! {
             Middle {
                 Center {
