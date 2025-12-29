@@ -168,3 +168,150 @@ fn test_desired_size_accounts_for_margins() {
         size.height
     );
 }
+
+// =============================================================================
+// Tests for CSS margin collapsing in VerticalLayout
+// =============================================================================
+
+use textual::layouts::{Layout, VerticalLayout};
+
+#[test]
+fn test_vertical_margin_collapsing_between_siblings() {
+    // CSS margin collapsing: Adjacent vertical margins collapse to max(margin_bottom, margin_top)
+    // Child 1: margin_bottom = 3
+    // Child 2: margin_top = 5
+    // Expected gap = max(3, 5) = 5 (NOT 3 + 5 = 8)
+
+    let mut layout = VerticalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    // Child 1 with margin_bottom = 3, height = 10
+    let mut child1_style = ComputedStyle::default();
+    child1_style.height = Some(Scalar::cells(10.0));
+    child1_style.margin.bottom = Scalar::cells(3.0);
+
+    // Child 2 with margin_top = 5, height = 10
+    let mut child2_style = ComputedStyle::default();
+    child2_style.height = Some(Scalar::cells(10.0));
+    child2_style.margin.top = Scalar::cells(5.0);
+
+    let children = vec![(0, child1_style), (1, child2_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    assert_eq!(placements.len(), 2);
+
+    // Child 1 at y=0, height=10
+    assert_eq!(placements[0].region.y, 0, "First child should start at y=0");
+    assert_eq!(placements[0].region.height, 10, "First child height should be 10");
+
+    // Child 2 should start at y = 0 + 10 + max(3, 5) = 15
+    // NOT y = 0 + 10 + 3 + 5 = 18 (additive)
+    assert_eq!(
+        placements[1].region.y, 15,
+        "Second child y should be 15 (margin collapsing: max(3,5)=5), but got {}. Gap is {} instead of expected 5.",
+        placements[1].region.y,
+        placements[1].region.y - 10
+    );
+}
+
+#[test]
+fn test_vertical_margin_collapsing_equal_margins() {
+    // When margins are equal, collapsed margin = max(m, m) = m
+    // Child 1: margin_bottom = 4
+    // Child 2: margin_top = 4
+    // Expected gap = max(4, 4) = 4 (NOT 4 + 4 = 8)
+
+    let mut layout = VerticalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    let mut child1_style = ComputedStyle::default();
+    child1_style.height = Some(Scalar::cells(10.0));
+    child1_style.margin.bottom = Scalar::cells(4.0);
+
+    let mut child2_style = ComputedStyle::default();
+    child2_style.height = Some(Scalar::cells(10.0));
+    child2_style.margin.top = Scalar::cells(4.0);
+
+    let children = vec![(0, child1_style), (1, child2_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    // Child 2 at y = 0 + 10 + max(4,4) = 14
+    assert_eq!(
+        placements[1].region.y, 14,
+        "Second child y should be 14 (collapsed margin=4), but got {}. Gap is {} instead of expected 4.",
+        placements[1].region.y,
+        placements[1].region.y - 10
+    );
+}
+
+#[test]
+fn test_vertical_margin_collapsing_first_child_keeps_top_margin() {
+    // First child's top margin should NOT be collapsed (no previous sibling)
+
+    let mut layout = VerticalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    let mut child_style = ComputedStyle::default();
+    child_style.height = Some(Scalar::cells(10.0));
+    child_style.margin.top = Scalar::cells(5.0);
+
+    let children = vec![(0, child_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    // First child should start at y = 0 + 5 = 5
+    assert_eq!(
+        placements[0].region.y, 5,
+        "First child should preserve its full top margin, got y={}",
+        placements[0].region.y
+    );
+}
+
+#[test]
+fn test_vertical_margin_collapsing_three_children() {
+    // Three children: test collapsing between 1-2 and 2-3
+    // Child 1: margin_bottom = 2
+    // Child 2: margin_top = 6, margin_bottom = 4
+    // Child 3: margin_top = 3
+
+    let mut layout = VerticalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    let mut child1_style = ComputedStyle::default();
+    child1_style.height = Some(Scalar::cells(10.0));
+    child1_style.margin.bottom = Scalar::cells(2.0);
+
+    let mut child2_style = ComputedStyle::default();
+    child2_style.height = Some(Scalar::cells(10.0));
+    child2_style.margin.top = Scalar::cells(6.0);
+    child2_style.margin.bottom = Scalar::cells(4.0);
+
+    let mut child3_style = ComputedStyle::default();
+    child3_style.height = Some(Scalar::cells(10.0));
+    child3_style.margin.top = Scalar::cells(3.0);
+
+    let children = vec![(0, child1_style), (1, child2_style), (2, child3_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    assert_eq!(placements.len(), 3);
+
+    // Child 1: y=0, height=10
+    assert_eq!(placements[0].region.y, 0);
+
+    // Child 2: y = 0 + 10 + max(2, 6) = 16
+    assert_eq!(
+        placements[1].region.y, 16,
+        "Child 2 y should be 16 (gap=max(2,6)=6), got {}",
+        placements[1].region.y
+    );
+
+    // Child 3: y = 16 + 10 + max(4, 3) = 30
+    assert_eq!(
+        placements[2].region.y, 30,
+        "Child 3 y should be 30 (gap=max(4,3)=4), got {}",
+        placements[2].region.y
+    );
+}

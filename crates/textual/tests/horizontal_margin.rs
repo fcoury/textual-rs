@@ -172,11 +172,157 @@ fn test_horizontal_layout_multiple_children_with_margins() {
     assert_eq!(placements[0].region.width, 10);
 
     // After child 1: current_x = 2 + 10 + margin_right(3) = 15
-    // Child 2: x = 15 + margin_left(4) = 19
+    // With margin collapsing: gap = max(3, 4) = 4
+    // Child 2: x = 2 + 10 + max(3, 4) = 16
     assert_eq!(
-        placements[1].region.x, 19,
-        "Second child x should be 19, got {}",
+        placements[1].region.x, 16,
+        "Second child x should be 16 (margin collapsing: max(3,4)=4), got {}",
         placements[1].region.x
     );
     assert_eq!(placements[1].region.width, 15);
+}
+
+// =============================================================================
+// Tests for CSS margin collapsing in HorizontalLayout
+// =============================================================================
+
+#[test]
+fn test_horizontal_margin_collapsing_between_siblings() {
+    // CSS margin collapsing: Adjacent horizontal margins collapse to max(margin_right, margin_left)
+    // Child 1: margin_right = 3
+    // Child 2: margin_left = 5
+    // Expected gap = max(3, 5) = 5 (NOT 3 + 5 = 8)
+
+    let mut layout = HorizontalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    // Child 1 with margin_right = 3, width = 10
+    let mut child1_style = ComputedStyle::default();
+    child1_style.width = Some(Scalar::cells(10.0));
+    child1_style.margin.right = Scalar::cells(3.0);
+
+    // Child 2 with margin_left = 5, width = 10
+    let mut child2_style = ComputedStyle::default();
+    child2_style.width = Some(Scalar::cells(10.0));
+    child2_style.margin.left = Scalar::cells(5.0);
+
+    let children = vec![(0, child1_style), (1, child2_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    assert_eq!(placements.len(), 2);
+
+    // Child 1 at x=0, width=10
+    assert_eq!(placements[0].region.x, 0, "First child should start at x=0");
+    assert_eq!(placements[0].region.width, 10, "First child width should be 10");
+
+    // Child 2 should start at x = 0 + 10 + max(3, 5) = 15
+    // NOT x = 0 + 10 + 3 + 5 = 18 (additive)
+    assert_eq!(
+        placements[1].region.x, 15,
+        "Second child x should be 15 (margin collapsing: max(3,5)=5), but got {}. Gap is {} instead of expected 5.",
+        placements[1].region.x,
+        placements[1].region.x - 10
+    );
+}
+
+#[test]
+fn test_horizontal_margin_collapsing_equal_margins() {
+    // When margins are equal, collapsed margin = max(m, m) = m
+    // Child 1: margin_right = 4
+    // Child 2: margin_left = 4
+    // Expected gap = max(4, 4) = 4 (NOT 4 + 4 = 8)
+
+    let mut layout = HorizontalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    let mut child1_style = ComputedStyle::default();
+    child1_style.width = Some(Scalar::cells(10.0));
+    child1_style.margin.right = Scalar::cells(4.0);
+
+    let mut child2_style = ComputedStyle::default();
+    child2_style.width = Some(Scalar::cells(10.0));
+    child2_style.margin.left = Scalar::cells(4.0);
+
+    let children = vec![(0, child1_style), (1, child2_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    // Child 2 at x = 0 + 10 + max(4,4) = 14
+    assert_eq!(
+        placements[1].region.x, 14,
+        "Second child x should be 14 (collapsed margin=4), but got {}. Gap is {} instead of expected 4.",
+        placements[1].region.x,
+        placements[1].region.x - 10
+    );
+}
+
+#[test]
+fn test_horizontal_margin_collapsing_first_child_keeps_left_margin() {
+    // First child's left margin should NOT be collapsed (no previous sibling)
+
+    let mut layout = HorizontalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    let mut child_style = ComputedStyle::default();
+    child_style.width = Some(Scalar::cells(10.0));
+    child_style.margin.left = Scalar::cells(5.0);
+
+    let children = vec![(0, child_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    // First child should start at x = 0 + 5 = 5
+    assert_eq!(
+        placements[0].region.x, 5,
+        "First child should preserve its full left margin, got x={}",
+        placements[0].region.x
+    );
+}
+
+#[test]
+fn test_horizontal_margin_collapsing_three_children() {
+    // Three children: test collapsing between 1-2 and 2-3
+    // Child 1: margin_right = 2
+    // Child 2: margin_left = 6, margin_right = 4
+    // Child 3: margin_left = 3
+
+    let mut layout = HorizontalLayout;
+    let parent_style = ComputedStyle::default();
+    let available = Region::new(0, 0, 100, 100);
+
+    let mut child1_style = ComputedStyle::default();
+    child1_style.width = Some(Scalar::cells(10.0));
+    child1_style.margin.right = Scalar::cells(2.0);
+
+    let mut child2_style = ComputedStyle::default();
+    child2_style.width = Some(Scalar::cells(10.0));
+    child2_style.margin.left = Scalar::cells(6.0);
+    child2_style.margin.right = Scalar::cells(4.0);
+
+    let mut child3_style = ComputedStyle::default();
+    child3_style.width = Some(Scalar::cells(10.0));
+    child3_style.margin.left = Scalar::cells(3.0);
+
+    let children = vec![(0, child1_style), (1, child2_style), (2, child3_style)];
+    let placements = layout.arrange(&parent_style, &children, available);
+
+    assert_eq!(placements.len(), 3);
+
+    // Child 1: x=0, width=10
+    assert_eq!(placements[0].region.x, 0);
+
+    // Child 2: x = 0 + 10 + max(2, 6) = 16
+    assert_eq!(
+        placements[1].region.x, 16,
+        "Child 2 x should be 16 (gap=max(2,6)=6), got {}",
+        placements[1].region.x
+    );
+
+    // Child 3: x = 16 + 10 + max(4, 3) = 30
+    assert_eq!(
+        placements[2].region.x, 30,
+        "Child 3 x should be 30 (gap=max(4,3)=4), got {}",
+        placements[2].region.x
+    );
 }

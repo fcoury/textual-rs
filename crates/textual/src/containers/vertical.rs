@@ -19,6 +19,9 @@ impl<M> Widget<M> for Vertical<M> {
     fn desired_size(&self) -> Size {
         let mut width: u16 = 0;
         let mut height: u16 = 0;
+        let mut prev_margin_bottom: u16 = 0;
+        let mut is_first = true;
+
         for child in &self.children {
             if !child.is_visible() {
                 continue;
@@ -32,8 +35,20 @@ impl<M> Widget<M> for Vertical<M> {
             let margin_left = style.margin.left.value as u16;
             let margin_right = style.margin.right.value as u16;
 
-            width = width.max(size.width + margin_left + margin_right);
-            height += size.height + margin_top + margin_bottom;
+            width = width.max(size.width.saturating_add(margin_left).saturating_add(margin_right));
+
+            // CSS margin collapsing: use max of adjacent margins, not sum
+            let effective_top_margin = if is_first {
+                margin_top
+            } else {
+                // Collapsed gap = max(prev_bottom, current_top)
+                // We already added prev_margin_bottom, so add the difference if current is larger
+                margin_top.saturating_sub(prev_margin_bottom)
+            };
+
+            height = height.saturating_add(size.height.saturating_add(effective_top_margin).saturating_add(margin_bottom));
+            prev_margin_bottom = margin_bottom;
+            is_first = false;
         }
         Size { width, height }
     }
@@ -42,6 +57,9 @@ impl<M> Widget<M> for Vertical<M> {
         canvas.push_clip(region);
 
         let mut current_y = region.y;
+        let mut prev_margin_bottom: i32 = 0;
+        let mut is_first = true;
+
         for child in &self.children {
             if !child.is_visible() {
                 continue;
@@ -60,8 +78,16 @@ impl<M> Widget<M> for Vertical<M> {
             let margin_right = child_style.margin.right.value as i32;
             let margin_bottom = child_style.margin.bottom.value as i32;
 
-            // Apply top margin
-            current_y += margin_top;
+            // CSS margin collapsing: use max of adjacent margins, not sum
+            let effective_top_margin = if is_first {
+                margin_top
+            } else {
+                // Collapsed gap = max(prev_bottom, current_top)
+                // We already advanced by prev_margin_bottom, so add the difference if current is larger
+                (margin_top - prev_margin_bottom).max(0)
+            };
+
+            current_y += effective_top_margin;
 
             // Reduce child width by horizontal margins to prevent overflow
             let adjusted_width = (child_width - margin_left - margin_right).max(0);
@@ -75,6 +101,8 @@ impl<M> Widget<M> for Vertical<M> {
 
             child.render(canvas, child_region);
             current_y += child_height + margin_bottom;
+            prev_margin_bottom = margin_bottom;
+            is_first = false;
         }
 
         canvas.pop_clip();
@@ -157,6 +185,9 @@ impl<M> Widget<M> for Vertical<M> {
         }
 
         let mut current_y = region.y;
+        let mut prev_margin_bottom: i32 = 0;
+        let mut is_first = true;
+
         for child in &mut self.children {
             if !child.is_visible() {
                 continue;
@@ -175,8 +206,14 @@ impl<M> Widget<M> for Vertical<M> {
             let margin_right = child_style.margin.right.value as i32;
             let margin_bottom = child_style.margin.bottom.value as i32;
 
-            // Apply top margin
-            current_y += margin_top;
+            // CSS margin collapsing: use max of adjacent margins, not sum
+            let effective_top_margin = if is_first {
+                margin_top
+            } else {
+                (margin_top - prev_margin_bottom).max(0)
+            };
+
+            current_y += effective_top_margin;
 
             // Reduce child width by horizontal margins to prevent overflow
             let adjusted_width = (child_width - margin_left - margin_right).max(0);
@@ -194,6 +231,8 @@ impl<M> Widget<M> for Vertical<M> {
                 }
             }
             current_y += child_height + margin_bottom;
+            prev_margin_bottom = margin_bottom;
+            is_first = false;
         }
         None
     }
