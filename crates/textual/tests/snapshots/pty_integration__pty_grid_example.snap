@@ -1,0 +1,24 @@
+---
+source: crates/textual/tests/pty_integration.rs
+expression: output
+---
+                                                                                
+  Grid cell 1                                           Grid cell 2             
+                                                                                
+  row-span: 3;                                                                  
+  column-span: 2;                                                               
+                                                                                
+                                                                                
+                                                        Grid cell 3             
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                        Grid cell 4             
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  Grid cell 5                Grid cell 6                Grid cell 7
