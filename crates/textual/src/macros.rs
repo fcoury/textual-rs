@@ -249,14 +249,14 @@ macro_rules! ui {
     // (Must come before the catch-all entry point)
     // ==========================================================================
 
-    // Multiple widgets at root - wrap in Vertical
+    // Multiple widgets at root - return as Vec for Screen
     (@root_finalize [$first:expr, $($rest:expr),+]) => {
-        Box::new($crate::Vertical::new(vec![$first, $($rest),+])) as Box<dyn $crate::Widget<_>>
+        vec![$first, $($rest),+]
     };
 
-    // Single widget at root - return directly
+    // Single widget at root - return as single-element Vec
     (@root_finalize [$single:expr]) => {
-        $single
+        vec![$single]
     };
 
     // Empty - compile error

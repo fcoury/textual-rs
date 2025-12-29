@@ -8,7 +8,46 @@ pub mod vertical;
 use crate::KeyCode;
 use crate::MouseEvent;
 use crate::canvas::{Canvas, Region, Size};
+use crate::render_cache::RenderCache;
 use crate::widget::Widget;
+use tcss::ComputedStyle;
+
+/// Renders container chrome (background and border) and returns the inner region.
+///
+/// This is the standard way for containers to render their visual styling.
+/// Call this first in render(), then render children inside the returned region.
+///
+/// Returns the inner region where children should be placed.
+pub fn render_container_chrome(canvas: &mut Canvas, region: Region, style: &ComputedStyle) -> Region {
+    if region.width <= 0 || region.height <= 0 {
+        return region;
+    }
+
+    let width = region.width as usize;
+    let height = region.height as usize;
+
+    // Use RenderCache to handle border rendering (same as Static widget)
+    let cache = RenderCache::new(style);
+    let (inner_width, inner_height) = cache.inner_size(width, height);
+
+    // Render each line (background fill + borders)
+    for y in 0..height {
+        let strip = cache.render_line(y, height, width, None, None);
+        canvas.render_strip(&strip, region.x, region.y + y as i32);
+    }
+
+    // Calculate inner region for children
+    let border_offset = if cache.has_border() { 1 } else { 0 };
+    let padding_left = cache.padding_left() as i32;
+    let padding_top = cache.padding_top() as i32;
+
+    Region::new(
+        region.x + border_offset + padding_left,
+        region.y + border_offset + padding_top,
+        inner_width as i32,
+        inner_height as i32,
+    )
+}
 
 /// Centered horizontally
 pub struct Center<M> {

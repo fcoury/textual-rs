@@ -173,6 +173,7 @@ fn test_desired_size_accounts_for_margins() {
 // Tests for CSS margin collapsing in VerticalLayout
 // =============================================================================
 
+use textual::canvas::Size as LayoutSize;
 use textual::layouts::{Layout, VerticalLayout};
 
 #[test]
@@ -196,7 +197,7 @@ fn test_vertical_margin_collapsing_between_siblings() {
     child2_style.height = Some(Scalar::cells(10.0));
     child2_style.margin.top = Scalar::cells(5.0);
 
-    let children = vec![(0, child1_style), (1, child2_style)];
+    let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 2);
@@ -234,7 +235,7 @@ fn test_vertical_margin_collapsing_equal_margins() {
     child2_style.height = Some(Scalar::cells(10.0));
     child2_style.margin.top = Scalar::cells(4.0);
 
-    let children = vec![(0, child1_style), (1, child2_style)];
+    let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     // Child 2 at y = 0 + 10 + max(4,4) = 14
@@ -258,7 +259,7 @@ fn test_vertical_margin_collapsing_first_child_keeps_top_margin() {
     child_style.height = Some(Scalar::cells(10.0));
     child_style.margin.top = Scalar::cells(5.0);
 
-    let children = vec![(0, child_style)];
+    let children = vec![(0, child_style, LayoutSize::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     // First child should start at y = 0 + 5 = 5
@@ -293,7 +294,7 @@ fn test_vertical_margin_collapsing_three_children() {
     child3_style.height = Some(Scalar::cells(10.0));
     child3_style.margin.top = Scalar::cells(3.0);
 
-    let children = vec![(0, child1_style), (1, child2_style), (2, child3_style)];
+    let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3)), (2, child3_style, LayoutSize::new(10, 3))];
     let placements = layout.arrange(&parent_style, &children, available);
 
     assert_eq!(placements.len(), 3);

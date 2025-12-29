@@ -10,6 +10,7 @@
 //!
 //! Run with: cargo run --example screen_breakpoints
 
+use textual::canvas::TextAttributes;
 use textual::{
     App, Canvas, Compose, KeyCode, MessageEnvelope, Region, Size, Widget,
 };
@@ -36,7 +37,7 @@ impl Label {
 
 impl<M> Widget<M> for Label {
     fn render(&self, canvas: &mut Canvas, region: Region) {
-        canvas.put_str(region.x, region.y, &self.text, None, None);
+        canvas.put_str(region.x, region.y, &self.text, None, None, TextAttributes::default());
     }
 
     fn desired_size(&self) -> Size {
@@ -72,7 +73,7 @@ impl<M> Widget<M> for SizeDisplay {
             if self.width < 80 { "-narrow" } else { "-wide" },
             if self.height < 24 { "-short" } else { "-tall" },
         );
-        canvas.put_str(region.x, region.y, &text, None, None);
+        canvas.put_str(region.x, region.y, &text, None, None, TextAttributes::default());
     }
 
     fn desired_size(&self) -> Size {
@@ -101,10 +102,10 @@ impl BreakpointApp {
 impl Compose for BreakpointApp {
     type Message = Message;
 
-    fn compose(&self) -> Box<dyn Widget<Self::Message>> {
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         use textual::Vertical;
 
-        Box::new(Vertical::new(vec![
+        vec![Box::new(Vertical::new(vec![
             Box::new(Label::new("=== Screen Breakpoints Demo ===").with_id("title")),
             Box::new(Label::new("")),
             Box::new(SizeDisplay::new()),
@@ -120,7 +121,7 @@ impl Compose for BreakpointApp {
             Box::new(Label::new("  Screen.-wide .sidebar { width: 25%; }")),
             Box::new(Label::new("")),
             Box::new(Label::new("Press 'q' to quit")),
-        ]))
+        ]))]
     }
 }
 

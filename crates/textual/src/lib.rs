@@ -251,7 +251,10 @@ where
             // 1. Initial Setup: Parse CSS and define the theme
             let stylesheet = tcss::parser::parse_stylesheet(Self::CSS)
                 .map_err(|e| TextualError::InvalidCss(e.to_string()))?;
-            let theme = tcss::types::Theme::new("default", true);
+            let themes = tcss::types::Theme::standard_themes();
+            let theme = themes.get("textual-dark").cloned().unwrap_or_else(|| {
+                tcss::types::Theme::new("default", true)
+            });
 
             let (mut cols, mut rows) = terminal::size()?;
             let mut canvas = Canvas::new(cols, rows);

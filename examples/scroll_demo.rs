@@ -12,6 +12,7 @@
 
 use textual::containers::scrollable::ScrollableContainer;
 use textual::widget::Widget;
+use textual::canvas::TextAttributes;
 use textual::{App, Canvas, Compose, KeyCode, MessageEnvelope, Region, Result, Size};
 
 /// A simple widget that renders multiple lines of text for scrolling demo.
@@ -40,7 +41,7 @@ impl<M> Widget<M> for TextList {
         for (i, line) in self.lines.iter().enumerate() {
             let y = region.y + i as i32;
             if y >= region.y && y < region.y + region.height {
-                canvas.put_str(region.x, y, line, None, None);
+                canvas.put_str(region.x, y, line, None, None, TextAttributes::default());
             }
         }
     }
@@ -73,7 +74,7 @@ impl ScrollApp {
 impl Compose for ScrollApp {
     type Message = Message;
 
-    fn compose(&self) -> Box<dyn Widget<Message>> {
+    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
         // Create 50 lines of content to scroll through
         let lines: Vec<String> = (1..=50)
             .map(|i| {
@@ -94,7 +95,7 @@ impl Compose for ScrollApp {
         let content = TextList::new(lines);
 
         // Wrap in ScrollableContainer
-        Box::new(ScrollableContainer::from_child(Box::new(content)))
+        vec![Box::new(ScrollableContainer::from_child(Box::new(content)))]
     }
 }
 

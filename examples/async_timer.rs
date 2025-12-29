@@ -66,7 +66,7 @@ impl TimerApp {
 impl Compose for TimerApp {
     type Message = Message;
 
-    fn compose(&self) -> Box<dyn Widget<Message>> {
+    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
         ui! {
             Middle {
                 Center {

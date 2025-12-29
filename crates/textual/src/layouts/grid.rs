@@ -6,7 +6,7 @@
 //! - Gutter spacing via `grid-gutter`
 //! - Column/row spanning for children via `row-span` and `column-span`
 
-use crate::canvas::Region;
+use crate::canvas::{Region, Size};
 use crate::fraction::Fraction;
 use tcss::types::{ComputedStyle, GridStyle, Scalar, Unit};
 
@@ -260,7 +260,7 @@ impl Layout for GridLayout {
     fn arrange(
         &mut self,
         parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle)],
+        children: &[(usize, ComputedStyle, Size)],
         available: Region,
     ) -> Vec<WidgetPlacement> {
         if children.is_empty() {
@@ -285,7 +285,7 @@ impl Layout for GridLayout {
         let mut current_col = 0;
         let mut result = Vec::new();
 
-        for (child_index, child_style) in children {
+        for (child_index, child_style, _desired_size) in children {
             // Get span values from child's computed style
             let col_span = (child_style.grid_placement.column_span as usize).max(1);
             let row_span = (child_style.grid_placement.row_span as usize).max(1);

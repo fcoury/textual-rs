@@ -1,9 +1,9 @@
 //! Horizontal layout algorithm - stacks children left-to-right.
 
-use crate::canvas::Region;
+use crate::canvas::{Region, Size};
 use tcss::types::ComputedStyle;
 
-use super::size_resolver::{resolve_height_fill, resolve_width_fixed};
+use super::size_resolver::{resolve_height_with_intrinsic, resolve_width_fixed};
 use super::{Layout, WidgetPlacement};
 
 /// Horizontal layout - stacks children left-to-right.
@@ -16,18 +16,18 @@ impl Layout for HorizontalLayout {
     fn arrange(
         &mut self,
         _parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle)],
+        children: &[(usize, ComputedStyle, Size)],
         available: Region,
     ) -> Vec<WidgetPlacement> {
         let mut placements = Vec::with_capacity(children.len());
         let mut current_x = available.x;
         let mut prev_margin_right: i32 = 0;
 
-        for (i, (child_index, child_style)) in children.iter().enumerate() {
+        for (i, (child_index, child_style, desired_size)) in children.iter().enumerate() {
             // Resolve child dimensions from CSS
-            // Horizontal layout: children have fixed/auto width, fill height
+            // Horizontal layout: children have fixed/auto width, use intrinsic height for auto
             let width = resolve_width_fixed(child_style, available.width);
-            let height = resolve_height_fill(child_style, available.height);
+            let height = resolve_height_with_intrinsic(child_style, desired_size.height, available.height);
 
             // Get margins for positioning (Scalar.value is f64)
             let margin_left = child_style.margin.left.value as i32;

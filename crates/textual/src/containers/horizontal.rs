@@ -1,7 +1,9 @@
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
+use tcss::ComputedStyle;
 
 pub struct Horizontal<M> {
     pub children: Vec<Box<dyn Widget<M>>>,
+    style: ComputedStyle,
     dirty: bool,
 }
 
@@ -9,6 +11,7 @@ impl<M> Horizontal<M> {
     pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
         Self {
             children,
+            style: ComputedStyle::default(),
             dirty: true, // Start dirty so initial styles are computed
         }
     }
@@ -30,9 +33,16 @@ impl<M> Widget<M> for Horizontal<M> {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
-        canvas.push_clip(region);
+        if region.width <= 0 || region.height <= 0 {
+            return;
+        }
 
-        let mut current_x = region.x;
+        // 1. Render background/border and get inner region
+        let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
+
+        canvas.push_clip(inner_region);
+
+        let mut current_x = inner_region.x;
         for child in &self.children {
             if !child.is_visible() {
                 continue;
@@ -43,9 +53,9 @@ impl<M> Widget<M> for Horizontal<M> {
 
             let child_region = Region {
                 x: current_x,
-                y: region.y,
+                y: inner_region.y,
                 width: child_width,
-                height: region.height,
+                height: inner_region.height,
             };
 
             child.render(canvas, child_region);
@@ -77,6 +87,14 @@ impl<M> Widget<M> for Horizontal<M> {
 
     fn mark_clean(&mut self) {
         self.dirty = false;
+    }
+
+    fn set_style(&mut self, style: ComputedStyle) {
+        self.style = style;
+    }
+
+    fn get_style(&self) -> ComputedStyle {
+        self.style.clone()
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {

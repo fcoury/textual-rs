@@ -98,13 +98,13 @@ impl<M> ItemGrid<M> {
 
     /// Compute child placements using GridLayout with pre_layout configuration.
     fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
-        // Collect visible children with their styles
+        // Collect visible children with their styles and desired sizes
         let children_with_styles: Vec<_> = self
             .children
             .iter()
             .enumerate()
             .filter(|(_, c)| c.is_visible())
-            .map(|(i, c)| (i, c.get_style()))
+            .map(|(i, c)| (i, c.get_style(), c.desired_size()))
             .collect();
 
         // Create and configure GridLayout
@@ -124,12 +124,14 @@ impl<M> Widget<M> for ItemGrid<M> {
             return;
         }
 
-        canvas.push_clip(region);
+        // 1. Render background/border and get inner region
+        let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
 
-        for placement in self.compute_child_placements(region) {
+        // 2. Render children in inner region
+        canvas.push_clip(inner_region);
+        for placement in self.compute_child_placements(inner_region) {
             self.children[placement.child_index].render(canvas, placement.region);
         }
-
         canvas.pop_clip();
     }
 

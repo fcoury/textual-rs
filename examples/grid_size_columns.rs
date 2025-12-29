@@ -16,7 +16,7 @@ impl MyApp {
 impl Compose for MyApp {
     type Message = Message;
 
-    fn compose(&self) -> Box<dyn Widget<Self::Message>> {
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
             Grid {
                 Label("1")

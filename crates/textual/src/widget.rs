@@ -467,5 +467,9 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 pub trait Compose {
     type Message;
 
-    fn compose(&self) -> Box<dyn Widget<Self::Message>>;
+    /// Returns a vector of widgets that make up this composition.
+    ///
+    /// The returned widgets become children of the implicit `Screen` container.
+    /// Screen applies CSS layout properties (grid, horizontal, vertical) to arrange them.
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>>;
 }
