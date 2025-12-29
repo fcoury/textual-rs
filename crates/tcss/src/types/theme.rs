@@ -502,6 +502,7 @@ impl Theme {
         let mut themes = HashMap::new();
 
         // textual-dark (default dark theme)
+        // Uses blue-tinted grays matching Python Textual's color palette
         themes.insert("textual-dark".into(), Theme::from_color_system(
             "textual-dark",
             ColorSystem::new(RgbaColor::hex("#0178D4"), true)
@@ -511,6 +512,9 @@ impl Theme {
                 .with_success(RgbaColor::hex("#4EBF71"))
                 .with_accent(RgbaColor::hex("#ffa62b"))
                 .with_foreground(RgbaColor::hex("#e0e0e0"))
+                .with_background(RgbaColor::hex("#1e1e1e"))
+                .with_surface(RgbaColor::hex("#1e272e"))
+                .with_panel(RgbaColor::hex("#212f39"))
         ));
 
         // textual-light (default light theme)

@@ -54,7 +54,7 @@ pub use widget::{
 
 use crate::{
     error::TextualError,
-    style_resolver::{resolve_dirty_styles, resolve_styles},
+    style_resolver::{resolve_dirty_styles, resolve_styles, InheritedContext},
     tree::WidgetTree,
 };
 
@@ -345,6 +345,7 @@ where
                         &theme,
                         &mut ancestors,
                         false,
+                        &InheritedContext::default(),
                     );
 
                     canvas.clear();

@@ -196,6 +196,97 @@ fn test_render_cache_produces_tinted_background() {
 }
 
 #[test]
+fn test_auto_color_resolves_against_effective_background() {
+    use tcss::parser::parse_stylesheet;
+    use tcss::types::Theme;
+    use textual::{Vertical, Widget, Label};
+    use textual::style_resolver::resolve_styles;
+    use tcss::parser::cascade::WidgetMeta;
+
+    // CSS with auto color on containers with different tint levels
+    let css = r#"
+Vertical {
+    background: $panel;
+    color: auto 90%;
+}
+#tint1 { background-tint: $foreground 0%; }
+#tint5 { background-tint: $foreground 100%; }
+"#;
+
+    let stylesheet = parse_stylesheet(css).unwrap();
+    let theme = Theme::standard_themes().get("textual-dark").unwrap().clone();
+
+    // Create containers with different tint levels
+    let mut v1: Box<dyn Widget<()>> = Box::new(
+        Vertical::new(vec![
+            Box::new(Label::new("0%")) as Box<dyn Widget<()>>
+        ]).with_id("tint1")
+    );
+    let mut v5: Box<dyn Widget<()>> = Box::new(
+        Vertical::new(vec![
+            Box::new(Label::new("100%")) as Box<dyn Widget<()>>
+        ]).with_id("tint5")
+    );
+
+    // Resolve styles
+    let mut ancestors: Vec<WidgetMeta> = Vec::new();
+    resolve_styles(v1.as_mut(), &stylesheet, &theme, &mut ancestors);
+    let mut ancestors: Vec<WidgetMeta> = Vec::new();
+    resolve_styles(v5.as_mut(), &stylesheet, &theme, &mut ancestors);
+
+    // Check that auto_color is set
+    let style1 = v1.get_style();
+    let style5 = v5.get_style();
+
+    println!("v1 (0% tint): auto_color={}, color={:?}", style1.auto_color, style1.color);
+    println!("v5 (100% tint): auto_color={}, color={:?}", style5.auto_color, style5.color);
+
+    assert!(style1.auto_color, "v1 should have auto_color set");
+    assert!(style5.auto_color, "v5 should have auto_color set");
+
+    // The color should have been stored with the contrast ratio in alpha
+    let color1 = style1.color.as_ref().expect("v1 should have color");
+    let color5 = style5.color.as_ref().expect("v5 should have color");
+
+    // auto 90% should have alpha = 0.9
+    assert!((color1.a - 0.9).abs() < 0.01, "v1 color alpha should be ~0.9, got {}", color1.a);
+    assert!((color5.a - 0.9).abs() < 0.01, "v5 color alpha should be ~0.9, got {}", color5.a);
+
+    // Check that effective background is computed
+    // tint1 has 0% tint - should be close to $panel (dark)
+    // tint5 has 100% tint - should be close to $foreground (light)
+    let bg1 = style1.background.as_ref().expect("v1 should have background");
+    let tint1 = style1.background_tint.as_ref().expect("v1 should have background_tint");
+    let tint5 = style5.background_tint.as_ref().expect("v5 should have background_tint");
+
+    let effective_bg1 = bg1.tint(tint1);
+    let bg5 = style5.background.as_ref().unwrap();
+    let effective_bg5 = bg5.tint(tint5);
+
+    println!("effective_bg1 luminance: {}", effective_bg1.luminance());
+    println!("effective_bg5 luminance: {}", effective_bg5.luminance());
+
+    // 0% tint should have dark background (low luminance)
+    assert!(effective_bg1.luminance() < 0.3, "0% tint should have dark background");
+    // 100% tint should have light background (high luminance)
+    assert!(effective_bg5.luminance() > 0.5, "100% tint should have light background");
+
+    // Now test that contrasting colors are computed correctly
+    let contrast1 = effective_bg1.get_contrasting_color(0.9);
+    let contrast5 = effective_bg5.get_contrasting_color(0.9);
+
+    println!("contrast1 (dark bg): r={}, g={}, b={}", contrast1.r, contrast1.g, contrast1.b);
+    println!("contrast5 (light bg): r={}, g={}, b={}", contrast5.r, contrast5.g, contrast5.b);
+
+    // Dark background should get light text
+    assert!(contrast1.r > 200 && contrast1.g > 200 && contrast1.b > 200,
+        "Dark background should get light text, got r={} g={} b={}", contrast1.r, contrast1.g, contrast1.b);
+    // Light background should get dark text
+    assert!(contrast5.r < 100 && contrast5.g < 100 && contrast5.b < 100,
+        "Light background should get dark text, got r={} g={} b={}", contrast5.r, contrast5.g, contrast5.b);
+}
+
+#[test]
 fn test_actual_css_file_parses() {
     use tcss::parser::parse_stylesheet;
 
