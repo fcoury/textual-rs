@@ -5,6 +5,10 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+# Enable the testing module for integration tests
+testing = []
+
 [dependencies]
 tcss.workspace = true
 rich = { path = "../rich" }
@@ -23,6 +27,12 @@ unicode-width.workspace = true
 [dev-dependencies]
 # Enable test-util for deterministic virtual time testing
 tokio = { version = "1.0", features = ["test-util"] }
+
+# Testing infrastructure (merge of both branches)
 insta = "1.40"
 portable-pty = "0.8"
 vt100 = "0.15"
+rexpect.workspace = true
+
+# Enable the testing feature for integration tests
+textual = { path = ".", features = ["testing"] }

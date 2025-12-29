@@ -400,6 +400,40 @@ impl Canvas {
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    /// Get the cell at (x, y) for testing.
+    /// Returns None if coordinates are out of bounds.
+    pub fn get_cell_at(&self, x: i32, y: i32) -> Option<&Cell> {
+        if x < 0 || x >= self.size.width as i32 || y < 0 || y >= self.size.height as i32 {
+            return None;
+        }
+        let index = (y as usize) * (self.size.width as usize) + (x as usize);
+        self.cells.get(index)
+    }
+
+    /// Get the foreground color at (x, y) for testing.
+    pub fn get_fg_at(&self, x: i32, y: i32) -> Option<Color> {
+        self.get_cell_at(x, y).and_then(|c| c.fg)
+    }
+
+    /// Get the text attributes at (x, y) for testing.
+    pub fn get_attrs_at(&self, x: i32, y: i32) -> TextAttributes {
+        self.get_cell_at(x, y)
+            .map(|c| c.attrs)
+            .unwrap_or_default()
+    }
+
+    /// Get all rows as a vector of strings for testing.
+    pub fn all_rows(&self) -> Vec<String> {
+        (0..self.size.height as i32)
+            .map(|y| self.row_str(y))
+            .collect()
+    }
+
+    /// Get the canvas dimensions.
+    pub fn size(&self) -> Size {
+        self.size
+    }
 }
 
 fn to_crossterm_color(c: RgbaColor) -> Color {
@@ -685,24 +719,12 @@ mod tests {
     // Canvas clipping tests
     // =========================================================================
 
-    // Helper to get a cell from canvas
-    impl Canvas {
-        #[cfg(test)]
-        fn get_cell(&self, x: i32, y: i32) -> Option<&Cell> {
-            if x < 0 || y < 0 || x >= self.size.width as i32 || y >= self.size.height as i32 {
-                return None;
-            }
-            let index = (y as usize) * (self.size.width as usize) + (x as usize);
-            self.cells.get(index)
-        }
-    }
-
     #[test]
     fn canvas_put_char_within_bounds() {
         let mut canvas = Canvas::new(80, 24);
         canvas.put_char(10, 5, 'X', None, None, TextAttributes::default());
 
-        let cell = canvas.get_cell(10, 5).unwrap();
+        let cell = canvas.get_cell_at(10, 5).unwrap();
         assert_eq!(cell.symbol, 'X');
     }
 
@@ -711,7 +733,7 @@ mod tests {
         let mut canvas = Canvas::new(80, 24);
         canvas.put_char(0, 0, 'A', None, None, TextAttributes::default());
 
-        let cell = canvas.get_cell(0, 0).unwrap();
+        let cell = canvas.get_cell_at(0, 0).unwrap();
         assert_eq!(cell.symbol, 'A');
     }
 
@@ -720,7 +742,7 @@ mod tests {
         let mut canvas = Canvas::new(80, 24);
         canvas.put_char(79, 23, 'Z', None, None, TextAttributes::default());
 
-        let cell = canvas.get_cell(79, 23).unwrap();
+        let cell = canvas.get_cell_at(79, 23).unwrap();
         assert_eq!(cell.symbol, 'Z');
     }
 
@@ -759,19 +781,19 @@ mod tests {
 
         // Inside clip - should draw
         canvas.put_char(15, 15, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(15, 15).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_cell_at(15, 15).unwrap().symbol, 'A');
 
         // Outside clip left - should NOT draw
         canvas.put_char(5, 15, 'B', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(5, 15).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(5, 15).unwrap().symbol, ' ');
 
         // Outside clip right - should NOT draw
         canvas.put_char(35, 15, 'C', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(35, 15).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(35, 15).unwrap().symbol, ' ');
 
         // Outside clip above - should NOT draw
         canvas.put_char(15, 5, 'D', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(15, 5).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(15, 5).unwrap().symbol, ' ');
 
         // Outside clip below - should NOT draw
         canvas.put_char(15, 25, 'E', None, None, TextAttributes::default());
@@ -790,15 +812,15 @@ mod tests {
 
         // Inside intersection (25-49, 10-19)
         canvas.put_char(30, 15, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(30, 15).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_cell_at(30, 15).unwrap().symbol, 'A');
 
         // Inside first clip but outside intersection
         canvas.put_char(10, 5, 'B', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 5).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(10, 5).unwrap().symbol, ' ');
 
         // Outside both
         canvas.put_char(60, 15, 'C', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(60, 15).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(60, 15).unwrap().symbol, ' ');
     }
 
     #[test]
@@ -813,14 +835,14 @@ mod tests {
 
         // Can only draw in small region
         canvas.put_char(5, 5, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(5, 5).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(5, 5).unwrap().symbol, ' ');
 
         // Pop back to first clip
         canvas.pop_clip();
 
         // Now can draw in larger region
         canvas.put_char(5, 5, 'B', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(5, 5).unwrap().symbol, 'B');
+        assert_eq!(canvas.get_cell_at(5, 5).unwrap().symbol, 'B');
     }
 
     #[test]
@@ -832,10 +854,10 @@ mod tests {
 
         // Should be able to draw anywhere
         canvas.put_char(0, 0, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(0, 0).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_cell_at(0, 0).unwrap().symbol, 'A');
 
         canvas.put_char(79, 23, 'Z', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(79, 23).unwrap().symbol, 'Z');
+        assert_eq!(canvas.get_cell_at(79, 23).unwrap().symbol, 'Z');
     }
 
     #[test]
@@ -849,7 +871,7 @@ mod tests {
 
         // Clip stack should be empty, full screen available
         canvas.put_char(0, 0, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(0, 0).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_cell_at(0, 0).unwrap().symbol, 'A');
     }
 
     #[test]
@@ -857,11 +879,11 @@ mod tests {
         let mut canvas = Canvas::new(80, 24);
         canvas.put_str(5, 10, "Hello", None, None, TextAttributes::default());
 
-        assert_eq!(canvas.get_cell(5, 10).unwrap().symbol, 'H');
-        assert_eq!(canvas.get_cell(6, 10).unwrap().symbol, 'e');
-        assert_eq!(canvas.get_cell(7, 10).unwrap().symbol, 'l');
-        assert_eq!(canvas.get_cell(8, 10).unwrap().symbol, 'l');
-        assert_eq!(canvas.get_cell(9, 10).unwrap().symbol, 'o');
+        assert_eq!(canvas.get_cell_at(5, 10).unwrap().symbol, 'H');
+        assert_eq!(canvas.get_cell_at(6, 10).unwrap().symbol, 'e');
+        assert_eq!(canvas.get_cell_at(7, 10).unwrap().symbol, 'l');
+        assert_eq!(canvas.get_cell_at(8, 10).unwrap().symbol, 'l');
+        assert_eq!(canvas.get_cell_at(9, 10).unwrap().symbol, 'o');
     }
 
     #[test]
@@ -873,12 +895,12 @@ mod tests {
         canvas.put_str(2, 10, "Hello", None, None, TextAttributes::default());
 
         // First 3 chars (at x=2,3,4) should be clipped
-        assert_eq!(canvas.get_cell(2, 10).unwrap().symbol, ' ');
-        assert_eq!(canvas.get_cell(3, 10).unwrap().symbol, ' ');
-        assert_eq!(canvas.get_cell(4, 10).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(2, 10).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(3, 10).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(4, 10).unwrap().symbol, ' ');
         // Last 2 chars (at x=5,6) should be drawn
-        assert_eq!(canvas.get_cell(5, 10).unwrap().symbol, 'l');
-        assert_eq!(canvas.get_cell(6, 10).unwrap().symbol, 'o');
+        assert_eq!(canvas.get_cell_at(5, 10).unwrap().symbol, 'l');
+        assert_eq!(canvas.get_cell_at(6, 10).unwrap().symbol, 'o');
     }
 
     #[test]
@@ -889,12 +911,12 @@ mod tests {
         canvas.put_str(5, 10, "Hello", None, None, TextAttributes::default());
 
         // First 3 chars should be drawn
-        assert_eq!(canvas.get_cell(5, 10).unwrap().symbol, 'H');
-        assert_eq!(canvas.get_cell(6, 10).unwrap().symbol, 'e');
-        assert_eq!(canvas.get_cell(7, 10).unwrap().symbol, 'l');
+        assert_eq!(canvas.get_cell_at(5, 10).unwrap().symbol, 'H');
+        assert_eq!(canvas.get_cell_at(6, 10).unwrap().symbol, 'e');
+        assert_eq!(canvas.get_cell_at(7, 10).unwrap().symbol, 'l');
         // Last 2 chars should be clipped
-        assert_eq!(canvas.get_cell(8, 10).unwrap().symbol, ' ');
-        assert_eq!(canvas.get_cell(9, 10).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(8, 10).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(9, 10).unwrap().symbol, ' ');
     }
 
     #[test]
@@ -904,14 +926,14 @@ mod tests {
 
         // String above clip
         canvas.put_str(10, 3, "Above", None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 3).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(10, 3).unwrap().symbol, ' ');
 
         // String below clip
         canvas.put_str(10, 16, "Below", None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 16).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_cell_at(10, 16).unwrap().symbol, ' ');
 
         // String inside clip
         canvas.put_str(10, 10, "Inside", None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 10).unwrap().symbol, 'I');
+        assert_eq!(canvas.get_cell_at(10, 10).unwrap().symbol, 'I');
     }
 }

@@ -9,3 +9,6 @@ description = "Rich markup parser for terminal text styling"
 
 [dependencies]
 thiserror.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

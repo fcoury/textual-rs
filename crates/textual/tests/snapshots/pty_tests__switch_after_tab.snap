@@ -1,0 +1,5 @@
+---
+source: crates/textual/tests/pty_tests.rs
+expression: after_tab
+---
+                     [ OFF  ] >[ OFF  ]<

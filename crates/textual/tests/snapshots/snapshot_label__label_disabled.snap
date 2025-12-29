@@ -1,0 +1,5 @@
+---
+source: crates/textual/tests/snapshot_label.rs
+expression: snapshot.to_text_trimmed()
+---
+Disabled

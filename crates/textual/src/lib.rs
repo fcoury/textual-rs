@@ -17,10 +17,16 @@ pub mod scrollbar;
 pub mod segment;
 pub mod strip;
 pub mod style_resolver;
-pub mod testing;
 pub mod tree;
 pub mod visual;
 pub mod widget;
+
+/// Testing utilities for widget snapshot testing.
+///
+/// This module provides helpers for rendering widgets in isolation
+/// and capturing their output for snapshot comparisons.
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
 
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, EventStream};
 pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};

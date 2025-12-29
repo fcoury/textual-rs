@@ -1,0 +1,5 @@
+---
+source: crates/textual/tests/pty_tests.rs
+expression: scenario.snapshot()
+---
+                    >[ OFF  ]< [ OFF  ]

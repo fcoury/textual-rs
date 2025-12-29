@@ -1,0 +1,5 @@
+---
+source: crates/textual/tests/snapshot_static.rs
+expression: snapshot.to_text()
+---
+This is a very
