@@ -70,6 +70,13 @@ impl Scalar {
         }
     }
 
+    pub fn fr(value: f64) -> Self {
+        Self {
+            value,
+            unit: Unit::Fraction,
+        }
+    }
+
     pub fn is_auto(&self) -> bool {
         self.unit == Unit::Auto
     }
