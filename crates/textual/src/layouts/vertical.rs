@@ -31,7 +31,7 @@ impl Layout for VerticalLayout {
         let mut total_margin: i32 = 0;
         let mut prev_margin_bottom: i32 = 0;
 
-        for (i, (_child_index, child_style, _desired_size)) in children.iter().enumerate() {
+        for (i, (_child_index, child_style, desired_size)) in children.iter().enumerate() {
             let margin_top = child_style.margin.top.value as i32;
             let margin_bottom = child_style.margin.bottom.value as i32;
 
@@ -61,9 +61,12 @@ impl Layout for VerticalLayout {
                         fixed_height_used += DEFAULT_FIXED_HEIGHT;
                     }
                 }
+            } else if desired_size.height == u16::MAX {
+                // No CSS height but widget wants to fill available space - treat as 1fr
+                total_fr += 1000; // 1.0 * 1000
             } else {
-                // No height specified - use default
-                fixed_height_used += DEFAULT_FIXED_HEIGHT;
+                // No height specified - use desired size or default
+                fixed_height_used += (desired_size.height as i32).min(DEFAULT_FIXED_HEIGHT);
             }
         }
 
@@ -101,6 +104,13 @@ impl Layout for VerticalLayout {
                     }
                     _ => resolve_height_fixed(child_style, available.height),
                 }
+            } else if desired_size.height == u16::MAX && total_fr > 0 {
+                // No CSS height but widget wants to fill - use fr distribution (implicit 1fr)
+                let fr_value = 1000i64; // 1.0 * 1000
+                let raw = Fraction::new(remaining_for_fr * fr_value, total_fr) + fr_remainder;
+                let result = raw.floor() as i32;
+                fr_remainder = raw.fract();
+                result
             } else {
                 resolve_height_fixed(child_style, available.height)
             };
