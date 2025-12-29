@@ -152,8 +152,20 @@ impl<M> Static<M> {
 
     /// Convert ComputedStyle to rendering Style.
     fn rendering_style(&self) -> Style {
+        // Compute effective foreground color
+        let fg = if self.style.auto_color {
+            // For auto color, compute contrasting color against effective background
+            self.effective_background().map(|bg| {
+                // Get contrast ratio from the color's alpha (e.g., "auto 90%" has a=0.9)
+                let ratio = self.style.color.as_ref().map(|c| c.a).unwrap_or(1.0);
+                bg.get_contrasting_color(ratio)
+            })
+        } else {
+            self.style.color.clone()
+        };
+
         Style {
-            fg: self.style.color.clone(),
+            fg,
             bg: self.style.background.clone(),
             bold: self.style.text_style.bold,
             dim: self.style.text_style.dim,
@@ -161,6 +173,17 @@ impl<M> Static<M> {
             underline: self.style.text_style.underline,
             strike: self.style.text_style.strike,
             reverse: self.style.text_style.reverse,
+        }
+    }
+
+    /// Get the effective background color (with background-tint applied).
+    /// Falls back to inherited background from parent if this widget is transparent.
+    fn effective_background(&self) -> Option<tcss::types::RgbaColor> {
+        match (&self.style.background, &self.style.background_tint) {
+            (Some(bg), Some(tint)) => Some(bg.tint(tint)),
+            (Some(bg), None) => Some(bg.clone()),
+            // Widget is transparent - use inherited background from parent
+            (None, _) => self.style.inherited_background.clone(),
         }
     }
 

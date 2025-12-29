@@ -197,7 +197,6 @@ pub fn compute_style(
     stylesheet: &StyleSheet,
     theme: &Theme,
 ) -> ComputedStyle {
-    eprintln!("DEBUG compute_style: type={} id={:?}", widget.type_name, widget.id);
     let mut matched_rules = Vec::new();
 
     // 1. Find all matching rules
@@ -238,7 +237,9 @@ pub fn compute_style(
 fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Theme) {
     match decl {
         Declaration::Color(c) => {
-            style.color = Some(resolve_theme_color(c, theme));
+            let resolved = resolve_theme_color(c, theme);
+            style.auto_color = c.auto;
+            style.color = Some(resolved);
         }
         Declaration::Background(c) => {
             style.background = Some(resolve_theme_color(c, theme));

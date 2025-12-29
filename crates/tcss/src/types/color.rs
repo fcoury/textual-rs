@@ -160,9 +160,51 @@ impl RgbaColor {
     pub fn theme_variable(name: &str) -> Self {
         Self {
             theme_var: Some(name.to_string()),
-            auto: true,
             ..Default::default()
         }
+    }
+
+    /// Returns a contrasting color (black or white) based on this color's perceived brightness.
+    ///
+    /// If `ratio` is provided (0.0-1.0), the result is blended toward the background:
+    /// - ratio = 1.0: Maximum contrast (pure black or white)
+    /// - ratio = 0.9: 90% toward max contrast, 10% toward background
+    /// - ratio = 0.5: 50% blend between max contrast and background
+    pub fn get_contrasting_color(&self, ratio: f32) -> Self {
+        // Use perceived brightness (ITU-R BT.601) which matches human perception better
+        // than sRGB luminance for contrast decisions
+        let brightness = self.perceived_brightness();
+        // Threshold of 0.5 matches the midpoint of perceived brightness
+        // This means #808080 (50% gray) and lighter backgrounds get dark text
+        let contrast_color = if brightness < 0.5 {
+            Self::white()
+        } else {
+            Self::black()
+        };
+
+        if ratio >= 1.0 {
+            return contrast_color;
+        }
+
+        // Blend: result = contrast_color * ratio + self * (1 - ratio)
+        let blend = |c: u8, bg: u8| -> u8 {
+            let result = (c as f32 * ratio + bg as f32 * (1.0 - ratio)).round();
+            result.clamp(0.0, 255.0) as u8
+        };
+
+        Self::rgb(
+            blend(contrast_color.r, self.r),
+            blend(contrast_color.g, self.g),
+            blend(contrast_color.b, self.b),
+        )
+    }
+
+    /// Returns the perceived brightness of this color (0.0 to 1.0).
+    ///
+    /// Uses the ITU-R BT.601 luma formula which matches human perception
+    /// better than sRGB luminance for determining if a color appears "light" or "dark".
+    pub fn perceived_brightness(&self) -> f32 {
+        (0.299 * self.r as f32 + 0.587 * self.g as f32 + 0.114 * self.b as f32) / 255.0
     }
 
     pub fn rgb(r: u8, g: u8, b: u8) -> Self {

@@ -62,6 +62,10 @@ pub struct ComputedStyle {
     /// Tint color overlay applied only to background.
     /// Uses alpha for blend strength (e.g., `background-tint: white 50%` → 0.5 alpha).
     pub background_tint: Option<RgbaColor>,
+    /// Inherited effective background from parent (for auto color resolution).
+    /// This is used when the widget is transparent to resolve auto colors
+    /// against the parent's background.
+    pub inherited_background: Option<RgbaColor>,
 
     // Layout Dimensions
     pub width: Option<Scalar>,
@@ -117,6 +121,7 @@ impl Default for ComputedStyle {
             auto_color: false,
             tint: None,
             background_tint: None,
+            inherited_background: None,
             width: None,
             height: None,
             min_width: None,
