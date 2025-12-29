@@ -233,10 +233,12 @@ impl Canvas {
             // Only draw if within clip region and screen
             if current_x >= clip.x && current_x >= 0 && current_x < self.size.width as i32 {
                 let index = (y as usize) * (self.size.width as usize) + (current_x as usize);
+                // Preserve existing background if new bg is None
+                let new_bg = bg.clone().map(to_crossterm_color).or(self.cells[index].bg);
                 self.cells[index] = Cell {
                     symbol: c,
                     fg: fg.clone().map(to_crossterm_color),
-                    bg: bg.clone().map(to_crossterm_color),
+                    bg: new_bg,
                     attrs,
                 };
             }

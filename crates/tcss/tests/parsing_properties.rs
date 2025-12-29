@@ -937,3 +937,36 @@ fn test_property_link_style_hover_theme_variable() {
         panic!("expected LinkStyleHover declaration, got {:?}", decl);
     }
 }
+
+#[test]
+fn test_background_tint_with_id_selector() {
+    use tcss::parser::{parse_stylesheet, cascade::{compute_style, WidgetMeta, WidgetStates}};
+
+    let css = r#"
+Vertical {
+    background: $panel;
+}
+#tint1 { background-tint: $foreground 0%; }
+#tint2 { background-tint: $foreground 50%; }
+#tint3 { background-tint: $foreground 100%; }
+"#;
+
+    let stylesheet = parse_stylesheet(css).unwrap();
+    let theme = tcss::types::Theme::standard_themes().get("textual-dark").unwrap().clone();
+    
+    // Test Vertical with id "tint1"
+    let meta = WidgetMeta {
+        type_name: "Vertical".to_string(),
+        id: Some("tint1".to_string()),
+        classes: vec![],
+        states: WidgetStates::empty(),
+    };
+    
+    let style = compute_style(&meta, &[], &stylesheet, &theme);
+    println!("Vertical#tint1:");
+    println!("  background: {:?}", style.background);
+    println!("  background_tint: {:?}", style.background_tint);
+    
+    assert!(style.background.is_some(), "background should be set");
+    assert!(style.background_tint.is_some(), "background_tint should be set for #tint1");
+}

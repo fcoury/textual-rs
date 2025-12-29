@@ -197,6 +197,7 @@ pub fn compute_style(
     stylesheet: &StyleSheet,
     theme: &Theme,
 ) -> ComputedStyle {
+    eprintln!("DEBUG compute_style: type={} id={:?}", widget.type_name, widget.id);
     let mut matched_rules = Vec::new();
 
     // 1. Find all matching rules
@@ -244,6 +245,9 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         }
         Declaration::Tint(c) => {
             style.tint = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::BackgroundTint(c) => {
+            style.background_tint = Some(resolve_theme_color(c, theme));
         }
         Declaration::Width(s) => style.width = Some(*s),
         Declaration::Height(s) => style.height = Some(*s),
@@ -387,6 +391,13 @@ fn resolve_theme_color(color: &RgbaColor, theme: &Theme) -> RgbaColor {
                 _ => resolved,
             };
         }
+
+        // Preserve alpha from the original color if it was explicitly set
+        // (e.g., "$foreground 50%" should use 0.5 alpha)
+        if color.a < 1.0 {
+            resolved.a = color.a;
+        }
+
         resolved
     } else {
         color.clone()

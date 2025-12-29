@@ -53,7 +53,10 @@ pub fn parse_color(input: &str) -> IResult<&str, RgbaColor> {
     // Handle Theme Variables ($primary, etc.)
     if color_str.starts_with('$') {
         // Strip the '$' and store the name
-        return Ok((remaining, RgbaColor::theme_variable(&color_str[1..])));
+        let color = RgbaColor::theme_variable(&color_str[1..]);
+        // Try to parse optional alpha percentage suffix (e.g., " 40%")
+        let (remaining, color) = parse_optional_alpha(remaining, color);
+        return Ok((remaining, color));
     }
 
     match RgbaColor::parse(color_str) {

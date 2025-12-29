@@ -199,6 +199,9 @@ pub enum Declaration {
     /// The `tint` property for color overlay (applies to both fg and bg).
     /// Example: `tint: magenta 40%;` blends 40% magenta over all colors.
     Tint(RgbaColor),
+    /// The `background-tint` property for background color overlay.
+    /// Example: `background-tint: white 50%;` blends 50% white over background.
+    BackgroundTint(RgbaColor),
     /// The `width` property for element width.
     Width(Scalar),
     /// The `height` property for element height.

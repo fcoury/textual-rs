@@ -61,7 +61,7 @@ pub trait Widget<M> {
 
         WidgetMeta {
             type_name,
-            id: None,
+            id: self.id().map(|s| s.to_string()),
             classes: Vec::new(),
             states: self.get_state(),
         }
