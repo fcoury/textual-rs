@@ -272,13 +272,21 @@ pub enum Declaration {
     /// The `link-style-hover` property for link text style on hover.
     LinkStyleHover(TextStyle),
 
-    // Content alignment properties
+    // Content alignment properties (text alignment within widget)
     /// The `content-align-horizontal` property for horizontal content alignment.
     ContentAlignHorizontal(AlignHorizontal),
     /// The `content-align-vertical` property for vertical content alignment.
     ContentAlignVertical(AlignVertical),
     /// The `content-align` shorthand property for both horizontal and vertical alignment.
     ContentAlign(AlignHorizontal, AlignVertical),
+
+    // Container alignment properties (child positioning within container)
+    /// The `align-horizontal` property for horizontal child positioning.
+    AlignHorizontal(AlignHorizontal),
+    /// The `align-vertical` property for vertical child positioning.
+    AlignVertical(AlignVertical),
+    /// The `align` shorthand property for both horizontal and vertical child positioning.
+    Align(AlignHorizontal, AlignVertical),
 
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),

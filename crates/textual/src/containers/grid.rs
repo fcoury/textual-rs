@@ -98,11 +98,28 @@ impl<M> Widget<M> for Grid<M> {
     }
 
     fn desired_size(&self) -> Size {
-        // Grid fills available space; return reasonable minimum
-        let cols = self.style.grid.columns.unwrap_or(1) as u16;
-        let visible = self.visible_children() as u16;
-        let rows = if cols > 0 { (visible + cols - 1) / cols } else { 1 };
-        Size::new(cols * 10, rows * 3)
+        // Check CSS dimensions first
+        let width = if let Some(w) = &self.style.width {
+            use tcss::types::Unit;
+            match w.unit {
+                Unit::Cells => w.value as u16,
+                _ => u16::MAX, // Fill available space
+            }
+        } else {
+            u16::MAX // Grid expands to fill available space by default
+        };
+
+        let height = if let Some(h) = &self.style.height {
+            use tcss::types::Unit;
+            match h.unit {
+                Unit::Cells => h.value as u16,
+                _ => u16::MAX, // Fill available space
+            }
+        } else {
+            u16::MAX // Grid expands to fill available space by default
+        };
+
+        Size::new(width, height)
     }
 
     fn get_meta(&self) -> WidgetMeta {

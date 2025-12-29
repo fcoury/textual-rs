@@ -68,8 +68,8 @@ pub trait Layout {
 ///
 /// This is the main entry point for containers. It:
 /// 1. Creates the appropriate layout instance based on `parent_style.layout`
-/// 2. Calls `parent.pre_layout()` to allow runtime configuration
-/// 3. Runs the layout algorithm and returns placements
+/// 2. Runs the layout algorithm
+/// 3. Applies post-layout alignment based on `align_horizontal` and `align_vertical`
 ///
 /// # Arguments
 /// * `parent_style` - The computed style of the parent container
@@ -80,7 +80,7 @@ pub fn arrange_children(
     children: &[(usize, ComputedStyle)],
     available: Region,
 ) -> Vec<WidgetPlacement> {
-    match parent_style.layout {
+    let mut placements = match parent_style.layout {
         LayoutKind::Grid => {
             let mut layout = GridLayout::default();
             layout.arrange(parent_style, children, available)
@@ -93,7 +93,12 @@ pub fn arrange_children(
             let mut layout = HorizontalLayout;
             layout.arrange(parent_style, children, available)
         }
-    }
+    };
+
+    // Apply post-layout alignment
+    apply_alignment(&mut placements, parent_style, available);
+
+    placements
 }
 
 /// Dispatch with pre_layout hook support.
@@ -115,7 +120,7 @@ pub fn arrange_children_with_pre_layout<F>(
 where
     F: FnOnce(&mut dyn Layout),
 {
-    match parent_style.layout {
+    let mut placements = match parent_style.layout {
         LayoutKind::Grid => {
             let mut layout = GridLayout::default();
             pre_layout(&mut layout);
@@ -131,5 +136,89 @@ where
             pre_layout(&mut layout);
             layout.arrange(parent_style, children, available)
         }
+    };
+
+    // Apply post-layout alignment
+    apply_alignment(&mut placements, parent_style, available);
+
+    placements
+}
+
+/// Apply alignment to placements based on the parent's align properties.
+///
+/// This is a POST-LAYOUT operation that translates all placements to achieve
+/// the desired horizontal and vertical alignment within the container.
+///
+/// The algorithm:
+/// 1. Calculate the bounding box of all placements
+/// 2. Calculate the offset needed to align that bounding box
+/// 3. Translate all placements by that offset
+fn apply_alignment(
+    placements: &mut [WidgetPlacement],
+    parent_style: &ComputedStyle,
+    available: Region,
+) {
+    use tcss::types::AlignHorizontal;
+    use tcss::types::AlignVertical;
+
+    // Skip if default alignment (left/top)
+    if parent_style.align_horizontal == AlignHorizontal::Left
+        && parent_style.align_vertical == AlignVertical::Top
+    {
+        return;
+    }
+
+    if placements.is_empty() {
+        return;
+    }
+
+    // Calculate bounding box of all placements
+    let bounds = get_placement_bounds(placements);
+
+    // Calculate alignment offset
+    let offset_x = match parent_style.align_horizontal {
+        AlignHorizontal::Left => 0,
+        AlignHorizontal::Center => (available.width - bounds.width) / 2,
+        AlignHorizontal::Right => available.width - bounds.width,
+    };
+
+    let offset_y = match parent_style.align_vertical {
+        AlignVertical::Top => 0,
+        AlignVertical::Middle => (available.height - bounds.height) / 2,
+        AlignVertical::Bottom => available.height - bounds.height,
+    };
+
+    // Translate all placements
+    if offset_x != 0 || offset_y != 0 {
+        for placement in placements {
+            placement.region.x += offset_x;
+            placement.region.y += offset_y;
+        }
+    }
+}
+
+/// Calculate the bounding box that contains all placements.
+fn get_placement_bounds(placements: &[WidgetPlacement]) -> Region {
+    if placements.is_empty() {
+        return Region::new(0, 0, 0, 0);
+    }
+
+    let mut min_x = i32::MAX;
+    let mut min_y = i32::MAX;
+    let mut max_x = i32::MIN;
+    let mut max_y = i32::MIN;
+
+    for p in placements {
+        min_x = min_x.min(p.region.x);
+        min_y = min_y.min(p.region.y);
+        max_x = max_x.max(p.region.x + p.region.width);
+        max_y = max_y.max(p.region.y + p.region.height);
+    }
+
+    Region {
+        x: min_x,
+        y: min_y,
+        width: max_x - min_x,
+        height: max_y - min_y,
     }
 }

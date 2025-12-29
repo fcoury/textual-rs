@@ -109,8 +109,35 @@ impl<M> Screen<M> {
 
 impl<M> Widget<M> for Screen<M> {
     fn render(&self, canvas: &mut Canvas, region: Region) {
-        // Screen simply delegates rendering to its child, filling the region
-        self.child.render(canvas, region);
+        use tcss::types::{AlignHorizontal, AlignVertical};
+
+        // Get child's desired size to calculate alignment
+        let child_size = self.child.desired_size();
+
+        // Calculate aligned position for the child
+        let child_width = (child_size.width as i32).min(region.width);
+        let child_height = (child_size.height as i32).min(region.height);
+
+        let offset_x = match self.style.align_horizontal {
+            AlignHorizontal::Left => 0,
+            AlignHorizontal::Center => (region.width - child_width) / 2,
+            AlignHorizontal::Right => region.width - child_width,
+        };
+
+        let offset_y = match self.style.align_vertical {
+            AlignVertical::Top => 0,
+            AlignVertical::Middle => (region.height - child_height) / 2,
+            AlignVertical::Bottom => region.height - child_height,
+        };
+
+        let child_region = Region {
+            x: region.x + offset_x,
+            y: region.y + offset_y,
+            width: child_width,
+            height: child_height,
+        };
+
+        self.child.render(canvas, child_region);
     }
 
     fn desired_size(&self) -> Size {
@@ -179,7 +206,33 @@ impl<M> Widget<M> for Screen<M> {
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
-        self.child.on_mouse(event, region)
+        use tcss::types::{AlignHorizontal, AlignVertical};
+
+        // Calculate aligned region for the child (same as render)
+        let child_size = self.child.desired_size();
+        let child_width = (child_size.width as i32).min(region.width);
+        let child_height = (child_size.height as i32).min(region.height);
+
+        let offset_x = match self.style.align_horizontal {
+            AlignHorizontal::Left => 0,
+            AlignHorizontal::Center => (region.width - child_width) / 2,
+            AlignHorizontal::Right => region.width - child_width,
+        };
+
+        let offset_y = match self.style.align_vertical {
+            AlignVertical::Top => 0,
+            AlignVertical::Middle => (region.height - child_height) / 2,
+            AlignVertical::Bottom => region.height - child_height,
+        };
+
+        let child_region = Region {
+            x: region.x + offset_x,
+            y: region.y + offset_y,
+            width: child_width,
+            height: child_height,
+        };
+
+        self.child.on_mouse(event, child_region)
     }
 
     fn set_hover(&mut self, is_hovered: bool) -> bool {

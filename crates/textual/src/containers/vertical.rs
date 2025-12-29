@@ -16,15 +16,23 @@ impl<M> Vertical<M> {
 
 impl<M> Widget<M> for Vertical<M> {
     fn desired_size(&self) -> Size {
-        let mut width = 0;
-        let mut height = 0;
+        let mut width: u16 = 0;
+        let mut height: u16 = 0;
         for child in &self.children {
             if !child.is_visible() {
                 continue;
             }
             let size = child.desired_size();
-            width = width.max(size.width);
-            height += size.height;
+            let style = child.get_style();
+
+            // Account for margins
+            let margin_top = style.margin.top.value as u16;
+            let margin_bottom = style.margin.bottom.value as u16;
+            let margin_left = style.margin.left.value as u16;
+            let margin_right = style.margin.right.value as u16;
+
+            width = width.max(size.width + margin_left + margin_right);
+            height += size.height + margin_top + margin_bottom;
         }
         Size { width, height }
     }
@@ -38,18 +46,29 @@ impl<M> Widget<M> for Vertical<M> {
                 continue;
             }
 
-            let size = child.desired_size();
-            let child_height = size.height as i32;
+            let child_style = child.get_style();
+
+            // Resolve dimensions from child's CSS style
+            let child_height = resolve_height(&child_style, region.height);
+            let child_width = resolve_width(&child_style, region.width);
+
+            // Get margin (Scalar.value is f64)
+            let margin_top = child_style.margin.top.value as i32;
+            let margin_left = child_style.margin.left.value as i32;
+            let margin_bottom = child_style.margin.bottom.value as i32;
+
+            // Apply top margin
+            current_y += margin_top;
 
             let child_region = Region {
-                x: region.x,
+                x: region.x + margin_left,
                 y: current_y,
-                width: region.width,
+                width: child_width,
                 height: child_height,
             };
 
             child.render(canvas, child_region);
-            current_y += child_height;
+            current_y += child_height + margin_bottom;
         }
 
         canvas.pop_clip();
@@ -137,13 +156,24 @@ impl<M> Widget<M> for Vertical<M> {
                 continue;
             }
 
-            let size = child.desired_size();
-            let child_height = size.height as i32;
+            let child_style = child.get_style();
+
+            // Resolve dimensions from child's CSS style
+            let child_height = resolve_height(&child_style, region.height);
+            let child_width = resolve_width(&child_style, region.width);
+
+            // Get margin (Scalar.value is f64)
+            let margin_top = child_style.margin.top.value as i32;
+            let margin_left = child_style.margin.left.value as i32;
+            let margin_bottom = child_style.margin.bottom.value as i32;
+
+            // Apply top margin
+            current_y += margin_top;
 
             let child_region = Region {
-                x: region.x,
+                x: region.x + margin_left,
                 y: current_y,
-                width: region.width,
+                width: child_width,
                 height: child_height,
             };
 
@@ -152,7 +182,7 @@ impl<M> Widget<M> for Vertical<M> {
                     return Some(msg);
                 }
             }
-            current_y += child_height;
+            current_y += child_height + margin_bottom;
         }
         None
     }
@@ -178,4 +208,32 @@ impl<M> Widget<M> for Vertical<M> {
             None
         }
     }
+}
+
+/// Resolve the width for a child widget from CSS.
+fn resolve_width(child_style: &tcss::ComputedStyle, available_width: i32) -> i32 {
+    if let Some(width) = &child_style.width {
+        use tcss::types::Unit;
+        match width.unit {
+            Unit::Cells => return width.value as i32,
+            Unit::Percent => return ((width.value / 100.0) * available_width as f64) as i32,
+            Unit::Auto => return available_width,
+            _ => return width.value as i32,
+        }
+    }
+    available_width
+}
+
+/// Resolve the height for a child widget from CSS.
+fn resolve_height(child_style: &tcss::ComputedStyle, available_height: i32) -> i32 {
+    if let Some(height) = &child_style.height {
+        use tcss::types::Unit;
+        match height.unit {
+            Unit::Cells => return height.value as i32,
+            Unit::Percent => return ((height.value / 100.0) * available_height as f64) as i32,
+            Unit::Auto => return 3, // Default auto height
+            _ => return height.value as i32,
+        }
+    }
+    3 // Default height
 }

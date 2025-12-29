@@ -341,7 +341,7 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.link.style_hover = resolve_theme_style(s, theme);
         }
 
-        // Content alignment properties
+        // Content alignment properties (text within widget)
         Declaration::ContentAlignHorizontal(a) => {
             style.content_align_horizontal = *a;
         }
@@ -351,6 +351,18 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::ContentAlign(h, v) => {
             style.content_align_horizontal = *h;
             style.content_align_vertical = *v;
+        }
+
+        // Container alignment properties (child positioning)
+        Declaration::AlignHorizontal(a) => {
+            style.align_horizontal = *a;
+        }
+        Declaration::AlignVertical(a) => {
+            style.align_vertical = *a;
+        }
+        Declaration::Align(h, v) => {
+            style.align_horizontal = *h;
+            style.align_vertical = *v;
         }
 
         Declaration::Unknown(_) => {}
