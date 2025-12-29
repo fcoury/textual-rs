@@ -1,0 +1,22 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+
+
+
+
+
+
+
+                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                      ┃                                    ┃
+                      ┃ Vertical alignment with Textual    ┃
+                      ┃                                    ┃
+                      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                      ┃                                    ┃
+                      ┃ Take note, browsers.               ┃
+                      ┃                                    ┃
+                      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛

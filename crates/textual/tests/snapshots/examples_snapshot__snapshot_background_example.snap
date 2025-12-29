@@ -1,0 +1,24 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+
+
+
+                                    darkred
+
+
+
+
+
+
+
+                                     orange
+
+
+
+
+
+
+
+                                     green

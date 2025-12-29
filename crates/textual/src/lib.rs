@@ -17,6 +17,7 @@ pub mod scrollbar;
 pub mod segment;
 pub mod strip;
 pub mod style_resolver;
+pub mod testing;
 pub mod tree;
 pub mod visual;
 pub mod widget;
