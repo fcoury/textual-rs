@@ -193,12 +193,20 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "link-style" => map(values::parse_text_style, Declaration::LinkStyle)(input)?,
         "link-style-hover" => map(values::parse_text_style, Declaration::LinkStyleHover)(input)?,
 
-        // Content alignment properties
+        // Content alignment properties (text within widget)
         "content-align-horizontal" => map(values::parse_align_horizontal, Declaration::ContentAlignHorizontal)(input)?,
         "content-align-vertical" => map(values::parse_align_vertical, Declaration::ContentAlignVertical)(input)?,
         "content-align" => {
             let (input, (h, v)) = values::parse_content_align(input)?;
             (input, Declaration::ContentAlign(h, v))
+        }
+
+        // Container alignment properties (child positioning)
+        "align-horizontal" => map(values::parse_align_horizontal, Declaration::AlignHorizontal)(input)?,
+        "align-vertical" => map(values::parse_align_vertical, Declaration::AlignVertical)(input)?,
+        "align" => {
+            let (input, (h, v)) = values::parse_content_align(input)?;
+            (input, Declaration::Align(h, v))
         }
 
         _ => {

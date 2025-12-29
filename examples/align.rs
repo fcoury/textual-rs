@@ -25,7 +25,7 @@ impl Compose for AlignApp {
 }
 
 impl App for AlignApp {
-    const CSS: &'static str = include_str!("grid.tcss");
+    const CSS: &'static str = include_str!("align.tcss");
 
     fn on_key(&mut self, key: textual::KeyCode) {
         if key == KeyCode::Char('q') || key == KeyCode::Esc {

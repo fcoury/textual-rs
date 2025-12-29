@@ -79,6 +79,10 @@ pub struct ComputedStyle {
     pub content_align_horizontal: AlignHorizontal,
     pub content_align_vertical: AlignVertical,
 
+    // Container Alignment (positions children within container)
+    pub align_horizontal: AlignHorizontal,
+    pub align_vertical: AlignVertical,
+
     // Display & Visibility
     pub display: Display,
     pub visibility: Visibility,
@@ -122,6 +126,8 @@ impl Default for ComputedStyle {
             text_style: TextStyle::default(),
             content_align_horizontal: AlignHorizontal::default(),
             content_align_vertical: AlignVertical::default(),
+            align_horizontal: AlignHorizontal::default(),
+            align_vertical: AlignVertical::default(),
             display: Display::default(),
             visibility: Visibility::default(),
             opacity: 1.0,

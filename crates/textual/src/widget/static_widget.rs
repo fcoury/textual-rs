@@ -295,11 +295,40 @@ impl<M> Widget<M> for Static<M> {
     }
 
     fn desired_size(&self) -> Size {
-        let text = self.text();
-        // Width = cell width (Unicode-aware), height = line count
-        let width = text.lines().map(|l| l.width()).max().unwrap_or(0);
-        let height = text.lines().count().max(1);
-        Size::new(width as u16, height as u16)
+        // Check CSS dimensions first, fall back to content size
+        let style = self.get_style();
+
+        let width = if let Some(w) = &style.width {
+            use tcss::types::Unit;
+            match w.unit {
+                Unit::Cells => w.value as u16,
+                // For other units, fall back to content width
+                _ => {
+                    let text = self.text();
+                    text.lines().map(|l| l.width()).max().unwrap_or(0) as u16
+                }
+            }
+        } else {
+            let text = self.text();
+            text.lines().map(|l| l.width()).max().unwrap_or(0) as u16
+        };
+
+        let height = if let Some(h) = &style.height {
+            use tcss::types::Unit;
+            match h.unit {
+                Unit::Cells => h.value as u16,
+                // For other units, fall back to content height
+                _ => {
+                    let text = self.text();
+                    text.lines().count().max(1) as u16
+                }
+            }
+        } else {
+            let text = self.text();
+            text.lines().count().max(1) as u16
+        };
+
+        Size::new(width, height)
     }
 
     fn get_meta(&self) -> WidgetMeta {

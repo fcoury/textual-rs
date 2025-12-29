@@ -80,9 +80,28 @@ impl<M> Widget<M> for Container<M> {
     }
 
     fn desired_size(&self) -> Size {
-        // Return a reasonable minimum based on visible children
-        let visible = self.visible_children();
-        Size::new((visible as u16).max(1) * 10, (visible as u16).max(1) * 3)
+        // Check CSS dimensions first
+        let width = if let Some(w) = &self.style.width {
+            use tcss::types::Unit;
+            match w.unit {
+                Unit::Cells => w.value as u16,
+                _ => u16::MAX, // Fill available space
+            }
+        } else {
+            u16::MAX // Container expands to fill available space by default
+        };
+
+        let height = if let Some(h) = &self.style.height {
+            use tcss::types::Unit;
+            match h.unit {
+                Unit::Cells => h.value as u16,
+                _ => u16::MAX, // Fill available space
+            }
+        } else {
+            u16::MAX // Container expands to fill available space by default
+        };
+
+        Size::new(width, height)
     }
 
     fn get_meta(&self) -> WidgetMeta {
