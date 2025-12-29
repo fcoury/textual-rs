@@ -1,0 +1,24 @@
+---
+source: crates/textual/tests/pty_integration.rs
+expression: output
+---
+                                                                                
+                                                                                
+                                                                                
+                                    Widget 1                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                    Widget 2                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                    Widget 3

@@ -1,0 +1,22 @@
+---
+source: crates/textual/tests/pty_integration.rs
+expression: output
+---
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓                    
+                      ┃                                    ┃                    
+                      ┃ Vertical alignment with Textual    ┃                    
+                      ┃                                    ┃                    
+                      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛                    
+                                                                                
+                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓                    
+                      ┃                                    ┃                    
+                      ┃ Take note, browsers.               ┃                    
+                      ┃                                    ┃                    
+                      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛

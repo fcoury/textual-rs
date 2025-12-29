@@ -391,6 +391,15 @@ impl Canvas {
         let index = (y as usize) * (self.size.width as usize) + (x as usize);
         self.cells[index].bg.is_some()
     }
+
+    /// Serialize canvas to plain text for snapshot testing.
+    /// Each row becomes a line, trimmed of trailing whitespace.
+    pub fn to_snapshot(&self) -> String {
+        (0..self.size.height as i32)
+            .map(|y| self.row_str(y).trim_end().to_string())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 }
 
 fn to_crossterm_color(c: RgbaColor) -> Color {
