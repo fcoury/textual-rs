@@ -1,50 +1,33 @@
-//! Grid container for CSS Grid-like layouts.
+//! Generic container widget with CSS-driven layout dispatch.
 //!
-//! Implements a 2D grid layout with support for:
-//! - Fixed column/row counts via `grid-size`
-//! - Flexible column/row sizes via `grid-columns` and `grid-rows`
-//! - Gutter spacing via `grid-gutter`
-//! - Column/row spanning for children via `row-span` and `column-span`
-//!
-//! ## CSS Properties
-//!
-//! ```css
-//! Grid {
-//!     grid-size: 3;              /* 3 columns, auto rows */
-//!     grid-size: 3 2;            /* 3 columns, 2 rows */
-//!     grid-columns: 1fr 2fr 1fr; /* flexible widths */
-//!     grid-rows: 5 auto;         /* fixed + auto heights */
-//!     grid-gutter: 1;            /* 1 cell spacing */
-//!     grid-gutter: 1 2;          /* vertical horizontal */
-//! }
-//!
-//! /* Child spanning */
-//! #my-widget {
-//!     row-span: 2;               /* span 2 rows */
-//!     column-span: 3;            /* span 3 columns */
-//! }
-//! ```
+//! Container is the base for all layout containers. It dispatches to the
+//! appropriate layout algorithm based on the `layout` CSS property.
 
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
+use crate::canvas::{Canvas, Region, Size};
 use crate::layouts::{self, Layout};
-use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
+use crate::widget::Widget;
+use crate::{KeyCode, MouseEvent};
 
-/// A grid container that arranges children in a 2D grid.
+/// A generic container that arranges children using CSS-driven layout.
 ///
-/// Children are placed left-to-right, top-to-bottom using Tetris-style
-/// placement. Grid size and layout are controlled via CSS.
+/// The layout algorithm is determined by the `layout` CSS property:
+/// - `layout: vertical` - stacks children top-to-bottom (default)
+/// - `layout: horizontal` - stacks children left-to-right
+/// - `layout: grid` - CSS Grid-like 2D layout
 ///
-/// This is a convenience wrapper that uses the `layouts::GridLayout` algorithm.
-pub struct Grid<M> {
+/// Containers are the building blocks for complex layouts. Use the
+/// type aliases (`Grid`, `Vertical`, `Horizontal`) for semantic clarity.
+pub struct Container<M> {
     children: Vec<Box<dyn Widget<M>>>,
     style: ComputedStyle,
     dirty: bool,
     id: Option<String>,
 }
 
-impl<M> Grid<M> {
-    /// Create a new Grid with the given children.
+impl<M> Container<M> {
+    /// Create a new Container with the given children.
     pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
         Self {
             children,
@@ -65,7 +48,7 @@ impl<M> Grid<M> {
         self.children.iter().filter(|c| c.is_visible()).count()
     }
 
-    /// Compute child placements using GridLayout.
+    /// Compute child placements using the appropriate layout algorithm.
     fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles
         let children_with_styles: Vec<_> = self
@@ -76,13 +59,12 @@ impl<M> Grid<M> {
             .map(|(i, c)| (i, c.get_style()))
             .collect();
 
-        // Force grid layout regardless of CSS
-        let mut layout = layouts::GridLayout::default();
-        layout.arrange(&self.style, &children_with_styles, region)
+        // Dispatch to layout based on CSS
+        layouts::arrange_children(&self.style, &children_with_styles, region)
     }
 }
 
-impl<M> Widget<M> for Grid<M> {
+impl<M> Widget<M> for Container<M> {
     fn render(&self, canvas: &mut Canvas, region: Region) {
         if region.width <= 0 || region.height <= 0 {
             return;
@@ -98,16 +80,14 @@ impl<M> Widget<M> for Grid<M> {
     }
 
     fn desired_size(&self) -> Size {
-        // Grid fills available space; return reasonable minimum
-        let cols = self.style.grid.columns.unwrap_or(1) as u16;
-        let visible = self.visible_children() as u16;
-        let rows = if cols > 0 { (visible + cols - 1) / cols } else { 1 };
-        Size::new(cols * 10, rows * 3)
+        // Return a reasonable minimum based on visible children
+        let visible = self.visible_children();
+        Size::new((visible as u16).max(1) * 10, (visible as u16).max(1) * 3)
     }
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "Grid".to_string(),
+            type_name: "Container".to_string(),
             id: self.id.clone(),
             classes: Vec::new(),
             states: WidgetStates::empty(),
@@ -170,10 +150,9 @@ impl<M> Widget<M> for Grid<M> {
             return None;
         }
 
-        // Compute placements first (borrows self immutably)
+        // Compute placements and dispatch mouse events
         let placements = self.compute_child_placements(region);
 
-        // Then iterate and dispatch mouse events (borrows self mutably)
         for placement in placements {
             if placement.region.contains_point(mx, my) {
                 if let Some(msg) = self.children[placement.child_index].on_mouse(event, placement.region) {
@@ -236,10 +215,7 @@ impl<M> Widget<M> for Grid<M> {
     }
 
     fn pre_layout(&mut self, _layout: &mut dyn Layout) {
-        // Grid container doesn't configure layout at runtime
-        // Override in ItemGrid for min_column_width, etc.
+        // Default container doesn't configure layout
+        // Override in ItemGrid to set min_column_width, etc.
     }
 }
-
-// Tests for OccupancyGrid, ResolvedTrack, and child_region have been moved to
-// crates/textual/src/layouts/grid.rs where the layout algorithm is now implemented.

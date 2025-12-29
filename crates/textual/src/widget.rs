@@ -11,6 +11,7 @@ use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 use crate::{
     KeyCode, MouseEvent, Size,
     canvas::{Canvas, Region},
+    layouts::Layout,
 };
 
 /// A widget that can render itself and handle events.
@@ -132,6 +133,26 @@ pub trait Widget<M> {
 
     fn get_style(&self) -> ComputedStyle {
         ComputedStyle::default()
+    }
+
+    /// Called before layout arrangement to allow runtime configuration.
+    ///
+    /// Override this method to configure layout properties at runtime.
+    /// This is called by containers before `Layout::arrange()` to allow
+    /// widgets like ItemGrid to configure properties like `min_column_width`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// fn pre_layout(&mut self, layout: &mut dyn Layout) {
+    ///     if let Some(grid) = layout.as_grid_mut() {
+    ///         grid.min_column_width = self.min_column_width;
+    ///         grid.stretch_height = self.stretch_height;
+    ///     }
+    /// }
+    /// ```
+    fn pre_layout(&mut self, _layout: &mut dyn Layout) {
+        // Default: no-op
     }
 
     // Focus management
@@ -342,6 +363,10 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn mark_clean(&mut self) {
         self.as_mut().mark_clean();
+    }
+
+    fn pre_layout(&mut self, layout: &mut dyn Layout) {
+        self.as_mut().pre_layout(layout);
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
