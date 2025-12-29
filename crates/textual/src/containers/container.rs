@@ -43,11 +43,6 @@ impl<M> Container<M> {
         self
     }
 
-    /// Count visible children.
-    fn visible_children(&self) -> usize {
-        self.children.iter().filter(|c| c.is_visible()).count()
-    }
-
     /// Compute child placements using the appropriate layout algorithm.
     fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles

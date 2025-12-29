@@ -60,11 +60,6 @@ impl<M> Grid<M> {
         self
     }
 
-    /// Count visible children.
-    fn visible_children(&self) -> usize {
-        self.children.iter().filter(|c| c.is_visible()).count()
-    }
-
     /// Compute child placements using GridLayout.
     fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles

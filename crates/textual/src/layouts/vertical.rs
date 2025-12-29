@@ -3,6 +3,7 @@
 use crate::canvas::Region;
 use tcss::types::ComputedStyle;
 
+use super::size_resolver::{resolve_height_fixed, resolve_width_fill};
 use super::{Layout, WidgetPlacement};
 
 /// Vertical layout - stacks children top-to-bottom.
@@ -24,8 +25,9 @@ impl Layout for VerticalLayout {
 
         for (child_index, child_style) in children {
             // Resolve child dimensions from CSS
-            let height = resolve_height(child_style, available.height);
-            let width = resolve_width(child_style, available.width);
+            // Vertical layout: children fill width, have fixed/auto height
+            let height = resolve_height_fixed(child_style, available.height);
+            let width = resolve_width_fill(child_style, available.width);
 
             // Get margin for positioning (Scalar.value is f64)
             let margin_top = child_style.margin.top.value as i32;
@@ -51,41 +53,4 @@ impl Layout for VerticalLayout {
 
         placements
     }
-}
-
-/// Resolve the width for a child widget.
-///
-/// Returns the child's CSS width if specified, otherwise the available width.
-fn resolve_width(child_style: &ComputedStyle, available_width: i32) -> i32 {
-    if let Some(width) = &child_style.width {
-        use tcss::types::Unit;
-        match width.unit {
-            Unit::Cells => return width.value as i32,
-            Unit::Percent => return ((width.value / 100.0) * available_width as f64) as i32,
-            Unit::Auto => return available_width, // Auto = fill available
-            _ => return width.value as i32,
-        }
-    }
-    // Default: fill available width
-    available_width
-}
-
-/// Resolve the height for a child widget.
-///
-/// Returns the child's CSS height if specified, otherwise a default.
-fn resolve_height(child_style: &ComputedStyle, available_height: i32) -> i32 {
-    if let Some(height) = &child_style.height {
-        use tcss::types::Unit;
-        match height.unit {
-            Unit::Cells => return height.value as i32,
-            Unit::Percent => return ((height.value / 100.0) * available_height as f64) as i32,
-            Unit::Auto => {
-                // Auto height - use a reasonable default
-                return 3;
-            }
-            _ => return height.value as i32,
-        }
-    }
-    // Default: use a small fixed height
-    3
 }

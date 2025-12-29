@@ -557,4 +557,95 @@ mod tests {
         // Height: rows[2].offset - rows[0].offset - gutter = 12 - 0 - 1 = 11
         assert_eq!(r.height, 11);
     }
+
+    #[test]
+    fn test_child_region_span_to_grid_edge() {
+        // Test case: span reaches exactly to the grid edge
+        // This exercises the summation-based calculation branch
+        let columns = vec![
+            ResolvedTrack { offset: 0, size: 10 },
+            ResolvedTrack { offset: 11, size: 10 },
+            ResolvedTrack { offset: 22, size: 10 },
+        ];
+        let rows = vec![
+            ResolvedTrack { offset: 0, size: 5 },
+            ResolvedTrack { offset: 6, size: 5 },
+            ResolvedTrack { offset: 12, size: 5 },
+        ];
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 32,
+            height: 17,
+        };
+
+        // 2-column span starting at col 1 (reaches to edge: 1 + 2 = 3 = columns.len())
+        let r = child_region(1, 0, 2, 1, &columns, &rows, region, 1, 1);
+        assert_eq!(r.x, 11); // Starting at column 1's offset
+        assert_eq!(r.y, 0);
+        // Width should sum remaining columns: 10 + 10 = 20, plus 1 internal gutter = 21
+        // (end_col - col).saturating_sub(1) = (3 - 1).saturating_sub(1) = 1 gutter
+        assert_eq!(r.width, 21);
+        assert_eq!(r.height, 5);
+
+        // 3-column span starting at col 0 (full width)
+        let r = child_region(0, 0, 3, 1, &columns, &rows, region, 1, 1);
+        assert_eq!(r.x, 0);
+        // Width should sum all columns: 10 + 10 + 10 = 30, plus 2 internal gutters = 32
+        assert_eq!(r.width, 32);
+
+        // 2-row span starting at row 1 (reaches to edge: 1 + 2 = 3 = rows.len())
+        let r = child_region(0, 1, 1, 2, &columns, &rows, region, 1, 1);
+        assert_eq!(r.y, 6); // Starting at row 1's offset
+        // Height should sum remaining rows: 5 + 5 = 10, plus 1 internal gutter = 11
+        assert_eq!(r.height, 11);
+
+        // 3-row span starting at row 0 (full height)
+        let r = child_region(0, 0, 1, 3, &columns, &rows, region, 1, 1);
+        assert_eq!(r.y, 0);
+        // Height should sum all rows: 5 + 5 + 5 = 15, plus 2 internal gutters = 17
+        assert_eq!(r.height, 17);
+    }
+
+    #[test]
+    fn test_child_region_span_exceeds_grid() {
+        // Test case: span would exceed grid boundary (gets clamped)
+        let columns = vec![
+            ResolvedTrack { offset: 0, size: 10 },
+            ResolvedTrack { offset: 11, size: 10 },
+            ResolvedTrack { offset: 22, size: 10 },
+        ];
+        let rows = vec![
+            ResolvedTrack { offset: 0, size: 5 },
+            ResolvedTrack { offset: 6, size: 5 },
+        ];
+        let region = Region {
+            x: 0,
+            y: 0,
+            width: 32,
+            height: 11,
+        };
+
+        // 3-column span starting at col 2 (2 + 3 > 3, clamped to 1 column)
+        // end_col = min(2 + 3, 3) = 3 = columns.len(), so uses summation branch
+        let r = child_region(2, 0, 3, 1, &columns, &rows, region, 1, 1);
+        assert_eq!(r.x, 22); // Starting at column 2's offset
+        // Only 1 column remaining (column 2), width = 10, no internal gutters
+        assert_eq!(r.width, 10);
+
+        // 3-row span starting at row 1 (1 + 3 > 2, clamped to 1 row)
+        let r = child_region(0, 1, 1, 3, &columns, &rows, region, 1, 1);
+        assert_eq!(r.y, 6); // Starting at row 1's offset
+        // Only 1 row remaining (row 1), height = 5, no internal gutters
+        assert_eq!(r.height, 5);
+
+        // Full grid span from corner (both dimensions exceed)
+        let r = child_region(1, 1, 5, 5, &columns, &rows, region, 1, 1);
+        assert_eq!(r.x, 11);
+        assert_eq!(r.y, 6);
+        // 2 columns remaining (col 1, 2): 10 + 10 + 1 gutter = 21
+        assert_eq!(r.width, 21);
+        // 1 row remaining (row 1): 5, no internal gutters
+        assert_eq!(r.height, 5);
+    }
 }

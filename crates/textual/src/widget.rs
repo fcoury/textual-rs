@@ -103,12 +103,14 @@ pub trait Widget<M> {
     /// This is collected once during style resolution and provides defaults
     /// for scrollbar theming and other universal properties. Individual widget
     /// `default_css()` implementations add to (not replace) these base styles.
+    ///
+    /// Uses the universal selector `*` to match all widget types.
     fn base_widget_css() -> &'static str
     where
         Self: Sized,
     {
         r#"
-        Widget {
+        * {
             scrollbar-background: $scrollbar-background;
             scrollbar-background-hover: $scrollbar-background-hover;
             scrollbar-background-active: $scrollbar-background-active;

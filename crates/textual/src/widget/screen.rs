@@ -43,7 +43,8 @@ pub const DEFAULT_VERTICAL_BREAKPOINTS: &[Breakpoint] = &[
 /// wrapped in a Screen widget.
 pub struct Screen<M> {
     child: Box<dyn Widget<M>>,
-    responsive_classes: Vec<String>,
+    /// Responsive classes are static strings from breakpoints, avoiding allocations.
+    responsive_classes: Vec<&'static str>,
     style: ComputedStyle,
     is_dirty: bool,
     horizontal_breakpoints: &'static [Breakpoint],
@@ -84,59 +85,66 @@ impl<M> Screen<M> {
         self.responsive_classes.clear();
 
         // Find matching horizontal breakpoint (last one where width >= threshold)
-        if let Some((_, class)) = self.horizontal_breakpoints
+        if let Some((_, class)) = self
+            .horizontal_breakpoints
             .iter()
             .filter(|(threshold, _)| width >= *threshold)
             .last()
         {
-            self.responsive_classes.push(class.to_string());
+            self.responsive_classes.push(*class);
         }
 
         // Find matching vertical breakpoint (last one where height >= threshold)
-        if let Some((_, class)) = self.vertical_breakpoints
+        if let Some((_, class)) = self
+            .vertical_breakpoints
             .iter()
             .filter(|(threshold, _)| height >= *threshold)
             .last()
         {
-            self.responsive_classes.push(class.to_string());
+            self.responsive_classes.push(*class);
         }
 
         if old_classes != self.responsive_classes {
             self.is_dirty = true;
         }
     }
-}
 
-impl<M> Widget<M> for Screen<M> {
-    fn render(&self, canvas: &mut Canvas, region: Region) {
+    /// Calculate the aligned child region within the available region.
+    ///
+    /// Handles alignment (left/center/right, top/middle/bottom) and ensures
+    /// the child doesn't exceed the available space.
+    fn child_region(&self, region: Region) -> Region {
         use tcss::types::{AlignHorizontal, AlignVertical};
 
-        // Get child's desired size to calculate alignment
         let child_size = self.child.desired_size();
-
-        // Calculate aligned position for the child
         let child_width = (child_size.width as i32).min(region.width);
         let child_height = (child_size.height as i32).min(region.height);
 
+        // Clamp offsets to 0 to prevent negative offsets when content > container
         let offset_x = match self.style.align_horizontal {
             AlignHorizontal::Left => 0,
-            AlignHorizontal::Center => (region.width - child_width) / 2,
-            AlignHorizontal::Right => region.width - child_width,
+            AlignHorizontal::Center => (region.width - child_width).max(0) / 2,
+            AlignHorizontal::Right => (region.width - child_width).max(0),
         };
 
         let offset_y = match self.style.align_vertical {
             AlignVertical::Top => 0,
-            AlignVertical::Middle => (region.height - child_height) / 2,
-            AlignVertical::Bottom => region.height - child_height,
+            AlignVertical::Middle => (region.height - child_height).max(0) / 2,
+            AlignVertical::Bottom => (region.height - child_height).max(0),
         };
 
-        let child_region = Region {
+        Region {
             x: region.x + offset_x,
             y: region.y + offset_y,
             width: child_width,
             height: child_height,
-        };
+        }
+    }
+}
 
+impl<M> Widget<M> for Screen<M> {
+    fn render(&self, canvas: &mut Canvas, region: Region) {
+        let child_region = self.child_region(region);
         self.child.render(canvas, child_region);
     }
 
@@ -154,7 +162,8 @@ impl<M> Widget<M> for Screen<M> {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "Screen".to_string(),
-            classes: self.responsive_classes.clone(),
+            // Convert &'static str to String only when metadata is requested
+            classes: self.responsive_classes.iter().map(|s| s.to_string()).collect(),
             states: WidgetStates::empty(), // Screen typically doesn't have focus/hover itself
             id: None,
         }
@@ -206,32 +215,7 @@ impl<M> Widget<M> for Screen<M> {
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
-        use tcss::types::{AlignHorizontal, AlignVertical};
-
-        // Calculate aligned region for the child (same as render)
-        let child_size = self.child.desired_size();
-        let child_width = (child_size.width as i32).min(region.width);
-        let child_height = (child_size.height as i32).min(region.height);
-
-        let offset_x = match self.style.align_horizontal {
-            AlignHorizontal::Left => 0,
-            AlignHorizontal::Center => (region.width - child_width) / 2,
-            AlignHorizontal::Right => region.width - child_width,
-        };
-
-        let offset_y = match self.style.align_vertical {
-            AlignVertical::Top => 0,
-            AlignVertical::Middle => (region.height - child_height) / 2,
-            AlignVertical::Bottom => region.height - child_height,
-        };
-
-        let child_region = Region {
-            x: region.x + offset_x,
-            y: region.y + offset_y,
-            width: child_width,
-            height: child_height,
-        };
-
+        let child_region = self.child_region(region);
         self.child.on_mouse(event, child_region)
     }
 
