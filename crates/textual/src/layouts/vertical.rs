@@ -1,15 +1,18 @@
 //! Vertical layout algorithm - stacks children top-to-bottom.
 
 use crate::canvas::{Region, Size};
+use crate::fraction::Fraction;
+use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
-use super::size_resolver::{resolve_height_fixed, resolve_width_with_intrinsic};
+use super::size_resolver::{resolve_height_fixed, resolve_width_with_intrinsic, DEFAULT_FIXED_HEIGHT};
 use super::{Layout, WidgetPlacement};
 
 /// Vertical layout - stacks children top-to-bottom.
 ///
 /// Each child gets its CSS-specified width (or full width if not specified)
 /// and its CSS-specified height (or auto height if not specified).
+/// Supports `fr` units for proportional height distribution.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VerticalLayout;
 
@@ -21,27 +24,91 @@ impl Layout for VerticalLayout {
         available: Region,
     ) -> Vec<WidgetPlacement> {
         let mut placements = Vec::with_capacity(children.len());
-        let mut current_y = available.y;
+
+        // First pass: calculate space used by non-fr items and collect fr totals
+        let mut fixed_height_used: i32 = 0;
+        let mut total_fr: i64 = 0;
+        let mut total_margin: i32 = 0;
         let mut prev_margin_bottom: i32 = 0;
 
+        for (i, (_child_index, child_style, _desired_size)) in children.iter().enumerate() {
+            let margin_top = child_style.margin.top.value as i32;
+            let margin_bottom = child_style.margin.bottom.value as i32;
+
+            // CSS margin collapsing
+            let effective_top_margin = if i == 0 {
+                margin_top
+            } else {
+                (margin_top - prev_margin_bottom).max(0)
+            };
+            total_margin += effective_top_margin + margin_bottom;
+            prev_margin_bottom = margin_bottom;
+
+            if let Some(height) = &child_style.height {
+                match height.unit {
+                    Unit::Fraction => {
+                        // Scale fr values to integers (multiply by 1000 for precision)
+                        total_fr += (height.value * 1000.0) as i64;
+                    }
+                    Unit::Cells => {
+                        fixed_height_used += height.value as i32;
+                    }
+                    Unit::Percent => {
+                        fixed_height_used += ((height.value / 100.0) * available.height as f64) as i32;
+                    }
+                    _ => {
+                        // Auto or other - use default fixed height
+                        fixed_height_used += DEFAULT_FIXED_HEIGHT;
+                    }
+                }
+            } else {
+                // No height specified - use default
+                fixed_height_used += DEFAULT_FIXED_HEIGHT;
+            }
+        }
+
+        // Calculate remaining space for fr units
+        let remaining_for_fr = (available.height - fixed_height_used - total_margin).max(0) as i64;
+
+        // Second pass: place children with calculated heights using Fraction for precise remainder handling
+        let mut current_y = available.y;
+        prev_margin_bottom = 0;
+        let mut fr_remainder = Fraction::ZERO;
+
         for (i, (child_index, child_style, desired_size)) in children.iter().enumerate() {
-            // Resolve child dimensions from CSS
-            // Vertical layout: children use intrinsic width for auto, have fixed/auto height
-            let height = resolve_height_fixed(child_style, available.height);
+            // Resolve width
             let width = resolve_width_with_intrinsic(child_style, desired_size.width, available.width);
 
-            // Get margin for positioning (Scalar.value is f64)
+            // Resolve height - use Fraction for fr units to match Python Textual behavior
+            let height = if let Some(h) = &child_style.height {
+                match h.unit {
+                    Unit::Fraction => {
+                        if total_fr > 0 {
+                            // Use Fraction arithmetic: extra pixels go to later widgets
+                            let fr_value = (h.value * 1000.0) as i64;
+                            let raw = Fraction::new(remaining_for_fr * fr_value, total_fr) + fr_remainder;
+                            let result = raw.floor() as i32;
+                            fr_remainder = raw.fract();
+                            result
+                        } else {
+                            0
+                        }
+                    }
+                    _ => resolve_height_fixed(child_style, available.height),
+                }
+            } else {
+                resolve_height_fixed(child_style, available.height)
+            };
+
+            // Get margin for positioning
             let margin_top = child_style.margin.top.value as i32;
             let margin_left = child_style.margin.left.value as i32;
             let margin_bottom = child_style.margin.bottom.value as i32;
 
-            // CSS margin collapsing: use max of adjacent margins, not sum
+            // CSS margin collapsing
             let effective_top_margin = if i == 0 {
-                margin_top // First child: full top margin
+                margin_top
             } else {
-                // Collapse: the gap between siblings is max(prev_bottom, current_top)
-                // We already advanced by prev_margin_bottom, so we only add the difference
-                // if current_top is larger
                 (margin_top - prev_margin_bottom).max(0)
             };
 
@@ -57,7 +124,6 @@ impl Layout for VerticalLayout {
                 },
             });
 
-            // Advance by height + bottom margin
             current_y += height + margin_bottom;
             prev_margin_bottom = margin_bottom;
         }
