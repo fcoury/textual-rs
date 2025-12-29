@@ -166,7 +166,7 @@ impl<M> Static<M> {
 
         Style {
             fg,
-            bg: self.style.background.clone(),
+            bg: self.effective_background(),
             bold: self.style.text_style.bold,
             dim: self.style.text_style.dim,
             italic: self.style.text_style.italic,
@@ -176,14 +176,31 @@ impl<M> Static<M> {
         }
     }
 
-    /// Get the effective background color (with background-tint applied).
+    /// Get the effective background color (with alpha compositing and background-tint applied).
     /// Falls back to inherited background from parent if this widget is transparent.
     fn effective_background(&self) -> Option<tcss::types::RgbaColor> {
-        match (&self.style.background, &self.style.background_tint) {
-            (Some(bg), Some(tint)) => Some(bg.tint(tint)),
-            (Some(bg), None) => Some(bg.clone()),
-            // Widget is transparent - use inherited background from parent
-            (None, _) => self.style.inherited_background.clone(),
+        match (&self.style.background, &self.style.inherited_background) {
+            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
+                // Composite semi-transparent background over inherited
+                let composited = bg.blend_over(inherited);
+                // Then apply tint if present
+                match &self.style.background_tint {
+                    Some(tint) => Some(composited.tint(tint)),
+                    None => Some(composited),
+                }
+            }
+            (Some(bg), _) => {
+                // Opaque background or no inherited - just apply tint
+                match &self.style.background_tint {
+                    Some(tint) => Some(bg.tint(tint)),
+                    None => Some(bg.clone()),
+                }
+            }
+            (None, Some(inherited)) => {
+                // No background specified, inherit from parent
+                Some(inherited.clone())
+            }
+            (None, None) => None,
         }
     }
 

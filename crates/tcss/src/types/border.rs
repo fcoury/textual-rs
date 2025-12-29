@@ -54,16 +54,26 @@ pub enum BorderKind {
     Heavy,
     /// Hidden border (no visual, no space).
     Hidden,
+    /// Horizontal key border (top/bottom lines only).
+    Hkey,
     /// Outer-only border style.
     Outer,
     /// Inner-only border style.
     Inner,
+    /// Panel-style border with partial block characters.
+    Panel,
     /// Standard solid line border (─│┌┐└┘).
     Solid,
     /// Rounded corner border (─│╭╮╯╰).
     Round,
+    /// Tall border with vertical emphasis.
+    Tall,
     /// Extra-thick border appearance.
     Thick,
+    /// Vertical key border (left/right lines only).
+    Vkey,
+    /// Wide border with horizontal emphasis.
+    Wide,
 }
 
 /// A single border edge with style and optional color.

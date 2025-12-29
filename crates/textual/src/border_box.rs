@@ -96,6 +96,31 @@ fn generate_box(border_type: &str, inner_style: &Style, outer_style: &Style) -> 
         default_box_segments(),
     ];
 
+    // Helper to get the style for a given location zone:
+    // 0 = inner style
+    // 1 = outer style
+    // 2 = reversed: outer bg with inner fg
+    // 3 = reversed: inner bg with outer fg
+    let get_style_for_zone = |zone: u8| -> Style {
+        match zone {
+            0 => inner_style.clone(),
+            1 => outer_style.clone(),
+            2 => Style {
+                fg: inner_style.fg.clone(),
+                bg: outer_style.bg.clone(),
+                reverse: true,
+                ..inner_style.clone()
+            },
+            3 => Style {
+                fg: outer_style.fg.clone(),
+                bg: inner_style.bg.clone(),
+                reverse: true,
+                ..outer_style.clone()
+            },
+            _ => inner_style.clone(),
+        }
+    };
+
     for row_idx in 0..3 {
         let left_char = chars[row_idx][0];
         let fill_char = chars[row_idx][1];
@@ -105,14 +130,14 @@ fn generate_box(border_type: &str, inner_style: &Style, outer_style: &Style) -> 
         let fill_loc = locations[row_idx][1];
         let right_loc = locations[row_idx][2];
 
-        let left_style = if left_loc == 0 { inner_style } else { outer_style };
-        let fill_style = if fill_loc == 0 { inner_style } else { outer_style };
-        let right_style = if right_loc == 0 { inner_style } else { outer_style };
+        let left_style = get_style_for_zone(left_loc);
+        let fill_style = get_style_for_zone(fill_loc);
+        let right_style = get_style_for_zone(right_loc);
 
         rows[row_idx] = (
-            Segment::styled(left_char.to_string(), left_style.clone()),
-            Segment::styled(fill_char.to_string(), fill_style.clone()),
-            Segment::styled(right_char.to_string(), right_style.clone()),
+            Segment::styled(left_char.to_string(), left_style),
+            Segment::styled(fill_char.to_string(), fill_style),
+            Segment::styled(right_char.to_string(), right_style),
         );
     }
 

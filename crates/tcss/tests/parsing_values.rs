@@ -437,6 +437,36 @@ fn test_border_outer() {
     assert_eq!(border.kind, BorderKind::Outer);
 }
 
+#[test]
+fn test_border_tall() {
+    let (_, border) = parse_border_edge("tall blue").unwrap();
+    assert_eq!(border.kind, BorderKind::Tall);
+}
+
+#[test]
+fn test_border_wide() {
+    let (_, border) = parse_border_edge("wide green").unwrap();
+    assert_eq!(border.kind, BorderKind::Wide);
+}
+
+#[test]
+fn test_border_panel() {
+    let (_, border) = parse_border_edge("panel red").unwrap();
+    assert_eq!(border.kind, BorderKind::Panel);
+}
+
+#[test]
+fn test_border_hkey() {
+    let (_, border) = parse_border_edge("hkey white").unwrap();
+    assert_eq!(border.kind, BorderKind::Hkey);
+}
+
+#[test]
+fn test_border_vkey() {
+    let (_, border) = parse_border_edge("vkey gray").unwrap();
+    assert_eq!(border.kind, BorderKind::Vkey);
+}
+
 // ============================================================================
 // WHITESPACE HANDLING
 // ============================================================================

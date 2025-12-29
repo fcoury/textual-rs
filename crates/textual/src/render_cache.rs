@@ -35,11 +35,30 @@ impl RenderCache {
         let border_kind = style.border.top.kind;
         let has_border = !matches!(border_kind, BorderKind::None | BorderKind::Hidden);
 
-        // Compute effective background (with tint applied)
-        let effective_bg = match (&style.background, &style.background_tint) {
-            (Some(bg), Some(tint)) => Some(bg.tint(tint)),
-            (Some(bg), None) => Some(bg.clone()),
-            (None, _) => None,
+        // Compute effective background (with alpha compositing and tint applied)
+        // If the background has alpha < 1.0, composite it over the inherited background
+        let effective_bg = match (&style.background, &style.inherited_background) {
+            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
+                // Composite semi-transparent background over inherited
+                let composited = bg.blend_over(inherited);
+                // Then apply tint if present
+                match &style.background_tint {
+                    Some(tint) => Some(composited.tint(tint)),
+                    None => Some(composited),
+                }
+            }
+            (Some(bg), _) => {
+                // Opaque background or no inherited - just apply tint
+                match &style.background_tint {
+                    Some(tint) => Some(bg.tint(tint)),
+                    None => Some(bg.clone()),
+                }
+            }
+            (None, Some(inherited)) => {
+                // No background specified, inherit from parent
+                Some(inherited.clone())
+            }
+            (None, None) => None,
         };
 
         let border_box = if has_border {
@@ -51,7 +70,12 @@ impl RenderCache {
                 bg: effective_bg.clone(),
                 ..Default::default()
             };
-            let outer_style = inner_style.clone();
+            // Outer style uses inherited/parent background for zone 2/3 color reversal
+            let outer_style = Style {
+                fg: border_color.clone(),
+                bg: style.inherited_background.clone(),
+                ..Default::default()
+            };
 
             Some(get_box(border_type, &inner_style, &outer_style))
         } else {
@@ -204,12 +228,30 @@ impl RenderCache {
             .map(|bg| Style::with_bg(bg.clone()))
     }
 
-    /// Returns the background color with background-tint applied.
+    /// Returns the background color with alpha compositing and background-tint applied.
     fn effective_background(&self) -> Option<tcss::types::RgbaColor> {
-        match (&self.style.background, &self.style.background_tint) {
-            (Some(bg), Some(tint)) => Some(bg.tint(tint)),
-            (Some(bg), None) => Some(bg.clone()),
-            (None, _) => None,
+        match (&self.style.background, &self.style.inherited_background) {
+            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
+                // Composite semi-transparent background over inherited
+                let composited = bg.blend_over(inherited);
+                // Then apply tint if present
+                match &self.style.background_tint {
+                    Some(tint) => Some(composited.tint(tint)),
+                    None => Some(composited),
+                }
+            }
+            (Some(bg), _) => {
+                // Opaque background or no inherited - just apply tint
+                match &self.style.background_tint {
+                    Some(tint) => Some(bg.tint(tint)),
+                    None => Some(bg.clone()),
+                }
+            }
+            (None, Some(inherited)) => {
+                // No background specified, inherit from parent
+                Some(inherited.clone())
+            }
+            (None, None) => None,
         }
     }
 }
@@ -225,11 +267,16 @@ fn border_kind_to_str(kind: BorderKind) -> &'static str {
         BorderKind::Dashed => "dashed",
         BorderKind::Double => "double",
         BorderKind::Heavy => "heavy",
+        BorderKind::Hkey => "hkey",
         BorderKind::Inner => "inner",
         BorderKind::Outer => "outer",
+        BorderKind::Panel => "panel",
         BorderKind::Round => "round",
         BorderKind::Solid => "solid",
+        BorderKind::Tall => "tall",
         BorderKind::Thick => "thick",
+        BorderKind::Vkey => "vkey",
+        BorderKind::Wide => "wide",
     }
 }
 

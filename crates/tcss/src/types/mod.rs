@@ -39,7 +39,7 @@ pub use border::{Border, BorderEdge, BorderKind};
 pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing, Unit};
 pub use grid::{GridPlacement, GridStyle};
-pub use layout::{Display, Layout, Overflow, Visibility};
+pub use layout::{BoxSizing, Display, Layout, Overflow, Visibility};
 pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
@@ -79,6 +79,7 @@ pub struct ComputedStyle {
     pub margin: Spacing,
     pub padding: Spacing,
     pub border: Border,
+    pub box_sizing: BoxSizing,
 
     // Text & Content Alignment
     pub text_align: TextAlign,
@@ -131,6 +132,7 @@ impl Default for ComputedStyle {
             margin: Spacing::default(),
             padding: Spacing::default(),
             border: Border::default(),
+            box_sizing: BoxSizing::default(),
             text_align: TextAlign::default(),
             text_style: TextStyle::default(),
             content_align_horizontal: AlignHorizontal::default(),

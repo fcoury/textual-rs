@@ -296,6 +296,27 @@ impl RgbaColor {
         )
     }
 
+    /// Composites this color over a background color using alpha blending.
+    ///
+    /// If this color is semi-transparent, it blends with the background.
+    /// If this color is opaque (alpha >= 1.0), it replaces the background.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let bg = RgbaColor::white();
+    /// let fg = RgbaColor::rgba(255, 0, 0, 0.2);  // 20% red
+    /// let result = fg.blend_over(&bg);
+    /// // result ≈ (255, 204, 204) - light pink
+    /// ```
+    pub fn blend_over(&self, background: &RgbaColor) -> RgbaColor {
+        if self.a >= 1.0 {
+            return self.clone();
+        }
+        // Use tint: composite self (as overlay) onto background
+        background.tint(self)
+    }
+
     /// Parse a color string in various formats.
     ///
     /// Supported formats:
