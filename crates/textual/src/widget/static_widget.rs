@@ -388,6 +388,7 @@ Static {
             ..Default::default()
         };
 
+        // For border titles, don't wrap - let render_label_in_row handle truncation with ellipsis
         let title_strip = if cache.has_border() {
             self.border_title.as_ref().and_then(|t| {
                 if t.is_empty() {
@@ -396,7 +397,8 @@ Static {
                     let content = Content::from_markup(t)
                         .unwrap_or_else(|_| Content::new(t))
                         .with_style(title_style.clone());
-                    content.wrap(width).into_iter().next()
+                    // Use very large width to prevent word-wrapping; truncation happens in render_label_in_row
+                    content.wrap(usize::MAX).into_iter().next()
                 }
             })
         } else {
@@ -411,7 +413,8 @@ Static {
                     let content = Content::from_markup(s)
                         .unwrap_or_else(|_| Content::new(s))
                         .with_style(subtitle_style.clone());
-                    content.wrap(width).into_iter().next()
+                    // Use very large width to prevent word-wrapping; truncation happens in render_label_in_row
+                    content.wrap(usize::MAX).into_iter().next()
                 }
             })
         } else {

@@ -90,14 +90,26 @@ fn render_label_in_row(
     let min_padding = 1;
     let available_width = width.saturating_sub(min_padding * 2);
 
-    if label_len >= available_width {
-        // Label is too long, crop it (leave space for min padding)
-        let cropped = label.crop(0, available_width);
+    if label_len > available_width {
+        // Label is too long - truncate with ellipsis
+        // Reserve 1 char for ellipsis, so we can show (available_width - 1) chars of text
+        let truncate_len = available_width.saturating_sub(1);
+        let cropped = label.crop(0, truncate_len);
+
         let mut segments = Vec::new();
         segments.push(repeat_char_segment(fill, min_padding));
         segments.extend(cropped.segments().iter().cloned());
-        // Fill remaining space
-        let remaining = width.saturating_sub(min_padding + cropped.cell_length());
+
+        // Add ellipsis with the same style as the label's last segment
+        let ellipsis_style = cropped.segments().last().and_then(|s| s.style().cloned());
+        segments.push(match ellipsis_style {
+            Some(s) => Segment::styled("…", s),
+            None => Segment::new("…"),
+        });
+
+        // Fill remaining space (should be min_padding chars)
+        let used = min_padding + cropped.cell_length() + 1; // +1 for ellipsis
+        let remaining = width.saturating_sub(used);
         if remaining > 0 {
             segments.push(repeat_char_segment(fill, remaining));
         }
@@ -333,5 +345,21 @@ mod tests {
         // │ + 2 padding + 4 blank + 2 padding + │
         assert_eq!(row.text(), "│        │");
         assert_eq!(row.cell_length(), 10);
+    }
+
+    #[test]
+    fn render_row_with_long_title_truncates_with_ellipsis() {
+        let top = make_round_top();
+        // Title is 30 chars, but width is only 15
+        let title = Strip::from_segment(Segment::new("This is a very long title text"));
+        let row = render_row(&top, 15, Some(&title), None, AlignHorizontal::Left, AlignHorizontal::Left);
+
+        // Width 15: ╭(1) + inner(13) + ╮(1)
+        // Inner has min_padding of 1 on each side, so available = 13 - 2 = 11
+        // Title is 30 chars, so truncate to 10 chars + ellipsis
+        // Result should be: ╭ + ─ + 10 chars + … + ─ + ╮
+        println!("Row text: '{}' (len {})", row.text(), row.cell_length());
+        assert_eq!(row.cell_length(), 15);
+        assert!(row.text().contains("…"), "Should contain ellipsis, got: '{}'", row.text());
     }
 }

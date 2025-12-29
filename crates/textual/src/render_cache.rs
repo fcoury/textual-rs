@@ -312,16 +312,30 @@ impl RenderCache {
             let min_padding = 1; // Minimum 1 fill char on each side
             let available = width.saturating_sub(min_padding * 2);
 
-            if label_len >= available {
-                // Label too long - crop it
-                let cropped = label_strip.crop(0, available);
+            if label_len > available {
+                // Label too long - truncate with ellipsis
+                // Reserve 1 char for ellipsis, so we can show (available - 1) chars of text
+                let truncate_len = available.saturating_sub(1);
+                let cropped = label_strip.crop(0, truncate_len);
+
                 let mut segments = Vec::new();
                 segments.push(Segment::styled(
                     std::iter::repeat(fill_char).take(min_padding).collect::<String>(),
                     fill_style.clone().unwrap_or_default(),
                 ));
                 segments.extend(cropped.segments().iter().cloned());
-                let remaining = width.saturating_sub(min_padding + cropped.cell_length());
+
+                // Add ellipsis with the same style as the label's last segment
+                let ellipsis_style = cropped
+                    .segments()
+                    .last()
+                    .and_then(|s| s.style().cloned())
+                    .unwrap_or_default();
+                segments.push(Segment::styled("…", ellipsis_style));
+
+                // Fill remaining space (should be min_padding chars)
+                let used = min_padding + cropped.cell_length() + 1; // +1 for ellipsis
+                let remaining = width.saturating_sub(used);
                 if remaining > 0 {
                     segments.push(Segment::styled(
                         std::iter::repeat(fill_char).take(remaining).collect::<String>(),

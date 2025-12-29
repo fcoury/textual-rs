@@ -1,13 +1,10 @@
 ---
 source: crates/textual/tests/examples_snapshot.rs
-assertion_line: 600
 expression: canvas.to_snapshot()
 ---
-
-
-  ▏ Border title       ▕          ╭─Left, ─╮              ▁▁▁▁▁▁Left▁▁▁▁▁▁
+  ▏ Border title       ▕          ╭─Left,…─╮              ▁▁▁▁▁▁Left▁▁▁▁▁▁
   ▏This is the story of▕          │a Python│              ▎developer that▊
-  ▏ Border subtitle    ▕          ╰─Center─╯              ▔▔▔▔▔▔@@@▔▔▔▔▔▔▔
+  ▏ Border subtitle    ▕          ╰─Cente…─╯              ▔▔▔▔▔▔@@@▔▔▔▔▔▔▔
 
 
 
@@ -20,8 +17,8 @@ expression: canvas.to_snapshot()
 
 
 
-─Title, but really───────
-                                ──Title, but───          ─Title, but really─
+─Title, but really looo…─
+                                ─Title, but r…─          ─Title, but reall…─
   because the first try         had some labels          that were too long.
-                                ─Subtitle, but─          ─Subtitle, but─────
-─Subtitle, but really────
+                                ─Subtitle, bu…─          ─Subtitle, but re…─
+─Subtitle, but really l…─
