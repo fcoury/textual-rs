@@ -6,6 +6,7 @@ pub struct Vertical<M> {
     pub children: Vec<Box<dyn Widget<M>>>,
     style: ComputedStyle,
     dirty: bool,
+    id: Option<String>,
 }
 
 impl<M> Vertical<M> {
@@ -14,7 +15,13 @@ impl<M> Vertical<M> {
             children,
             style: ComputedStyle::default(),
             dirty: true, // Start dirty so initial styles are computed
+            id: None,
         }
+    }
+
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 }
 
@@ -275,5 +282,9 @@ impl<M> Widget<M> for Vertical<M> {
         } else {
             None
         }
+    }
+
+    fn id(&self) -> Option<&str> {
+        self.id.as_deref()
     }
 }

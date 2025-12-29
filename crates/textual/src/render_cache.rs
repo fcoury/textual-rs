@@ -35,13 +35,20 @@ impl RenderCache {
         let border_kind = style.border.top.kind;
         let has_border = !matches!(border_kind, BorderKind::None | BorderKind::Hidden);
 
+        // Compute effective background (with tint applied)
+        let effective_bg = match (&style.background, &style.background_tint) {
+            (Some(bg), Some(tint)) => Some(bg.tint(tint)),
+            (Some(bg), None) => Some(bg.clone()),
+            (None, _) => None,
+        };
+
         let border_box = if has_border {
             let border_type = border_kind_to_str(border_kind);
             // Use border color for the foreground, falling back to text color
             let border_color = style.border.top.color.clone().or_else(|| style.color.clone());
             let inner_style = Style {
                 fg: border_color.clone(),
-                bg: style.background.clone(),
+                bg: effective_bg.clone(),
                 ..Default::default()
             };
             let outer_style = inner_style.clone();
@@ -192,10 +199,18 @@ impl RenderCache {
 
     /// Returns the padding style for blank areas.
     fn pad_style(&self) -> Option<Style> {
-        self.style
-            .background
+        self.effective_background()
             .as_ref()
             .map(|bg| Style::with_bg(bg.clone()))
+    }
+
+    /// Returns the background color with background-tint applied.
+    fn effective_background(&self) -> Option<tcss::types::RgbaColor> {
+        match (&self.style.background, &self.style.background_tint) {
+            (Some(bg), Some(tint)) => Some(bg.tint(tint)),
+            (Some(bg), None) => Some(bg.clone()),
+            (None, _) => None,
+        }
     }
 }
 

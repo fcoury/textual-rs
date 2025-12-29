@@ -59,6 +59,9 @@ pub struct ComputedStyle {
     /// Tint color overlay applied to all colors (both fg and bg).
     /// Uses alpha for blend strength (e.g., `tint: magenta 40%` → 0.4 alpha).
     pub tint: Option<RgbaColor>,
+    /// Tint color overlay applied only to background.
+    /// Uses alpha for blend strength (e.g., `background-tint: white 50%` → 0.5 alpha).
+    pub background_tint: Option<RgbaColor>,
 
     // Layout Dimensions
     pub width: Option<Scalar>,
@@ -113,6 +116,7 @@ impl Default for ComputedStyle {
             background: None,
             auto_color: false,
             tint: None,
+            background_tint: None,
             width: None,
             height: None,
             min_width: None,
