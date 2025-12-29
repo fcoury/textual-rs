@@ -78,26 +78,32 @@ pub fn render_row(
 }
 
 /// Renders a label within a row, with fill characters based on alignment.
+/// Python Textual adds a space before and after the label text for readability.
 fn render_label_in_row(
     label: &Strip,
     fill: &Segment,
     width: usize,
     align: AlignHorizontal,
 ) -> Strip {
-    let label_len = label.cell_length();
+    // Python Textual adds 1 space on each side of the label text
+    let label_len = label.cell_length() + 2; // +2 for spaces around label
 
-    // Minimum padding of 1 on each side to keep label away from corners
+    // Minimum padding of 1 fill char on each side to keep label away from corners
     let min_padding = 1;
     let available_width = width.saturating_sub(min_padding * 2);
 
     if label_len > available_width {
         // Label is too long - truncate with ellipsis
-        // Reserve 1 char for ellipsis, so we can show (available_width - 1) chars of text
-        let truncate_len = available_width.saturating_sub(1);
+        // Reserve 1 char for ellipsis + 2 for spaces, so we can show (available_width - 3) chars of text
+        let truncate_len = available_width.saturating_sub(3);
         let cropped = label.crop(0, truncate_len);
 
         let mut segments = Vec::new();
         segments.push(repeat_char_segment(fill, min_padding));
+
+        // Space before label
+        segments.push(Segment::new(" "));
+
         segments.extend(cropped.segments().iter().cloned());
 
         // Add ellipsis with the same style as the label's last segment
@@ -107,8 +113,11 @@ fn render_label_in_row(
             None => Segment::new("…"),
         });
 
+        // Space after label (before fill)
+        segments.push(Segment::new(" "));
+
         // Fill remaining space (should be min_padding chars)
-        let used = min_padding + cropped.cell_length() + 1; // +1 for ellipsis
+        let used = min_padding + 1 + cropped.cell_length() + 1 + 1; // fill + space + text + ellipsis + space
         let remaining = width.saturating_sub(used);
         if remaining > 0 {
             segments.push(repeat_char_segment(fill, remaining));
@@ -116,7 +125,7 @@ fn render_label_in_row(
         return Strip::from_segments(segments);
     }
 
-    // Calculate padding based on alignment
+    // Calculate padding based on alignment (label_len already includes 2 for spaces)
     let total_padding = width - label_len;
     let (left_padding, right_padding) = match align {
         AlignHorizontal::Left => {
@@ -142,8 +151,14 @@ fn render_label_in_row(
         segments.push(repeat_char_segment(fill, left_padding));
     }
 
+    // Space before label
+    segments.push(Segment::new(" "));
+
     // The label
     segments.extend(label.segments().iter().cloned());
+
+    // Space after label
+    segments.push(Segment::new(" "));
 
     // Right padding (fill characters)
     if right_padding > 0 {
@@ -282,9 +297,9 @@ mod tests {
         let top = make_round_top();
         let title = Strip::from_segment(Segment::new("Hi"));
         let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Left, AlignHorizontal::Left);
-        // "╭─Hi─────╮" with left-aligned title (1 char padding from corner)
+        // "╭─ Hi ───╮" with left-aligned title (1 fill char + space + text + space + fill)
         assert_eq!(row.cell_length(), 10);
-        assert_eq!(row.text(), "╭─Hi─────╮");
+        assert_eq!(row.text(), "╭─ Hi ───╮");
     }
 
     #[test]
@@ -292,9 +307,9 @@ mod tests {
         let top = make_round_top();
         let title = Strip::from_segment(Segment::new("Hi"));
         let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Right, AlignHorizontal::Left);
-        // "╭─────Hi─╮" with right-aligned title (1 char padding from corner)
+        // "╭─── Hi ─╮" with right-aligned title (fill + space + text + space + 1 fill char)
         assert_eq!(row.cell_length(), 10);
-        assert_eq!(row.text(), "╭─────Hi─╮");
+        assert_eq!(row.text(), "╭─── Hi ─╮");
     }
 
     #[test]

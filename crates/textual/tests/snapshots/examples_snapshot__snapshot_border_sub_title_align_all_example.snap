@@ -2,9 +2,9 @@
 source: crates/textual/tests/examples_snapshot.rs
 expression: canvas.to_snapshot()
 ---
-  ▏ Border title       ▕          ╭─Left,…─╮              ▁▁▁▁▁▁Left▁▁▁▁▁▁
+  ▏  Border title      ▕          ╭─ Lef… ─╮              ▁▁▁▁▁ Left ▁▁▁▁▁
   ▏This is the story of▕          │a Python│              ▎developer that▊
-  ▏ Border subtitle    ▕          ╰─Cente…─╯              ▔▔▔▔▔▔@@@▔▔▔▔▔▔▔
+  ▏   Border subtitle  ▕          ╰─ Cen… ─╯              ▔▔▔▔▔ @@@ ▔▔▔▔▔▔
 
 
 
@@ -12,7 +12,7 @@ expression: canvas.to_snapshot()
 
      +--------------+                                  ─Title─────────────────
      |had to fill up|             nine labels          and ended up redoing it
-     +-Left---------+                                  ─Subtitle──────────────
+     +- Left -------+                                  ──────────────Subtitle─
 
 
 

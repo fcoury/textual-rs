@@ -140,7 +140,7 @@ impl Default for ComputedStyle {
             border: Border::default(),
             box_sizing: BoxSizing::default(),
             border_title_align: AlignHorizontal::Left,
-            border_subtitle_align: AlignHorizontal::Left,
+            border_subtitle_align: AlignHorizontal::Right,
             border_title_color: None,
             border_subtitle_color: None,
             text_align: TextAlign::default(),

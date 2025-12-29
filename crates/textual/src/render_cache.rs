@@ -308,6 +308,7 @@ impl RenderCache {
 
         if let Some(label_strip) = label {
             // Render label with fill characters on either side
+            // Note: Partial borders (no corners) do NOT add spaces around labels
             let label_len = label_strip.cell_length();
             let min_padding = 1; // Minimum 1 fill char on each side
             let available = width.saturating_sub(min_padding * 2);
@@ -323,6 +324,7 @@ impl RenderCache {
                     std::iter::repeat(fill_char).take(min_padding).collect::<String>(),
                     fill_style.clone().unwrap_or_default(),
                 ));
+
                 segments.extend(cropped.segments().iter().cloned());
 
                 // Add ellipsis with the same style as the label's last segment
@@ -334,7 +336,7 @@ impl RenderCache {
                 segments.push(Segment::styled("…", ellipsis_style));
 
                 // Fill remaining space (should be min_padding chars)
-                let used = min_padding + cropped.cell_length() + 1; // +1 for ellipsis
+                let used = min_padding + cropped.cell_length() + 1; // fill + text + ellipsis
                 let remaining = width.saturating_sub(used);
                 if remaining > 0 {
                     segments.push(Segment::styled(
@@ -367,7 +369,9 @@ impl RenderCache {
                     fill_style.clone().unwrap_or_default(),
                 ));
             }
+
             segments.extend(label_strip.segments().iter().cloned());
+
             if right_padding > 0 {
                 segments.push(Segment::styled(
                     std::iter::repeat(fill_char).take(right_padding).collect::<String>(),
