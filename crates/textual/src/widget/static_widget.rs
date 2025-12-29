@@ -63,7 +63,7 @@ impl<M> Default for Static<M> {
             content: VisualType::Text(String::new()),
             expand: false,
             shrink: false,
-            markup: false,
+            markup: true,
             name: None,
             id: None,
             classes: Vec::new(),
@@ -251,8 +251,14 @@ impl<M> Widget<M> for Static<M> {
         let cache = RenderCache::new(&self.style);
         let (inner_width, inner_height) = cache.inner_size(width, height);
 
-        // 3. Parse content into strips
-        let content = Content::new(self.text()).with_style(style.clone());
+        // 3. Parse content into strips (with markup if enabled)
+        let content = if self.markup {
+            Content::from_markup(self.text())
+                .unwrap_or_else(|_| Content::new(self.text()))
+                .with_style(style.clone())
+        } else {
+            Content::new(self.text()).with_style(style.clone())
+        };
         let lines = if inner_width > 0 {
             content.wrap(inner_width)
         } else {

@@ -7,7 +7,7 @@ edition = "2024"
 resolver = "2"
 members = [
     "crates/tcss",
-    "crates/textual",
+    "crates/textual", "crates/rich",
 ]
 
 [dependencies]

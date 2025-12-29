@@ -10,6 +10,8 @@
 //!                    You are here
 //! ```
 
+use std::collections::HashMap;
+
 use tcss::types::RgbaColor;
 use unicode_width::UnicodeWidthStr;
 
@@ -117,6 +119,8 @@ pub struct Segment {
     text: String,
     /// Optional styling for this segment.
     style: Option<Style>,
+    /// Metadata for extensions (e.g., @click actions from Rich markup).
+    meta: HashMap<String, String>,
 }
 
 impl Segment {
@@ -125,6 +129,7 @@ impl Segment {
         Self {
             text: text.into(),
             style: None,
+            meta: HashMap::new(),
         }
     }
 
@@ -133,6 +138,7 @@ impl Segment {
         Self {
             text: text.into(),
             style: Some(style),
+            meta: HashMap::new(),
         }
     }
 
@@ -141,12 +147,21 @@ impl Segment {
         Self {
             text: " ".repeat(width),
             style,
+            meta: HashMap::new(),
         }
     }
 
     /// Returns a builder-style method to add a style.
     pub fn with_style(mut self, style: Style) -> Self {
         self.style = Some(style);
+        self
+    }
+
+    /// Returns a builder-style method to add metadata.
+    ///
+    /// Metadata is used for extensions like action links (`@click`).
+    pub fn with_meta(mut self, meta: HashMap<String, String>) -> Self {
+        self.meta = meta;
         self
     }
 
@@ -168,6 +183,16 @@ impl Segment {
     /// Returns the background color, if any.
     pub fn bg(&self) -> Option<&RgbaColor> {
         self.style.as_ref().and_then(|s| s.bg.as_ref())
+    }
+
+    /// Returns the metadata.
+    pub fn meta(&self) -> &HashMap<String, String> {
+        &self.meta
+    }
+
+    /// Gets a specific metadata value by key.
+    pub fn get_meta(&self, key: &str) -> Option<&str> {
+        self.meta.get(key).map(|s| s.as_str())
     }
 
     /// Returns the terminal cell width of this segment.
@@ -205,6 +230,7 @@ impl Segment {
                 Segment {
                     text: String::new(),
                     style: self.style.clone(),
+                    meta: self.meta.clone(),
                 },
                 self.clone(),
             );
@@ -216,6 +242,7 @@ impl Segment {
                 Segment {
                     text: String::new(),
                     style: self.style.clone(),
+                    meta: self.meta.clone(),
                 },
             );
         }
@@ -239,10 +266,12 @@ impl Segment {
             Segment {
                 text: left_text.to_string(),
                 style: self.style.clone(),
+                meta: self.meta.clone(),
             },
             Segment {
                 text: right_text.to_string(),
                 style: self.style.clone(),
+                meta: self.meta.clone(),
             },
         )
     }
@@ -260,6 +289,7 @@ impl Segment {
         Segment {
             text: self.text.clone(),
             style: Some(new_style),
+            meta: self.meta.clone(),
         }
     }
 
@@ -268,6 +298,7 @@ impl Segment {
         Segment {
             text: self.text.clone(),
             style,
+            meta: self.meta.clone(),
         }
     }
 
@@ -299,6 +330,7 @@ impl Segment {
         Segment {
             text: self.text.clone(),
             style: new_style,
+            meta: self.meta.clone(),
         }
     }
 }
