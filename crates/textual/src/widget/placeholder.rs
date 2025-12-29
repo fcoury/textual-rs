@@ -25,7 +25,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 use tcss::types::RgbaColor;
 
-use crate::canvas::{Canvas, Region};
+use crate::canvas::{Canvas, Region, TextAttributes};
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent, Size};
 
@@ -105,7 +105,7 @@ impl<M> Widget<M> for Placeholder {
         // Fill background
         for y in region.y..(region.y + region.height) {
             for x in region.x..(region.x + region.width) {
-                canvas.put_char(x, y, ' ', None, Some(bg.clone()));
+                canvas.put_char(x, y, ' ', None, Some(bg.clone()), TextAttributes::default());
             }
         }
 
@@ -114,7 +114,7 @@ impl<M> Widget<M> for Placeholder {
         let x = region.x + (region.width - label_len).max(0) / 2;
         let y = region.y + region.height / 2;
 
-        canvas.put_str(x, y, &self.label, Some(fg), Some(bg));
+        canvas.put_str(x, y, &self.label, Some(fg), Some(bg), TextAttributes::default());
     }
 
     fn desired_size(&self) -> Size {

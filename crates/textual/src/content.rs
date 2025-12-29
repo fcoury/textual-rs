@@ -290,6 +290,11 @@ impl Content {
             return vec![Strip::new()];
         }
 
+        // If we have spans (from markup parsing), use span-aware wrapping
+        if let Some(spans) = &self.spans {
+            return self.wrap_with_spans(width, spans);
+        }
+
         let mut result = Vec::new();
 
         for line in self.text.lines() {
@@ -314,6 +319,129 @@ impl Content {
 
         if result.is_empty() {
             result.push(Strip::new());
+        }
+
+        result
+    }
+
+    /// Wraps content while preserving styled spans from markup.
+    fn wrap_with_spans(&self, width: usize, spans: &[InternalSpan]) -> Vec<Strip> {
+        let mut result = Vec::new();
+        let mut line_start = 0;
+
+        for line in self.text.lines() {
+            let line_end = line_start + line.len();
+
+            if line.is_empty() {
+                result.push(Strip::new());
+                line_start = line_end + 1;
+                continue;
+            }
+
+            let line_width = line.width();
+            if line_width <= width {
+                // Line fits, render with spans
+                let strip = self.render_line_with_spans(line, line_start, line_end, spans);
+                result.push(strip);
+            } else {
+                // Need to wrap this line while preserving spans
+                result.extend(self.wrap_line_with_spans(line, line_start, width, spans));
+            }
+            line_start = line_end + 1;
+        }
+
+        if result.is_empty() {
+            result.push(Strip::new());
+        }
+
+        result
+    }
+
+    /// Wraps a single line while preserving styled spans.
+    fn wrap_line_with_spans(
+        &self,
+        line: &str,
+        line_start: usize,
+        width: usize,
+        spans: &[InternalSpan],
+    ) -> Vec<Strip> {
+        let mut result = Vec::new();
+        let mut current_width = 0;
+
+        // Process word by word
+        let words: Vec<&str> = line.split_whitespace().collect();
+        let mut word_positions: Vec<(usize, usize)> = Vec::new(); // (start, end) byte positions
+
+        // Find byte positions of each word in the line
+        let mut search_start = 0;
+        for word in &words {
+            if let Some(pos) = line[search_start..].find(word) {
+                let abs_pos = search_start + pos;
+                word_positions.push((abs_pos, abs_pos + word.len()));
+                search_start = abs_pos + word.len();
+            }
+        }
+
+        let mut current_segment_start = 0;
+        let mut i = 0;
+
+        while i < words.len() {
+            let word = words[i];
+            let word_width = word.width();
+
+            if current_width == 0 {
+                // Start of line
+                if word_width <= width {
+                    current_width = word_width;
+                    i += 1;
+                } else {
+                    // Word too long, need to break it - use the simple approach for now
+                    let (word_byte_start, word_byte_end) = word_positions[i];
+                    let segment_text = &line[word_byte_start..word_byte_end];
+                    let abs_start = line_start + word_byte_start;
+                    let abs_end = line_start + word_byte_end;
+                    let strip = self.render_line_with_spans(segment_text, abs_start, abs_end, spans);
+                    result.push(strip);
+                    current_segment_start = if i + 1 < word_positions.len() {
+                        word_positions[i + 1].0
+                    } else {
+                        line.len()
+                    };
+                    current_width = 0;
+                    i += 1;
+                }
+            } else {
+                let space_and_word = 1 + word_width;
+                if current_width + space_and_word <= width {
+                    // Word fits
+                    current_width += space_and_word;
+                    i += 1;
+                } else {
+                    // Word doesn't fit, emit current segment
+                    let segment_end = if i > 0 { word_positions[i - 1].1 } else { 0 };
+                    let segment_text = &line[current_segment_start..segment_end];
+                    let abs_start = line_start + current_segment_start;
+                    let abs_end = line_start + segment_end;
+                    let strip = self.render_line_with_spans(segment_text, abs_start, abs_end, spans);
+                    result.push(strip);
+
+                    // Start new segment at this word
+                    current_segment_start = word_positions[i].0;
+                    current_width = 0;
+                }
+            }
+        }
+
+        // Emit final segment
+        if current_width > 0 && !words.is_empty() {
+            let segment_end = word_positions.last().map(|(_, e)| *e).unwrap_or(line.len());
+            let segment_text = &line[current_segment_start..segment_end];
+            if !segment_text.is_empty() {
+                let abs_start = line_start + current_segment_start;
+                let abs_end = line_start + segment_end;
+                let strip = self.render_line_with_spans(segment_text, abs_start, abs_end, spans);
+                result.push(strip);
+            }
         }
 
         result
@@ -579,5 +707,54 @@ mod tests {
     fn content_from_markup_escaped_brackets() {
         let content = Content::from_markup(r"\[not a tag\]").unwrap();
         assert_eq!(content.text(), "[not a tag]");
+    }
+
+    #[test]
+    fn content_wrap_preserves_markup_styles() {
+        // This is the critical test - wrap() should preserve styles from markup
+        let content = Content::from_markup("Hello [b]Bold[/] text").unwrap();
+        let lines = content.wrap(80); // Wide enough to fit on one line
+
+        assert_eq!(lines.len(), 1);
+        let segments = lines[0].segments();
+
+        // Should have at least 3 segments: "Hello ", "Bold", " text"
+        assert!(segments.len() >= 2, "Expected at least 2 segments, got {}", segments.len());
+
+        // Find the segment with "Bold" text
+        let bold_segment = segments.iter().find(|s| s.text().contains("Bold"));
+        assert!(bold_segment.is_some(), "Should have a segment containing 'Bold'");
+
+        let bold_segment = bold_segment.unwrap();
+        assert!(
+            bold_segment.style().is_some(),
+            "Bold segment should have a style"
+        );
+        assert!(
+            bold_segment.style().unwrap().bold,
+            "Bold segment should have bold=true"
+        );
+    }
+
+    #[test]
+    fn content_wrap_preserves_markup_styles_when_wrapping() {
+        // Test that wrapping preserves styles across line breaks
+        let content = Content::from_markup("[b]Long bold text that needs wrapping[/]").unwrap();
+        let lines = content.wrap(15); // Force wrapping
+
+        assert!(lines.len() >= 2, "Should wrap to multiple lines");
+
+        // All lines should have bold segments
+        for (i, line) in lines.iter().enumerate() {
+            let has_bold = line.segments().iter().any(|s| {
+                s.style().map(|st| st.bold).unwrap_or(false)
+            });
+            assert!(
+                has_bold || line.text().is_empty(),
+                "Line {} should have bold style: '{}'",
+                i,
+                line.text()
+            );
+        }
     }
 }
