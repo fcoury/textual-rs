@@ -36,10 +36,11 @@ pub struct ItemGrid<M> {
     id: Option<String>,
 
     // Runtime-configurable properties (passed to GridLayout via pre_layout)
-    pub min_column_width: Option<u16>,
-    pub max_column_width: Option<u16>,
-    pub stretch_height: bool,
-    pub regular: bool,
+    // Use the builder methods (with_min_column_width, etc.) to set these
+    min_column_width: Option<u16>,
+    max_column_width: Option<u16>,
+    stretch_height: bool,
+    regular: bool,
 }
 
 impl<M> ItemGrid<M> {

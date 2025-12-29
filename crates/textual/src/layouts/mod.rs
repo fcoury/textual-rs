@@ -17,10 +17,15 @@
 
 mod grid;
 mod horizontal;
+pub mod size_resolver;
 mod vertical;
 
 pub use grid::GridLayout;
 pub use horizontal::HorizontalLayout;
+pub use size_resolver::{
+    resolve_height, resolve_height_fill, resolve_height_fixed, resolve_width, resolve_width_fill,
+    resolve_width_fixed, DEFAULT_FIXED_HEIGHT, DEFAULT_FIXED_WIDTH,
+};
 pub use vertical::VerticalLayout;
 
 use crate::canvas::Region;
@@ -175,17 +180,18 @@ fn apply_alignment(
     // Calculate bounding box of all placements
     let bounds = get_placement_bounds(placements);
 
-    // Calculate alignment offset
+    // Calculate alignment offset, clamping to 0 to prevent negative offsets
+    // when content is larger than the available space
     let offset_x = match parent_style.align_horizontal {
         AlignHorizontal::Left => 0,
-        AlignHorizontal::Center => (available.width - bounds.width) / 2,
-        AlignHorizontal::Right => available.width - bounds.width,
+        AlignHorizontal::Center => (available.width - bounds.width).max(0) / 2,
+        AlignHorizontal::Right => (available.width - bounds.width).max(0),
     };
 
     let offset_y = match parent_style.align_vertical {
         AlignVertical::Top => 0,
-        AlignVertical::Middle => (available.height - bounds.height) / 2,
-        AlignVertical::Bottom => available.height - bounds.height,
+        AlignVertical::Middle => (available.height - bounds.height).max(0) / 2,
+        AlignVertical::Bottom => (available.height - bounds.height).max(0),
     };
 
     // Translate all placements
