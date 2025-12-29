@@ -434,3 +434,168 @@ fn snapshot_border_all_example() {
     let canvas = render_to_canvas(&app, border_all_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Border Sub Title Align All Example
+// ============================================================================
+
+mod border_sub_title_align_all_example {
+    use super::*;
+    use textual::Container;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct BorderSubTitleAlignAllApp;
+
+    fn make_label_container<M: 'static>(
+        text: &str,
+        id: &str,
+        border_title: &str,
+        border_subtitle: &str,
+    ) -> Box<Container<M>> {
+        let label = Label::new(text)
+            .with_id(id)
+            .with_border_title(border_title)
+            .with_border_subtitle(border_subtitle);
+
+        Box::new(Container::new(vec![Box::new(label)]))
+    }
+
+    impl Compose for BorderSubTitleAlignAllApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            use textual::Grid;
+            vec![Box::new(Grid::new(vec![
+                make_label_container(
+                    "This is the story of",
+                    "lbl1",
+                    "[b]Border [i]title[/i][/]",
+                    "[u][r]Border[/r] subtitle[/]",
+                ),
+                make_label_container(
+                    "a Python",
+                    "lbl2",
+                    "[b red]Left, but it's loooooooooooong",
+                    "[reverse]Center, but it's loooooooooooong",
+                ),
+                make_label_container(
+                    "developer that",
+                    "lbl3",
+                    "[b i on purple]Left[/]",
+                    "[r u white on black]@@@[/]",
+                ),
+                make_label_container(
+                    "had to fill up",
+                    "lbl4",
+                    "",
+                    "[link='https://textual.textualize.io']Left[/]",
+                ),
+                make_label_container(
+                    "nine labels",
+                    "lbl5",
+                    "Title",
+                    "Subtitle",
+                ),
+                make_label_container(
+                    "and ended up redoing it",
+                    "lbl6",
+                    "Title",
+                    "Subtitle",
+                ),
+                make_label_container(
+                    "because the first try",
+                    "lbl7",
+                    "Title, but really loooooooooong!",
+                    "Subtitle, but really loooooooooong!",
+                ),
+                make_label_container(
+                    "had some labels",
+                    "lbl8",
+                    "Title, but really loooooooooong!",
+                    "Subtitle, but really loooooooooong!",
+                ),
+                make_label_container(
+                    "that were too long.",
+                    "lbl9",
+                    "Title, but really loooooooooong!",
+                    "Subtitle, but really loooooooooong!",
+                ),
+            ]))]
+        }
+    }
+
+    pub const CSS: &str = r#"
+Grid {
+    grid-size: 3 3;
+    align: center middle;
+}
+
+Container {
+    width: 100%;
+    height: 100%;
+    align: center middle;
+}
+
+#lbl1 {
+    border: vkey $secondary;
+}
+
+#lbl2 {
+    border: round $secondary;
+    border-title-align: right;
+    border-subtitle-align: right;
+}
+
+#lbl3 {
+    border: wide $secondary;
+    border-title-align: center;
+    border-subtitle-align: center;
+}
+
+#lbl4 {
+    border: ascii $success;
+    border-title-align: center;
+    border-subtitle-align: left;
+}
+
+#lbl5 {
+    border: none $success;
+    border-title-align: center;
+    border-subtitle-align: center;
+}
+
+#lbl6 {
+    border-top: solid $success;
+    border-bottom: solid $success;
+}
+
+#lbl7 {
+    border-top: solid $error;
+    border-bottom: solid $error;
+    padding: 1 2;
+    border-subtitle-align: left;
+}
+
+#lbl8 {
+    border-top: solid $error;
+    border-bottom: solid $error;
+    border-title-align: center;
+    border-subtitle-align: center;
+}
+
+#lbl9 {
+    border-top: solid $error;
+    border-bottom: solid $error;
+    border-title-align: right;
+}
+"#;
+}
+
+#[test]
+fn snapshot_border_sub_title_align_all_example() {
+    let app = border_sub_title_align_all_example::BorderSubTitleAlignAllApp;
+    let canvas = render_to_canvas(&app, border_sub_title_align_all_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}

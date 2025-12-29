@@ -54,6 +54,10 @@ pub struct Static<M> {
     disabled: bool,
     style: ComputedStyle,
     dirty: bool,
+    /// Title displayed in the top border (supports markup).
+    border_title: Option<String>,
+    /// Subtitle displayed in the bottom border (supports markup).
+    border_subtitle: Option<String>,
     _phantom: PhantomData<M>,
 }
 
@@ -70,6 +74,8 @@ impl<M> Default for Static<M> {
             disabled: false,
             style: ComputedStyle::default(),
             dirty: true,
+            border_title: None,
+            border_subtitle: None,
             _phantom: PhantomData,
         }
     }
@@ -141,6 +147,44 @@ impl<M> Static<M> {
     pub fn with_disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
+    }
+
+    /// Set the border title (displayed in the top border).
+    ///
+    /// The title supports markup for styling (e.g., `[b]Bold Title[/]`).
+    pub fn with_border_title(mut self, title: impl Into<String>) -> Self {
+        self.border_title = Some(title.into());
+        self
+    }
+
+    /// Set the border subtitle (displayed in the bottom border).
+    ///
+    /// The subtitle supports markup for styling (e.g., `[i]Italic Subtitle[/]`).
+    pub fn with_border_subtitle(mut self, subtitle: impl Into<String>) -> Self {
+        self.border_subtitle = Some(subtitle.into());
+        self
+    }
+
+    /// Set the border title at runtime.
+    pub fn set_border_title(&mut self, title: impl Into<String>) {
+        self.border_title = Some(title.into());
+        self.dirty = true;
+    }
+
+    /// Set the border subtitle at runtime.
+    pub fn set_border_subtitle(&mut self, subtitle: impl Into<String>) {
+        self.border_subtitle = Some(subtitle.into());
+        self.dirty = true;
+    }
+
+    /// Get the border title.
+    pub fn border_title(&self) -> Option<&str> {
+        self.border_title.as_deref()
+    }
+
+    /// Get the border subtitle.
+    pub fn border_subtitle(&self) -> Option<&str> {
+        self.border_subtitle.as_deref()
     }
 
     /// Get the text content.
@@ -276,6 +320,14 @@ impl<M> Static<M> {
 }
 
 impl<M> Widget<M> for Static<M> {
+    fn default_css(&self) -> &'static str {
+        r#"
+Static {
+    height: auto;
+}
+"#
+    }
+
     fn render(&self, canvas: &mut Canvas, region: Region) {
         if region.width <= 0 || region.height <= 0 {
             return;
@@ -313,7 +365,60 @@ impl<M> Widget<M> for Static<M> {
         let content_start = border_offset + cache.padding_top();
         let content_end = height.saturating_sub(border_offset + cache.padding_bottom());
 
-        // 6. Render each line with borders and padding
+        // 6. Parse border titles as markup (only if we have a border)
+        // Title/subtitle color inheritance:
+        // 1. border_title_color / border_subtitle_color if explicitly set
+        // 2. border.top.color / border.bottom.color (border color)
+        // 3. style.color (text color) as fallback
+        let title_fg = self.style.border_title_color.clone()
+            .or_else(|| self.style.border.top.color.clone())
+            .or_else(|| self.style.color.clone());
+        let subtitle_fg = self.style.border_subtitle_color.clone()
+            .or_else(|| self.style.border.bottom.color.clone())
+            .or_else(|| self.style.color.clone());
+
+        let title_style = Style {
+            fg: title_fg,
+            bg: self.style.background.clone(),
+            ..Default::default()
+        };
+        let subtitle_style = Style {
+            fg: subtitle_fg,
+            bg: self.style.background.clone(),
+            ..Default::default()
+        };
+
+        let title_strip = if cache.has_border() {
+            self.border_title.as_ref().and_then(|t| {
+                if t.is_empty() {
+                    None
+                } else {
+                    let content = Content::from_markup(t)
+                        .unwrap_or_else(|_| Content::new(t))
+                        .with_style(title_style.clone());
+                    content.wrap(width).into_iter().next()
+                }
+            })
+        } else {
+            None
+        };
+
+        let subtitle_strip = if cache.has_border() {
+            self.border_subtitle.as_ref().and_then(|s| {
+                if s.is_empty() {
+                    None
+                } else {
+                    let content = Content::from_markup(s)
+                        .unwrap_or_else(|_| Content::new(s))
+                        .with_style(subtitle_style.clone());
+                    content.wrap(width).into_iter().next()
+                }
+            })
+        } else {
+            None
+        };
+
+        // 7. Render each line with borders and padding
         for y in 0..height {
             // Determine if this row should have content or be blank (padding row)
             let content_line = if y >= content_start && y < content_end {
@@ -327,9 +432,16 @@ impl<M> Widget<M> for Static<M> {
                 None
             };
 
-            let strip = cache.render_line(y, height, width, content_line, None);
+            let strip = cache.render_line(
+                y,
+                height,
+                width,
+                content_line,
+                title_strip.as_ref(),
+                subtitle_strip.as_ref(),
+            );
 
-            // 7. Apply tint as post-processing (tints both fg and bg colors)
+            // 8. Apply tint as post-processing (tints both fg and bg colors)
             let strip = if let Some(tint) = &self.style.tint {
                 strip.apply_tint(tint)
             } else {
@@ -343,35 +455,53 @@ impl<M> Widget<M> for Static<M> {
     fn desired_size(&self) -> Size {
         // Check CSS dimensions first, fall back to content size
         let style = self.get_style();
+        use tcss::types::border::BorderKind;
+
+        // Calculate border contribution (each visible edge adds 1 cell)
+        let has_top = !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden);
+        let has_bottom = !matches!(style.border.bottom.kind, BorderKind::None | BorderKind::Hidden);
+        let has_left = !matches!(style.border.left.kind, BorderKind::None | BorderKind::Hidden);
+        let has_right = !matches!(style.border.right.kind, BorderKind::None | BorderKind::Hidden);
+
+        let border_width = (if has_left { 1 } else { 0 }) + (if has_right { 1 } else { 0 });
+        let border_height = (if has_top { 1 } else { 0 }) + (if has_bottom { 1 } else { 0 });
+
+        // Calculate padding contribution
+        let padding_width = style.padding.left.value as u16 + style.padding.right.value as u16;
+        let padding_height = style.padding.top.value as u16 + style.padding.bottom.value as u16;
 
         let width = if let Some(w) = &style.width {
             use tcss::types::Unit;
             match w.unit {
                 Unit::Cells => w.value as u16,
-                // For other units, fall back to content width
+                // For other units, fall back to content width + border + padding
                 _ => {
                     let text = self.text();
-                    text.lines().map(|l| l.width()).max().unwrap_or(0) as u16
+                    let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
+                    content_width + border_width + padding_width
                 }
             }
         } else {
             let text = self.text();
-            text.lines().map(|l| l.width()).max().unwrap_or(0) as u16
+            let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
+            content_width + border_width + padding_width
         };
 
         let height = if let Some(h) = &style.height {
             use tcss::types::Unit;
             match h.unit {
                 Unit::Cells => h.value as u16,
-                // For other units, fall back to content height
+                // For other units, fall back to content height + border + padding
                 _ => {
                     let text = self.text();
-                    text.lines().count().max(1) as u16
+                    let content_height = text.lines().count().max(1) as u16;
+                    content_height + border_height + padding_height
                 }
             }
         } else {
             let text = self.text();
-            text.lines().count().max(1) as u16
+            let content_height = text.lines().count().max(1) as u16;
+            content_height + border_height + padding_height
         };
 
         Size::new(width, height)

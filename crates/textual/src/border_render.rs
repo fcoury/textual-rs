@@ -6,6 +6,7 @@
 use crate::border_box::BoxSegments;
 use crate::segment::{Segment, Style};
 use crate::strip::Strip;
+use tcss::types::AlignHorizontal;
 
 /// Renders a horizontal border row with optional labels.
 ///
@@ -18,20 +19,25 @@ use crate::strip::Strip;
 ///
 /// * `box_segments` - The (left, fill, right) segments for this row
 /// * `width` - Total width of the row in cells
-/// * `title` - Optional title strip to center in the top border
+/// * `title` - Optional title strip for the top border
 /// * `subtitle` - Optional subtitle strip (typically for bottom border)
+/// * `title_align` - Horizontal alignment for title (left, center, right)
+/// * `subtitle_align` - Horizontal alignment for subtitle (left, center, right)
 ///
 /// # Example
 ///
 /// ```ignore
-/// let row = render_row(&box_segs[0], 20, Some(&title), None);
-/// // Produces: "╭── Title ──────╮"
+/// let row = render_row(&box_segs[0], 20, Some(&title), None,
+///                      AlignHorizontal::Center, AlignHorizontal::Left);
+/// // Produces: "╭─── Title ─────╮"
 /// ```
 pub fn render_row(
     box_segments: &BoxSegments,
     width: usize,
     title: Option<&Strip>,
     subtitle: Option<&Strip>,
+    title_align: AlignHorizontal,
+    subtitle_align: AlignHorizontal,
 ) -> Strip {
     let (left, fill, right) = box_segments;
 
@@ -48,12 +54,16 @@ pub fn render_row(
 
     let inner_width = width - 2; // Space between left and right corners
 
-    // Determine the content to place in the middle
-    let label = title.or(subtitle);
+    // Determine the content to place in the middle and which alignment to use
+    let (label, align) = if title.is_some() {
+        (title, title_align)
+    } else {
+        (subtitle, subtitle_align)
+    };
 
     let middle = if let Some(label_strip) = label {
-        // Center the label within the inner width
-        render_label_in_row(label_strip, fill, inner_width)
+        // Align the label within the inner width
+        render_label_in_row(label_strip, fill, inner_width, align)
     } else {
         // Just fill with the fill character
         repeat_segment(fill, inner_width)
@@ -67,19 +77,50 @@ pub fn render_row(
     Strip::from_segments(segments)
 }
 
-/// Renders a label centered within a row, with fill characters on either side.
-fn render_label_in_row(label: &Strip, fill: &Segment, width: usize) -> Strip {
+/// Renders a label within a row, with fill characters based on alignment.
+fn render_label_in_row(
+    label: &Strip,
+    fill: &Segment,
+    width: usize,
+    align: AlignHorizontal,
+) -> Strip {
     let label_len = label.cell_length();
 
-    if label_len >= width {
-        // Label is too long, crop it
-        return label.crop(0, width);
+    // Minimum padding of 1 on each side to keep label away from corners
+    let min_padding = 1;
+    let available_width = width.saturating_sub(min_padding * 2);
+
+    if label_len >= available_width {
+        // Label is too long, crop it (leave space for min padding)
+        let cropped = label.crop(0, available_width);
+        let mut segments = Vec::new();
+        segments.push(repeat_char_segment(fill, min_padding));
+        segments.extend(cropped.segments().iter().cloned());
+        // Fill remaining space
+        let remaining = width.saturating_sub(min_padding + cropped.cell_length());
+        if remaining > 0 {
+            segments.push(repeat_char_segment(fill, remaining));
+        }
+        return Strip::from_segments(segments);
     }
 
-    // Calculate padding on each side
+    // Calculate padding based on alignment
     let total_padding = width - label_len;
-    let left_padding = total_padding / 2;
-    let right_padding = total_padding - left_padding;
+    let (left_padding, right_padding) = match align {
+        AlignHorizontal::Left => {
+            // Minimum 1 char from left corner, rest goes to right
+            (min_padding, total_padding.saturating_sub(min_padding))
+        }
+        AlignHorizontal::Center => {
+            // Center the label
+            let left = total_padding / 2;
+            (left, total_padding - left)
+        }
+        AlignHorizontal::Right => {
+            // Minimum 1 char from right corner, rest goes to left
+            (total_padding.saturating_sub(min_padding), min_padding)
+        }
+    };
 
     // Build the result
     let mut segments = Vec::new();
@@ -209,32 +250,52 @@ mod tests {
     #[test]
     fn render_row_basic() {
         let top = make_round_top();
-        let row = render_row(&top, 10, None, None);
+        let row = render_row(&top, 10, None, None, AlignHorizontal::Left, AlignHorizontal::Left);
         assert_eq!(row.text(), "╭────────╮");
         assert_eq!(row.cell_length(), 10);
     }
 
     #[test]
-    fn render_row_with_title() {
+    fn render_row_with_title_centered() {
         let top = make_round_top();
         let title = Strip::from_segment(Segment::new("Hi"));
-        let row = render_row(&top, 10, Some(&title), None);
+        let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Center, AlignHorizontal::Left);
         // "╭───Hi───╮" with centered title
         assert_eq!(row.cell_length(), 10);
         assert!(row.text().contains("Hi"));
     }
 
     #[test]
+    fn render_row_with_title_left() {
+        let top = make_round_top();
+        let title = Strip::from_segment(Segment::new("Hi"));
+        let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Left, AlignHorizontal::Left);
+        // "╭─Hi─────╮" with left-aligned title (1 char padding from corner)
+        assert_eq!(row.cell_length(), 10);
+        assert_eq!(row.text(), "╭─Hi─────╮");
+    }
+
+    #[test]
+    fn render_row_with_title_right() {
+        let top = make_round_top();
+        let title = Strip::from_segment(Segment::new("Hi"));
+        let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Right, AlignHorizontal::Left);
+        // "╭─────Hi─╮" with right-aligned title (1 char padding from corner)
+        assert_eq!(row.cell_length(), 10);
+        assert_eq!(row.text(), "╭─────Hi─╮");
+    }
+
+    #[test]
     fn render_row_width_2() {
         let top = make_round_top();
-        let row = render_row(&top, 2, None, None);
+        let row = render_row(&top, 2, None, None, AlignHorizontal::Left, AlignHorizontal::Left);
         assert_eq!(row.text(), "╭╮");
     }
 
     #[test]
     fn render_row_width_1() {
         let top = make_round_top();
-        let row = render_row(&top, 1, None, None);
+        let row = render_row(&top, 1, None, None, AlignHorizontal::Left, AlignHorizontal::Left);
         assert_eq!(row.text(), "╭");
     }
 

@@ -213,6 +213,18 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
             (input, Declaration::Align(h, v))
         }
 
+        // Border title/subtitle properties
+        "border-title-align" => map(values::parse_align_horizontal, Declaration::BorderTitleAlign)(input)?,
+        "border-subtitle-align" => map(values::parse_align_horizontal, Declaration::BorderSubtitleAlign)(input)?,
+        "border-title-color" => map(values::parse_color, Declaration::BorderTitleColor)(input)?,
+        "border-subtitle-color" => map(values::parse_color, Declaration::BorderSubtitleColor)(input)?,
+
+        // Edge-specific border properties
+        "border-top" => map(values::parse_border_edge, Declaration::BorderTop)(input)?,
+        "border-bottom" => map(values::parse_border_edge, Declaration::BorderBottom)(input)?,
+        "border-left" => map(values::parse_border_edge, Declaration::BorderLeft)(input)?,
+        "border-right" => map(values::parse_border_edge, Declaration::BorderRight)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;

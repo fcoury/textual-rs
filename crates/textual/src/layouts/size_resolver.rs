@@ -133,10 +133,11 @@ pub fn resolve_width_with_intrinsic(
             Unit::Cells => width.value as i32,
             Unit::Percent => ((width.value / 100.0) * available_width as f64) as i32,
             Unit::Auto => intrinsic_width as i32, // Use intrinsic, not fill!
+            Unit::Fraction => available_width,    // fr units fill available space
             _ => width.value as i32,
         }
     } else {
-        // No width specified: fill available (default behavior)
+        // No width specified: fill available (default behavior for vertical/horizontal layouts)
         available_width
     }
 }
@@ -158,10 +159,11 @@ pub fn resolve_height_with_intrinsic(
             Unit::Cells => height.value as i32,
             Unit::Percent => ((height.value / 100.0) * available_height as f64) as i32,
             Unit::Auto => intrinsic_height as i32, // Use intrinsic!
+            Unit::Fraction => available_height,   // fr units fill available space
             _ => height.value as i32,
         }
     } else {
-        // No height specified: fill available (default behavior)
+        // No height specified: fill available (default behavior for grids)
         available_height
     }
 }

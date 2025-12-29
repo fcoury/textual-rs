@@ -32,7 +32,7 @@ pub fn render_container_chrome(canvas: &mut Canvas, region: Region, style: &Comp
 
     // Render each line (background fill + borders)
     for y in 0..height {
-        let strip = cache.render_line(y, height, width, None, None);
+        let strip = cache.render_line(y, height, width, None, None, None);
         canvas.render_strip(&strip, region.x, region.y + y as i32);
     }
 

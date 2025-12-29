@@ -26,6 +26,7 @@ use crossterm::event::{DisableMouseCapture, EnableMouseCapture, EventStream};
 pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use crossterm::{cursor, execute, terminal};
 use futures::StreamExt;
+use std::collections::HashSet;
 use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
@@ -58,6 +59,38 @@ use crate::{
     style_resolver::{resolve_dirty_styles, resolve_styles, InheritedContext},
     tree::WidgetTree,
 };
+
+/// Collect default CSS from a widget and all its descendants.
+///
+/// Walks the widget tree and collects unique `default_css()` strings from all widgets.
+/// These are prepended to the app's CSS to ensure widget defaults are applied with
+/// lower specificity than app-level styles.
+fn collect_default_css<M>(widget: &mut dyn Widget<M>, collected: &mut HashSet<&'static str>) {
+    let default_css = widget.default_css();
+    if !default_css.is_empty() {
+        collected.insert(default_css);
+    }
+    widget.for_each_child(&mut |child| {
+        collect_default_css(child, collected);
+    });
+}
+
+/// Build a combined stylesheet from widget defaults and app CSS.
+///
+/// Widget default CSS is prepended (lower specificity), so app CSS can override.
+fn build_combined_css<M>(root: &mut dyn Widget<M>, app_css: &str) -> String {
+    let mut defaults: HashSet<&'static str> = HashSet::new();
+    collect_default_css(root, &mut defaults);
+
+    // Concatenate defaults (order doesn't matter, app CSS will override)
+    let mut combined = String::new();
+    for css in defaults {
+        combined.push_str(css);
+        combined.push('\n');
+    }
+    combined.push_str(app_css);
+    combined
+}
 
 /// The main application trait. Implement this to create a TUI application.
 ///
@@ -249,9 +282,7 @@ where
     /// The main async event loop.
     fn event_loop_async(&mut self) -> impl std::future::Future<Output = Result<()>> + '_ {
         async move {
-            // 1. Initial Setup: Parse CSS and define the theme
-            let stylesheet = tcss::parser::parse_stylesheet(Self::CSS)
-                .map_err(|e| TextualError::InvalidCss(e.to_string()))?;
+            // 1. Initial Setup: Build widget tree first, then collect default CSS
             let themes = tcss::types::Theme::standard_themes();
             let theme = themes.get("textual-dark").cloned().unwrap_or_else(|| {
                 tcss::types::Theme::new("default", true)
@@ -272,6 +303,12 @@ where
 
             // Initialize Screen with current terminal size for breakpoints
             tree.root_mut().on_resize(Size::new(cols, rows));
+
+            // 3. Collect widget default CSS and combine with app CSS
+            // Widget defaults are prepended (lower specificity), app CSS overrides
+            let combined_css = build_combined_css(tree.root_mut(), Self::CSS);
+            let stylesheet = tcss::parser::parse_stylesheet(&combined_css)
+                .map_err(|e| TextualError::InvalidCss(e.to_string()))?;
 
             // Set initial focus and cache the focus path
             tree.root_mut().clear_focus();

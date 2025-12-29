@@ -7,7 +7,7 @@ use tcss::types::ComputedStyle;
 use tcss::types::border::BorderKind;
 
 use crate::border_box::{BoxSegments, get_box};
-use crate::border_render::{render_middle_row, render_row};
+use crate::border_render::render_row;
 use crate::segment::Style;
 use crate::strip::Strip;
 
@@ -18,8 +18,13 @@ use crate::strip::Strip;
 pub struct RenderCache {
     /// Cached border box segments (top, middle, bottom rows).
     border_box: Option<[BoxSegments; 3]>,
-    /// Whether the widget has a visible border.
+    /// Whether the widget has any visible border.
     has_border: bool,
+    /// Which edges have visible borders.
+    has_top_border: bool,
+    has_right_border: bool,
+    has_bottom_border: bool,
+    has_left_border: bool,
     /// The computed style for this widget.
     style: ComputedStyle,
     /// Padding in cells (top, right, bottom, left).
@@ -32,8 +37,15 @@ pub struct RenderCache {
 impl RenderCache {
     /// Creates a new render cache from a computed style.
     pub fn new(style: &ComputedStyle) -> Self {
+        // Check which edges have visible borders
+        let has_top_border = !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden);
+        let has_right_border = !matches!(style.border.right.kind, BorderKind::None | BorderKind::Hidden);
+        let has_bottom_border = !matches!(style.border.bottom.kind, BorderKind::None | BorderKind::Hidden);
+        let has_left_border = !matches!(style.border.left.kind, BorderKind::None | BorderKind::Hidden);
+        let has_border = has_top_border || has_right_border || has_bottom_border || has_left_border;
+
+        // Use top border kind as the primary style (for box character selection)
         let border_kind = style.border.top.kind;
-        let has_border = !matches!(border_kind, BorderKind::None | BorderKind::Hidden);
 
         // Compute effective background (with alpha compositing and tint applied)
         // If the background has alpha < 1.0, composite it over the inherited background
@@ -91,6 +103,10 @@ impl RenderCache {
         Self {
             border_box,
             has_border,
+            has_top_border,
+            has_right_border,
+            has_bottom_border,
+            has_left_border,
             style: style.clone(),
             padding_top,
             padding_right,
@@ -106,18 +122,17 @@ impl RenderCache {
 
     /// Returns the inner content region dimensions.
     ///
-    /// Accounts for both borders and padding. If the widget has borders,
-    /// the content area is 2 cells smaller in each dimension (1 cell for
-    /// each border edge). Padding is then subtracted from the remaining space.
+    /// Accounts for both borders and padding. Each border edge takes 1 cell.
+    /// Padding is then subtracted from the remaining space.
     pub fn inner_size(&self, width: usize, height: usize) -> (usize, usize) {
-        // First, account for borders
-        let (w, h) = if self.has_border && width >= 2 && height >= 2 {
-            (width - 2, height - 2)
-        } else if self.has_border {
-            (0, 0)
-        } else {
-            (width, height)
-        };
+        // Account for borders on each edge
+        let border_left = if self.has_left_border { 1 } else { 0 };
+        let border_right = if self.has_right_border { 1 } else { 0 };
+        let border_top = if self.has_top_border { 1 } else { 0 };
+        let border_bottom = if self.has_bottom_border { 1 } else { 0 };
+
+        let w = width.saturating_sub(border_left + border_right);
+        let h = height.saturating_sub(border_top + border_bottom);
 
         // Then account for padding
         let padded_w = w.saturating_sub(self.padding_left + self.padding_right);
@@ -154,6 +169,7 @@ impl RenderCache {
     /// * `width` - Total width of the widget
     /// * `content_line` - Optional content strip for this line (if applicable)
     /// * `title` - Optional title for the top border
+    /// * `subtitle` - Optional subtitle for the bottom border
     ///
     /// # Returns
     ///
@@ -165,6 +181,7 @@ impl RenderCache {
         width: usize,
         content_line: Option<&Strip>,
         title: Option<&Strip>,
+        subtitle: Option<&Strip>,
     ) -> Strip {
         if width == 0 || height == 0 {
             return Strip::new();
@@ -172,53 +189,232 @@ impl RenderCache {
 
         if !self.has_border || self.border_box.is_none() {
             // No border - but still apply horizontal padding
-            let content_width = width.saturating_sub(self.padding_left + self.padding_right);
-            let content_strip = match content_line {
-                Some(strip) => strip.adjust_cell_length(content_width, self.pad_style()),
-                None => Strip::blank(content_width, self.pad_style()),
-            };
-
-            if self.padding_left == 0 && self.padding_right == 0 {
-                return content_strip;
-            }
-
-            // Build: padding_left + content + padding_right
-            let mut segments = Vec::new();
-            if self.padding_left > 0 {
-                segments.push(crate::segment::Segment::blank(
-                    self.padding_left,
-                    self.pad_style(),
-                ));
-            }
-            segments.extend(content_strip.segments().iter().cloned());
-            if self.padding_right > 0 {
-                segments.push(crate::segment::Segment::blank(
-                    self.padding_right,
-                    self.pad_style(),
-                ));
-            }
-            return Strip::from_segments(segments);
+            return self.render_content_row(width, content_line);
         }
 
         let box_segs = self.border_box.as_ref().unwrap();
 
-        if y == 0 {
-            // Top border row
-            render_row(&box_segs[0], width, title, None)
-        } else if y == height - 1 {
-            // Bottom border row
-            render_row(&box_segs[2], width, None, None)
+        // Determine if this is a top border row
+        let is_top_border_row = y == 0 && self.has_top_border;
+        // Determine if this is a bottom border row
+        let is_bottom_border_row = y == height - 1 && self.has_bottom_border;
+        // Calculate the content row index (offset by top border if present)
+        let content_row_offset = if self.has_top_border { 1 } else { 0 };
+
+        if is_top_border_row {
+            // Top border row - check if we have corners (left/right borders)
+            if self.has_left_border && self.has_right_border {
+                // Full border with corners
+                render_row(
+                    &box_segs[0],
+                    width,
+                    title,
+                    None,
+                    self.style.border_title_align,
+                    self.style.border_subtitle_align,
+                )
+            } else {
+                // Partial border - no corners, just horizontal line
+                self.render_horizontal_border_row(
+                    &box_segs[0],
+                    width,
+                    title,
+                    self.style.border_title_align,
+                )
+            }
+        } else if is_bottom_border_row {
+            // Bottom border row - check if we have corners
+            if self.has_left_border && self.has_right_border {
+                // Full border with corners
+                render_row(
+                    &box_segs[2],
+                    width,
+                    None,
+                    subtitle,
+                    self.style.border_title_align,
+                    self.style.border_subtitle_align,
+                )
+            } else {
+                // Partial border - no corners, just horizontal line
+                self.render_horizontal_border_row(
+                    &box_segs[2],
+                    width,
+                    subtitle,
+                    self.style.border_subtitle_align,
+                )
+            }
+        } else if y >= content_row_offset && y < height - if self.has_bottom_border { 1 } else { 0 } {
+            // Content row - check if we have side borders
+            if self.has_left_border || self.has_right_border {
+                // Has at least one side border
+                self.render_partial_middle_row(
+                    &box_segs[1],
+                    content_line,
+                    width,
+                )
+            } else {
+                // No side borders - just content with padding
+                self.render_content_row(width, content_line)
+            }
         } else {
-            // Content row with side borders and padding
-            render_middle_row(
-                &box_segs[1],
-                content_line,
-                width,
-                self.pad_style(),
-                self.padding_left,
-                self.padding_right,
-            )
+            // This shouldn't happen, but return blank row
+            Strip::blank(width, self.pad_style())
         }
+    }
+
+    /// Renders a content row without any border (just padding and content).
+    fn render_content_row(&self, width: usize, content_line: Option<&Strip>) -> Strip {
+        let content_width = width.saturating_sub(self.padding_left + self.padding_right);
+        let content_strip = match content_line {
+            Some(strip) => strip.adjust_cell_length(content_width, self.pad_style()),
+            None => Strip::blank(content_width, self.pad_style()),
+        };
+
+        if self.padding_left == 0 && self.padding_right == 0 {
+            return content_strip;
+        }
+
+        // Build: padding_left + content + padding_right
+        let mut segments = Vec::new();
+        if self.padding_left > 0 {
+            segments.push(crate::segment::Segment::blank(
+                self.padding_left,
+                self.pad_style(),
+            ));
+        }
+        segments.extend(content_strip.segments().iter().cloned());
+        if self.padding_right > 0 {
+            segments.push(crate::segment::Segment::blank(
+                self.padding_right,
+                self.pad_style(),
+            ));
+        }
+        Strip::from_segments(segments)
+    }
+
+    /// Renders a horizontal border row without corners (for partial borders).
+    fn render_horizontal_border_row(
+        &self,
+        box_segments: &crate::border_box::BoxSegments,
+        width: usize,
+        label: Option<&Strip>,
+        align: tcss::types::AlignHorizontal,
+    ) -> Strip {
+        use crate::segment::Segment;
+
+        let (_left, fill, _right) = box_segments;
+        let fill_char = fill.text().chars().next().unwrap_or('─');
+        let fill_style = fill.style().cloned();
+
+        if let Some(label_strip) = label {
+            // Render label with fill characters on either side
+            let label_len = label_strip.cell_length();
+            let min_padding = 1; // Minimum 1 fill char on each side
+            let available = width.saturating_sub(min_padding * 2);
+
+            if label_len >= available {
+                // Label too long - crop it
+                let cropped = label_strip.crop(0, available);
+                let mut segments = Vec::new();
+                segments.push(Segment::styled(
+                    std::iter::repeat(fill_char).take(min_padding).collect::<String>(),
+                    fill_style.clone().unwrap_or_default(),
+                ));
+                segments.extend(cropped.segments().iter().cloned());
+                let remaining = width.saturating_sub(min_padding + cropped.cell_length());
+                if remaining > 0 {
+                    segments.push(Segment::styled(
+                        std::iter::repeat(fill_char).take(remaining).collect::<String>(),
+                        fill_style.unwrap_or_default(),
+                    ));
+                }
+                return Strip::from_segments(segments);
+            }
+
+            // Calculate padding based on alignment
+            let total_padding = width - label_len;
+            let (left_padding, right_padding) = match align {
+                tcss::types::AlignHorizontal::Left => {
+                    (min_padding, total_padding.saturating_sub(min_padding))
+                }
+                tcss::types::AlignHorizontal::Center => {
+                    let left = total_padding / 2;
+                    (left, total_padding - left)
+                }
+                tcss::types::AlignHorizontal::Right => {
+                    (total_padding.saturating_sub(min_padding), min_padding)
+                }
+            };
+
+            let mut segments = Vec::new();
+            if left_padding > 0 {
+                segments.push(Segment::styled(
+                    std::iter::repeat(fill_char).take(left_padding).collect::<String>(),
+                    fill_style.clone().unwrap_or_default(),
+                ));
+            }
+            segments.extend(label_strip.segments().iter().cloned());
+            if right_padding > 0 {
+                segments.push(Segment::styled(
+                    std::iter::repeat(fill_char).take(right_padding).collect::<String>(),
+                    fill_style.unwrap_or_default(),
+                ));
+            }
+            Strip::from_segments(segments)
+        } else {
+            // Just fill characters
+            let text: String = std::iter::repeat(fill_char).take(width).collect();
+            Strip::from_segment(Segment::styled(text, fill_style.unwrap_or_default()))
+        }
+    }
+
+    /// Renders a middle row with partial side borders (left, right, both, or neither).
+    fn render_partial_middle_row(
+        &self,
+        box_segments: &crate::border_box::BoxSegments,
+        content: Option<&Strip>,
+        width: usize,
+    ) -> Strip {
+        use crate::segment::Segment;
+
+        let (left, _fill, right) = box_segments;
+
+        // Calculate widths
+        let left_border_width = if self.has_left_border { 1 } else { 0 };
+        let right_border_width = if self.has_right_border { 1 } else { 0 };
+        let inner_width = width.saturating_sub(left_border_width + right_border_width);
+        let content_width = inner_width.saturating_sub(self.padding_left + self.padding_right);
+
+        let mut segments = Vec::new();
+
+        // Left border if present
+        if self.has_left_border {
+            segments.push(left.clone());
+        }
+
+        // Left padding
+        if self.padding_left > 0 {
+            segments.push(Segment::blank(self.padding_left, self.pad_style()));
+        }
+
+        // Content
+        let content_strip = match content {
+            Some(strip) => strip.adjust_cell_length(content_width, self.pad_style()),
+            None => Strip::blank(content_width, self.pad_style()),
+        };
+        segments.extend(content_strip.segments().iter().cloned());
+
+        // Right padding
+        if self.padding_right > 0 {
+            segments.push(Segment::blank(self.padding_right, self.pad_style()));
+        }
+
+        // Right border if present
+        if self.has_right_border {
+            segments.push(right.clone());
+        }
+
+        Strip::from_segments(segments)
     }
 
     /// Returns the padding style for blank areas.
@@ -327,7 +523,7 @@ mod tests {
     fn render_line_top_border() {
         let style = style_with_round_border();
         let cache = RenderCache::new(&style);
-        let line = cache.render_line(0, 3, 10, None, None);
+        let line = cache.render_line(0, 3, 10, None, None, None);
         assert_eq!(line.text(), "╭────────╮");
     }
 
@@ -335,7 +531,7 @@ mod tests {
     fn render_line_bottom_border() {
         let style = style_with_round_border();
         let cache = RenderCache::new(&style);
-        let line = cache.render_line(2, 3, 10, None, None);
+        let line = cache.render_line(2, 3, 10, None, None, None);
         assert_eq!(line.text(), "╰────────╯");
     }
 
@@ -344,7 +540,7 @@ mod tests {
         let style = style_with_round_border();
         let cache = RenderCache::new(&style);
         let content = Strip::from_segment(crate::segment::Segment::new("Hi"));
-        let line = cache.render_line(1, 3, 10, Some(&content), None);
+        let line = cache.render_line(1, 3, 10, Some(&content), None, None);
         assert_eq!(line.text(), "│Hi      │");
     }
 
@@ -405,7 +601,7 @@ mod tests {
         let style = style_with_padding(0.0, 2.0, 0.0, 2.0);
         let cache = RenderCache::new(&style);
         let content = Strip::from_segment(crate::segment::Segment::new("Hi"));
-        let line = cache.render_line(0, 1, 10, Some(&content), None);
+        let line = cache.render_line(0, 1, 10, Some(&content), None, None);
         // 2 spaces (padding_left) + "Hi" + 4 spaces (content padding) + 2 spaces (padding_right)
         assert_eq!(line.text(), "  Hi      ");
         assert_eq!(line.cell_length(), 10);

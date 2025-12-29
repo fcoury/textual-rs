@@ -56,8 +56,12 @@ impl Layout for VerticalLayout {
                     Unit::Percent => {
                         fixed_height_used += ((height.value / 100.0) * available.height as f64) as i32;
                     }
+                    Unit::Auto => {
+                        // Auto means size to content - use intrinsic height
+                        fixed_height_used += desired_size.height as i32;
+                    }
                     _ => {
-                        // Auto or other - use default fixed height
+                        // Other units - use default fixed height
                         fixed_height_used += DEFAULT_FIXED_HEIGHT;
                     }
                 }
@@ -65,8 +69,8 @@ impl Layout for VerticalLayout {
                 // No CSS height but widget wants to fill available space - treat as 1fr
                 total_fr += 1000; // 1.0 * 1000
             } else {
-                // No height specified - use desired size or default
-                fixed_height_used += (desired_size.height as i32).min(DEFAULT_FIXED_HEIGHT);
+                // No height specified - use desired size (intrinsic height)
+                fixed_height_used += desired_size.height as i32;
             }
         }
 
@@ -74,6 +78,8 @@ impl Layout for VerticalLayout {
         let remaining_for_fr = (available.height - fixed_height_used - total_margin).max(0) as i64;
 
         // Second pass: place children with calculated heights using Fraction for precise remainder handling
+        // NOTE: Alignment is handled centrally by apply_alignment() in mod.rs, not here.
+        // This keeps VerticalLayout consistent with HorizontalLayout.
         let mut current_y = available.y;
         prev_margin_bottom = 0;
         let mut fr_remainder = Fraction::ZERO;
@@ -102,6 +108,10 @@ impl Layout for VerticalLayout {
                             0
                         }
                     }
+                    Unit::Auto => {
+                        // Auto means size to content - use intrinsic height
+                        desired_size.height as i32
+                    }
                     _ => resolve_height_fixed(child_style, available.height),
                 }
             } else if desired_size.height == u16::MAX && total_fr > 0 {
@@ -111,6 +121,9 @@ impl Layout for VerticalLayout {
                 let result = raw.floor() as i32;
                 fr_remainder = raw.fract();
                 result
+            } else if desired_size.height != u16::MAX {
+                // No CSS height - use intrinsic height
+                desired_size.height as i32
             } else {
                 resolve_height_fixed(child_style, available.height)
             };
@@ -128,14 +141,18 @@ impl Layout for VerticalLayout {
 
             current_y += effective_top_margin;
 
+            // NOTE: Horizontal alignment is handled centrally by apply_alignment() in mod.rs.
+            // Here we just place children at the left edge with margin.
+            let new_region = Region {
+                x: available.x + margin_left,
+                y: current_y,
+                width,
+                height,
+            };
+
             placements.push(WidgetPlacement {
                 child_index: *child_index,
-                region: Region {
-                    x: available.x + margin_left,
-                    y: current_y,
-                    width,
-                    height,
-                },
+                region: new_region,
             });
 
             current_y += height + margin_bottom;

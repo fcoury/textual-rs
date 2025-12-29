@@ -5,7 +5,7 @@ use crate::fraction::Fraction;
 use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
-use super::size_resolver::{resolve_height_with_intrinsic, DEFAULT_FIXED_WIDTH};
+use super::size_resolver::resolve_height_with_intrinsic;
 use super::{Layout, WidgetPlacement};
 
 /// Horizontal layout - stacks children left-to-right.
@@ -31,7 +31,7 @@ impl Layout for HorizontalLayout {
         let mut total_margin: i32 = 0;
         let mut prev_margin_right: i32 = 0;
 
-        for (i, (_child_index, child_style, _desired_size)) in children.iter().enumerate() {
+        for (i, (_child_index, child_style, desired_size)) in children.iter().enumerate() {
             let margin_left = child_style.margin.left.value as i32;
             let margin_right = child_style.margin.right.value as i32;
 
@@ -57,13 +57,13 @@ impl Layout for HorizontalLayout {
                         fixed_width_used += ((width.value / 100.0) * available.width as f64) as i32;
                     }
                     _ => {
-                        // Auto or other - use default fixed width
-                        fixed_width_used += DEFAULT_FIXED_WIDTH;
+                        // Auto or other - use intrinsic width
+                        fixed_width_used += desired_size.width as i32;
                     }
                 }
             } else {
-                // No width specified - use default
-                fixed_width_used += DEFAULT_FIXED_WIDTH;
+                // No width specified - use intrinsic width
+                fixed_width_used += desired_size.width as i32;
             }
         }
 
@@ -93,10 +93,11 @@ impl Layout for HorizontalLayout {
                     }
                     Unit::Cells => w.value as i32,
                     Unit::Percent => ((w.value / 100.0) * available.width as f64) as i32,
-                    _ => DEFAULT_FIXED_WIDTH,
+                    _ => desired_size.width as i32, // Use intrinsic width
                 }
             } else {
-                DEFAULT_FIXED_WIDTH
+                // No width specified - use intrinsic width
+                desired_size.width as i32
             };
 
             // Resolve height - horizontal layout children fill available height by default

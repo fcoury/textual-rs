@@ -295,6 +295,26 @@ pub enum Declaration {
     /// The `align` shorthand property for both horizontal and vertical child positioning.
     Align(AlignHorizontal, AlignVertical),
 
+    // Border title/subtitle properties
+    /// The `border-title-align` property for title alignment in top border.
+    BorderTitleAlign(AlignHorizontal),
+    /// The `border-subtitle-align` property for subtitle alignment in bottom border.
+    BorderSubtitleAlign(AlignHorizontal),
+    /// The `border-title-color` property for title text color.
+    BorderTitleColor(RgbaColor),
+    /// The `border-subtitle-color` property for subtitle text color.
+    BorderSubtitleColor(RgbaColor),
+
+    // Edge-specific border properties
+    /// The `border-top` property for top edge only.
+    BorderTop(BorderEdge),
+    /// The `border-bottom` property for bottom edge only.
+    BorderBottom(BorderEdge),
+    /// The `border-left` property for left edge only.
+    BorderLeft(BorderEdge),
+    /// The `border-right` property for right edge only.
+    BorderRight(BorderEdge),
+
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),
 }

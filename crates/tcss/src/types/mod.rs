@@ -81,6 +81,12 @@ pub struct ComputedStyle {
     pub border: Border,
     pub box_sizing: BoxSizing,
 
+    // Border title/subtitle styling
+    pub border_title_align: AlignHorizontal,
+    pub border_subtitle_align: AlignHorizontal,
+    pub border_title_color: Option<RgbaColor>,
+    pub border_subtitle_color: Option<RgbaColor>,
+
     // Text & Content Alignment
     pub text_align: TextAlign,
     pub text_style: TextStyle,
@@ -133,6 +139,10 @@ impl Default for ComputedStyle {
             padding: Spacing::default(),
             border: Border::default(),
             box_sizing: BoxSizing::default(),
+            border_title_align: AlignHorizontal::Left,
+            border_subtitle_align: AlignHorizontal::Left,
+            border_title_color: None,
+            border_subtitle_color: None,
             text_align: TextAlign::default(),
             text_style: TextStyle::default(),
             content_align_horizontal: AlignHorizontal::default(),

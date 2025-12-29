@@ -262,6 +262,50 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.border = Border::all(resolved_edge);
         }
 
+        // Border title/subtitle properties
+        Declaration::BorderTitleAlign(a) => {
+            style.border_title_align = *a;
+        }
+        Declaration::BorderSubtitleAlign(a) => {
+            style.border_subtitle_align = *a;
+        }
+        Declaration::BorderTitleColor(c) => {
+            style.border_title_color = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::BorderSubtitleColor(c) => {
+            style.border_subtitle_color = Some(resolve_theme_color(c, theme));
+        }
+
+        // Edge-specific border properties
+        Declaration::BorderTop(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.border.top = resolved_edge;
+        }
+        Declaration::BorderBottom(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.border.bottom = resolved_edge;
+        }
+        Declaration::BorderLeft(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.border.left = resolved_edge;
+        }
+        Declaration::BorderRight(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.border.right = resolved_edge;
+        }
+
         // Scrollbar properties
         Declaration::ScrollbarColor(c) => {
             style.scrollbar.color = Some(resolve_theme_color(c, theme));

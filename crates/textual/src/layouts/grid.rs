@@ -158,7 +158,7 @@ impl GridLayout {
         let track_specs: Vec<Scalar> = (0..count)
             .map(|i| {
                 if specs.is_empty() {
-                    Scalar::cells(1.0) // Default: equal distribution
+                    Scalar::fr(1.0) // Default: 1fr (equal distribution)
                 } else {
                     specs[i % specs.len()]
                 }
@@ -255,6 +255,146 @@ impl GridLayout {
             })
             .collect()
     }
+
+    /// Resolve tracks with content-based sizing when specs are empty.
+    ///
+    /// When grid-rows/grid-columns are not specified, tracks are auto-sized
+    /// based on the maximum content size of children in each track.
+    fn resolve_tracks_with_content(
+        specs: &[Scalar],
+        count: usize,
+        available: i32,
+        gutter: i32,
+        content_sizes: &[i32], // Max content size per track
+    ) -> Vec<ResolvedTrack> {
+        if specs.is_empty() && !content_sizes.is_empty() {
+            // Auto-sizing: use content sizes
+            let total_gutter = (count.saturating_sub(1)) as i32 * gutter;
+            let total_content: i32 = content_sizes.iter().sum();
+            let available_for_tracks = available - total_gutter;
+
+            // If content fits, use content sizes; otherwise scale proportionally
+            let sizes: Vec<i32> = if total_content <= available_for_tracks {
+                content_sizes.to_vec()
+            } else {
+                // Scale down proportionally
+                content_sizes
+                    .iter()
+                    .map(|&size| {
+                        if total_content > 0 {
+                            (size as i64 * available_for_tracks as i64 / total_content as i64) as i32
+                        } else {
+                            1
+                        }
+                    })
+                    .collect()
+            };
+
+            let mut offset = 0;
+            sizes
+                .into_iter()
+                .map(|size| {
+                    let track = ResolvedTrack { offset, size: size.max(1) };
+                    offset += size.max(1) + gutter;
+                    track
+                })
+                .collect()
+        } else {
+            // Use standard distribution
+            Self::resolve_tracks(specs, count, available, gutter)
+        }
+    }
+
+    /// Compute which cell each child occupies (Tetris placement) without actually placing them.
+    /// Returns (row, col, row_span, col_span) for each child.
+    fn compute_cell_assignments(
+        children: &[(usize, ComputedStyle, Size)],
+        rows: usize,
+        cols: usize,
+    ) -> Vec<(usize, usize, usize, usize)> {
+        let mut occupancy = OccupancyGrid::new(rows, cols);
+        let mut current_row = 0;
+        let mut current_col = 0;
+        let mut assignments = Vec::with_capacity(children.len());
+
+        for (_child_index, child_style, _desired_size) in children {
+            let col_span = (child_style.grid_placement.column_span as usize).max(1);
+            let row_span = (child_style.grid_placement.row_span as usize).max(1);
+
+            loop {
+                match occupancy.find_next_free(current_row, current_col) {
+                    Some((r, c)) => {
+                        current_row = r;
+                        current_col = c;
+
+                        let effective_col_span = col_span.min(cols - current_col);
+                        let effective_row_span = row_span.min(rows - current_row);
+
+                        if occupancy.can_fit(current_row, current_col, effective_row_span, effective_col_span) {
+                            occupancy.occupy(current_row, current_col, effective_row_span, effective_col_span);
+                            assignments.push((current_row, current_col, effective_row_span, effective_col_span));
+
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                            break;
+                        } else {
+                            current_col += 1;
+                            if current_col >= cols {
+                                current_col = 0;
+                                current_row += 1;
+                            }
+                        }
+                    }
+                    None => {
+                        // No space left
+                        assignments.push((0, 0, 0, 0)); // Placeholder for children that don't fit
+                        break;
+                    }
+                }
+            }
+
+            if current_row >= rows {
+                break;
+            }
+        }
+
+        assignments
+    }
+
+    /// Compute max content sizes per track based on children.
+    fn compute_content_sizes(
+        children: &[(usize, ComputedStyle, Size)],
+        assignments: &[(usize, usize, usize, usize)],
+        rows: usize,
+        cols: usize,
+    ) -> (Vec<i32>, Vec<i32>) {
+        let mut col_sizes = vec![0i32; cols];
+        let mut row_sizes = vec![0i32; rows];
+
+        for (i, (_child_index, _child_style, desired_size)) in children.iter().enumerate() {
+            if i >= assignments.len() {
+                break;
+            }
+            let (row, col, row_span, col_span) = assignments[i];
+            if row_span == 0 || col_span == 0 {
+                continue; // Didn't fit
+            }
+
+            // For single-span cells, use content size directly
+            // For multi-span cells, distribute evenly (simplified)
+            if col_span == 1 {
+                col_sizes[col] = col_sizes[col].max(desired_size.width as i32);
+            }
+            if row_span == 1 {
+                row_sizes[row] = row_sizes[row].max(desired_size.height as i32);
+            }
+        }
+
+        (col_sizes, row_sizes)
+    }
 }
 
 impl Layout for GridLayout {
@@ -276,9 +416,55 @@ impl Layout for GridLayout {
         let gutter_v = Self::resolve_scalar(&grid.gutter.0, available.height);
         let gutter_h = Self::resolve_scalar(&grid.gutter.1, available.width);
 
-        // Resolve tracks with pre-computed offsets (matches Python Textual)
-        let columns = Self::resolve_tracks(&grid.column_widths, cols, available.width, gutter_h);
-        let row_tracks = Self::resolve_tracks(&grid.row_heights, rows, available.height, gutter_v);
+        // Python Textual logic for default grid-rows/columns:
+        // - If grid-rows/columns specified → use those
+        // - If NOT specified AND parent has auto height/width → use auto (content-sized)
+        // - If NOT specified AND parent has fixed/fr height/width → use 1fr (expand)
+        //
+        // Check if parent has auto width/height
+        let is_auto_width = parent_style.width.as_ref().map_or(false, |w| w.unit == Unit::Auto);
+        let is_auto_height = parent_style.height.as_ref().map_or(false, |h| h.unit == Unit::Auto);
+
+        // Determine if we should use auto (content) sizing for tracks
+        // Only use auto when specs are empty AND parent has auto dimension
+        let use_auto_cols = grid.column_widths.is_empty() && is_auto_width;
+        let use_auto_rows = grid.row_heights.is_empty() && is_auto_height;
+
+        let (col_content_sizes, row_content_sizes) = if use_auto_cols || use_auto_rows {
+            let assignments = Self::compute_cell_assignments(children, rows, cols);
+            Self::compute_content_sizes(children, &assignments, rows, cols)
+        } else {
+            (vec![], vec![])
+        };
+
+        // Resolve tracks:
+        // - If specs provided → use them
+        // - If specs empty + auto dimension → use content sizes
+        // - If specs empty + fixed/fr dimension → use 1fr (equal distribution)
+        let columns = if use_auto_cols {
+            Self::resolve_tracks_with_content(
+                &grid.column_widths,
+                cols,
+                available.width,
+                gutter_h,
+                &col_content_sizes,
+            )
+        } else {
+            // Use 1fr distribution when no specs and not auto width
+            Self::resolve_tracks(&grid.column_widths, cols, available.width, gutter_h)
+        };
+        let row_tracks = if use_auto_rows {
+            Self::resolve_tracks_with_content(
+                &grid.row_heights,
+                rows,
+                available.height,
+                gutter_v,
+                &row_content_sizes,
+            )
+        } else {
+            // Use 1fr distribution when no specs and not auto height
+            Self::resolve_tracks(&grid.row_heights, rows, available.height, gutter_v)
+        };
 
         // Create occupancy grid for Tetris-style placement
         let mut occupancy = OccupancyGrid::new(rows, cols);
@@ -330,20 +516,37 @@ impl Layout for GridLayout {
                             );
 
                             // Resolve child's actual size based on CSS width/height
-                            let child_width = resolve_width_with_intrinsic(
-                                child_style,
-                                desired_size.width,
-                                cell_region.width,
-                            );
-                            let child_height = resolve_height_with_intrinsic(
-                                child_style,
-                                desired_size.height,
-                                cell_region.height,
-                            );
-
-                            // Apply alignment within the cell
+                            // Behavior depends on parent's alignment:
+                            // - Default alignment (left/top): children fill their cells
+                            // - Non-default alignment (center/right/middle/bottom): children use
+                            //   intrinsic size and get positioned within the cell
                             use tcss::types::text::{AlignHorizontal, AlignVertical};
 
+                            let has_h_align = !matches!(parent_style.align_horizontal, AlignHorizontal::Left);
+                            let has_v_align = !matches!(parent_style.align_vertical, AlignVertical::Top);
+
+                            let child_width = if child_style.width.is_none() && has_h_align {
+                                // No width + non-default h-align: use intrinsic size
+                                desired_size.width as i32
+                            } else {
+                                resolve_width_with_intrinsic(
+                                    child_style,
+                                    desired_size.width,
+                                    cell_region.width,
+                                )
+                            };
+                            let child_height = if child_style.height.is_none() && has_v_align {
+                                // No height + non-default v-align: use intrinsic size
+                                desired_size.height as i32
+                            } else {
+                                resolve_height_with_intrinsic(
+                                    child_style,
+                                    desired_size.height,
+                                    cell_region.height,
+                                )
+                            };
+
+                            // Apply alignment within the cell
                             let x_offset = match parent_style.align_horizontal {
                                 AlignHorizontal::Left => 0,
                                 AlignHorizontal::Center => {

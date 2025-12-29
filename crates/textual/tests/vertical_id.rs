@@ -176,7 +176,7 @@ fn test_render_cache_produces_tinted_background() {
 
     // Create render cache and render a line
     let cache = RenderCache::new(&style);
-    let strip = cache.render_line(0, 5, 10, None, None);
+    let strip = cache.render_line(0, 5, 10, None, None, None);
 
     // Get the first segment and check its background color
     let segments = strip.segments();

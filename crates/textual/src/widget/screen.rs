@@ -129,6 +129,17 @@ impl<M> Screen<M> {
 }
 
 impl<M> Widget<M> for Screen<M> {
+    fn default_css(&self) -> &'static str {
+        // Match Python Textual's Screen DEFAULT_CSS
+        r#"
+Screen {
+    layout: vertical;
+    overflow-y: auto;
+    background: $background;
+}
+"#
+    }
+
     fn render(&self, canvas: &mut Canvas, region: Region) {
         if region.width <= 0 || region.height <= 0 {
             return;

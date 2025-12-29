@@ -4,7 +4,6 @@
 
 use std::marker::PhantomData;
 
-use crate::impl_widget_delegation;
 use crate::widget::static_widget::Static;
 
 /// Semantic variants for Label styling.
@@ -153,6 +152,42 @@ impl<M> Label<M> {
         self
     }
 
+    /// Set the border title (displayed in the top border).
+    ///
+    /// The title supports markup for styling (e.g., `[b]Bold Title[/]`).
+    pub fn with_border_title(mut self, title: impl Into<String>) -> Self {
+        self.inner = self.inner.with_border_title(title);
+        self
+    }
+
+    /// Set the border subtitle (displayed in the bottom border).
+    ///
+    /// The subtitle supports markup for styling (e.g., `[i]Italic Subtitle[/]`).
+    pub fn with_border_subtitle(mut self, subtitle: impl Into<String>) -> Self {
+        self.inner = self.inner.with_border_subtitle(subtitle);
+        self
+    }
+
+    /// Set the border title at runtime.
+    pub fn set_border_title(&mut self, title: impl Into<String>) {
+        self.inner.set_border_title(title);
+    }
+
+    /// Set the border subtitle at runtime.
+    pub fn set_border_subtitle(&mut self, subtitle: impl Into<String>) {
+        self.inner.set_border_subtitle(subtitle);
+    }
+
+    /// Get the border title.
+    pub fn border_title(&self) -> Option<&str> {
+        self.inner.border_title()
+    }
+
+    /// Get the border subtitle.
+    pub fn border_subtitle(&self) -> Option<&str> {
+        self.inner.border_subtitle()
+    }
+
     /// Update the label content.
     ///
     /// This changes the displayed text and marks the widget as dirty.
@@ -176,5 +211,148 @@ impl<M> Label<M> {
     }
 }
 
-// Use the delegation macro for Widget trait implementation
-impl_widget_delegation!(Label<M> => inner, type_name = "Label");
+// Manual Widget implementation to provide Label-specific default_css
+impl<M> crate::Widget<M> for Label<M> {
+    fn default_css(&self) -> &'static str {
+        r#"
+Label {
+    width: auto;
+    height: auto;
+}
+"#
+    }
+
+    fn render(&self, canvas: &mut crate::Canvas, region: crate::Region) {
+        self.inner.render(canvas, region)
+    }
+
+    fn desired_size(&self) -> crate::Size {
+        self.inner.desired_size()
+    }
+
+    fn get_meta(&self) -> tcss::WidgetMeta {
+        let mut meta = self.inner.get_meta();
+        meta.type_name = "Label".to_string();
+        meta
+    }
+
+    fn get_state(&self) -> tcss::WidgetStates {
+        self.inner.get_state()
+    }
+
+    fn set_style(&mut self, style: tcss::ComputedStyle) {
+        self.inner.set_style(style)
+    }
+
+    fn get_style(&self) -> tcss::ComputedStyle {
+        self.inner.get_style()
+    }
+
+    fn is_dirty(&self) -> bool {
+        self.inner.is_dirty()
+    }
+
+    fn mark_dirty(&mut self) {
+        self.inner.mark_dirty()
+    }
+
+    fn mark_clean(&mut self) {
+        self.inner.mark_clean()
+    }
+
+    fn on_event(&mut self, key: crate::KeyCode) -> Option<M> {
+        self.inner.on_event(key)
+    }
+
+    fn on_mouse(&mut self, event: crate::MouseEvent, region: crate::Region) -> Option<M> {
+        self.inner.on_mouse(event, region)
+    }
+
+    fn set_hover(&mut self, is_hovered: bool) -> bool {
+        self.inner.set_hover(is_hovered)
+    }
+
+    fn set_active(&mut self, is_active: bool) -> bool {
+        self.inner.set_active(is_active)
+    }
+
+    fn clear_hover(&mut self) {
+        self.inner.clear_hover()
+    }
+
+    fn is_focusable(&self) -> bool {
+        self.inner.is_focusable()
+    }
+
+    fn is_visible(&self) -> bool {
+        self.inner.is_visible()
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        self.inner.set_visible(visible)
+    }
+
+    fn is_loading(&self) -> bool {
+        self.inner.is_loading()
+    }
+
+    fn set_loading(&mut self, loading: bool) {
+        self.inner.set_loading(loading)
+    }
+
+    fn is_disabled(&self) -> bool {
+        self.inner.is_disabled()
+    }
+
+    fn set_disabled(&mut self, disabled: bool) {
+        self.inner.set_disabled(disabled)
+    }
+
+    fn count_focusable(&self) -> usize {
+        self.inner.count_focusable()
+    }
+
+    fn clear_focus(&mut self) {
+        self.inner.clear_focus()
+    }
+
+    fn focus_nth(&mut self, n: usize) -> bool {
+        self.inner.focus_nth(n)
+    }
+
+    fn set_focus(&mut self, is_focused: bool) {
+        self.inner.set_focus(is_focused)
+    }
+
+    fn is_focused(&self) -> bool {
+        self.inner.is_focused()
+    }
+
+    fn child_count(&self) -> usize {
+        self.inner.child_count()
+    }
+
+    fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn crate::Widget<M> + '_)> {
+        self.inner.get_child_mut(index)
+    }
+
+    fn handle_message(&mut self, envelope: &mut crate::MessageEnvelope<M>) -> Option<M> {
+        self.inner.handle_message(envelope)
+    }
+
+    fn id(&self) -> Option<&str> {
+        self.inner.id()
+    }
+
+    fn type_name(&self) -> &'static str {
+        "Label"
+    }
+
+    fn on_resize(&mut self, size: crate::Size) {
+        self.inner.on_resize(size)
+    }
+
+    fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn crate::Widget<M>)) {
+        self.inner.for_each_child(f)
+    }
+}

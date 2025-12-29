@@ -59,9 +59,38 @@ impl TagContent {
             return Self::parse_meta(&content[1..]);
         }
 
+        // Link tag: [link='url'] or [link=url]
+        // Python Textual uses this syntax for links
+        if content.starts_with("link=") || content.starts_with("link ") {
+            return Self::parse_link(content);
+        }
+
         // Style tag: [bold red on blue]
         let style = Style::parse(content)?;
         Ok(TagContent::Style(style))
+    }
+
+    /// Parse a link tag (e.g., `link='https://...'` or `link=url`).
+    fn parse_link(content: &str) -> Result<Self, StyleParseError> {
+        // Strip the "link=" or "link " prefix
+        let value_part = if content.starts_with("link=") {
+            &content[5..]
+        } else if content.starts_with("link ") {
+            &content[5..]
+        } else {
+            return Err(StyleParseError::UnknownModifier(content.to_string()));
+        };
+
+        // Strip quotes if present
+        let url = value_part
+            .trim()
+            .trim_start_matches('\'')
+            .trim_start_matches('"')
+            .trim_end_matches('\'')
+            .trim_end_matches('"')
+            .to_string();
+
+        Ok(TagContent::Meta("@link".to_string(), url))
     }
 
     /// Parse a meta tag (the part after `@`).
@@ -217,11 +246,20 @@ mod tests {
     }
 
     #[test]
-    fn parse_link_not_supported_as_style() {
-        // link=... is not a valid style modifier - links should use meta syntax
-        // like [@link=https://example.com] if needed
-        let result = TagContent::parse("link=https://example.com");
-        assert!(result.is_err());
+    fn parse_link_syntax() {
+        // link='url' syntax is now supported as a meta tag
+        let tag = TagContent::parse("link='https://example.com'").unwrap();
+        assert_eq!(
+            tag,
+            TagContent::Meta("@link".to_string(), "https://example.com".to_string())
+        );
+
+        // Also works without quotes
+        let tag2 = TagContent::parse("link=https://example.com").unwrap();
+        assert_eq!(
+            tag2,
+            TagContent::Meta("@link".to_string(), "https://example.com".to_string())
+        );
     }
 
     #[test]
