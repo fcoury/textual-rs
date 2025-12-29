@@ -10,6 +10,7 @@ use crate::canvas::{Region, Size};
 use crate::fraction::Fraction;
 use tcss::types::{ComputedStyle, GridStyle, Scalar, Unit};
 
+use super::size_resolver::{resolve_height_with_intrinsic, resolve_width_with_intrinsic};
 use super::{Layout, WidgetPlacement};
 
 /// Pre-computed track (column or row) with offset and size.
@@ -285,7 +286,7 @@ impl Layout for GridLayout {
         let mut current_col = 0;
         let mut result = Vec::new();
 
-        for (child_index, child_style, _desired_size) in children {
+        for (child_index, child_style, desired_size) in children {
             // Get span values from child's computed style
             let col_span = (child_style.grid_placement.column_span as usize).max(1);
             let row_span = (child_style.grid_placement.row_span as usize).max(1);
@@ -315,7 +316,7 @@ impl Layout for GridLayout {
                                 effective_col_span,
                             );
 
-                            // Calculate spanning region
+                            // Calculate spanning region (the full cell area)
                             let cell_region = child_region(
                                 current_col,
                                 current_row,
@@ -328,9 +329,47 @@ impl Layout for GridLayout {
                                 gutter_v,
                             );
 
+                            // Resolve child's actual size based on CSS width/height
+                            let child_width = resolve_width_with_intrinsic(
+                                child_style,
+                                desired_size.width,
+                                cell_region.width,
+                            );
+                            let child_height = resolve_height_with_intrinsic(
+                                child_style,
+                                desired_size.height,
+                                cell_region.height,
+                            );
+
+                            // Apply alignment within the cell
+                            use tcss::types::text::{AlignHorizontal, AlignVertical};
+
+                            let x_offset = match parent_style.align_horizontal {
+                                AlignHorizontal::Left => 0,
+                                AlignHorizontal::Center => {
+                                    (cell_region.width - child_width) / 2
+                                }
+                                AlignHorizontal::Right => cell_region.width - child_width,
+                            };
+
+                            let y_offset = match parent_style.align_vertical {
+                                AlignVertical::Top => 0,
+                                AlignVertical::Middle => {
+                                    (cell_region.height - child_height) / 2
+                                }
+                                AlignVertical::Bottom => cell_region.height - child_height,
+                            };
+
+                            let final_region = Region {
+                                x: cell_region.x + x_offset,
+                                y: cell_region.y + y_offset,
+                                width: child_width,
+                                height: child_height,
+                            };
+
                             result.push(WidgetPlacement {
                                 child_index: *child_index,
-                                region: cell_region,
+                                region: final_region,
                             });
 
                             // Advance to next column for next widget

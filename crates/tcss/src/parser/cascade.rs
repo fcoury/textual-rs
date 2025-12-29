@@ -254,7 +254,13 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Height(s) => style.height = Some(*s),
         Declaration::Margin(s) => style.margin = *s,
         Declaration::Padding(s) => style.padding = *s,
-        Declaration::Border(b) => style.border = Border::all(b.clone()),
+        Declaration::Border(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.border = Border::all(resolved_edge);
+        }
 
         // Scrollbar properties
         Declaration::ScrollbarColor(c) => {
