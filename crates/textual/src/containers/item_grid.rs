@@ -1,56 +1,59 @@
-//! Grid container for CSS Grid-like layouts.
+//! ItemGrid container - a grid with automatic column calculation.
 //!
-//! Implements a 2D grid layout with support for:
-//! - Fixed column/row counts via `grid-size`
-//! - Flexible column/row sizes via `grid-columns` and `grid-rows`
-//! - Gutter spacing via `grid-gutter`
-//! - Column/row spanning for children via `row-span` and `column-span`
-//!
-//! ## CSS Properties
-//!
-//! ```css
-//! Grid {
-//!     grid-size: 3;              /* 3 columns, auto rows */
-//!     grid-size: 3 2;            /* 3 columns, 2 rows */
-//!     grid-columns: 1fr 2fr 1fr; /* flexible widths */
-//!     grid-rows: 5 auto;         /* fixed + auto heights */
-//!     grid-gutter: 1;            /* 1 cell spacing */
-//!     grid-gutter: 1 2;          /* vertical horizontal */
-//! }
-//!
-//! /* Child spanning */
-//! #my-widget {
-//!     row-span: 2;               /* span 2 rows */
-//!     column-span: 3;            /* span 3 columns */
-//! }
-//! ```
+//! ItemGrid extends Grid with runtime-configurable properties via pre_layout:
+//! - `min_column_width`: Auto-calculate column count to fit minimum width
+//! - `max_column_width`: Limit column widths
+//! - `stretch_height`: Force all cells in a row to equal height
+//! - `regular`: Ensure no partial rows (even distribution)
 
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
-use crate::layouts::{self, Layout};
-use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
+use crate::canvas::{Canvas, Region, Size};
+use crate::layouts::{self, GridLayout, Layout};
+use crate::widget::Widget;
+use crate::{KeyCode, MouseEvent};
 
-/// A grid container that arranges children in a 2D grid.
+/// A grid container with automatic column calculation.
 ///
-/// Children are placed left-to-right, top-to-bottom using Tetris-style
-/// placement. Grid size and layout are controlled via CSS.
+/// ItemGrid uses the `pre_layout` hook to configure GridLayout at runtime,
+/// allowing properties like `min_column_width` to dynamically determine
+/// the number of columns based on available width.
 ///
-/// This is a convenience wrapper that uses the `layouts::GridLayout` algorithm.
-pub struct Grid<M> {
+/// ## Example
+///
+/// ```ignore
+/// use textual::containers::ItemGrid;
+///
+/// // Creates a grid where columns are at least 20 cells wide
+/// let grid = ItemGrid::new(children)
+///     .with_min_column_width(20)
+///     .with_stretch_height(true);
+/// ```
+pub struct ItemGrid<M> {
     children: Vec<Box<dyn Widget<M>>>,
     style: ComputedStyle,
     dirty: bool,
     id: Option<String>,
+
+    // Runtime-configurable properties (passed to GridLayout via pre_layout)
+    pub min_column_width: Option<u16>,
+    pub max_column_width: Option<u16>,
+    pub stretch_height: bool,
+    pub regular: bool,
 }
 
-impl<M> Grid<M> {
-    /// Create a new Grid with the given children.
+impl<M> ItemGrid<M> {
+    /// Create a new ItemGrid with the given children.
     pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
         Self {
             children,
             style: ComputedStyle::default(),
             dirty: true,
             id: None,
+            min_column_width: None,
+            max_column_width: None,
+            stretch_height: true,
+            regular: false,
         }
     }
 
@@ -60,12 +63,39 @@ impl<M> Grid<M> {
         self
     }
 
+    /// Set the minimum column width.
+    ///
+    /// When set, the grid automatically calculates the number of columns
+    /// that fit within the available width while maintaining this minimum.
+    pub fn with_min_column_width(mut self, width: u16) -> Self {
+        self.min_column_width = Some(width);
+        self
+    }
+
+    /// Set the maximum column width.
+    pub fn with_max_column_width(mut self, width: u16) -> Self {
+        self.max_column_width = Some(width);
+        self
+    }
+
+    /// Set whether to stretch cell heights to match row height.
+    pub fn with_stretch_height(mut self, stretch: bool) -> Self {
+        self.stretch_height = stretch;
+        self
+    }
+
+    /// Set whether the grid should be regular (no partial rows).
+    pub fn with_regular(mut self, regular: bool) -> Self {
+        self.regular = regular;
+        self
+    }
+
     /// Count visible children.
     fn visible_children(&self) -> usize {
         self.children.iter().filter(|c| c.is_visible()).count()
     }
 
-    /// Compute child placements using GridLayout.
+    /// Compute child placements using GridLayout with pre_layout configuration.
     fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles
         let children_with_styles: Vec<_> = self
@@ -76,13 +106,18 @@ impl<M> Grid<M> {
             .map(|(i, c)| (i, c.get_style()))
             .collect();
 
-        // Force grid layout regardless of CSS
-        let mut layout = layouts::GridLayout::default();
+        // Create and configure GridLayout
+        let mut layout = GridLayout::default();
+        layout.min_column_width = self.min_column_width;
+        layout.max_column_width = self.max_column_width;
+        layout.stretch_height = self.stretch_height;
+        layout.regular = self.regular;
+
         layout.arrange(&self.style, &children_with_styles, region)
     }
 }
 
-impl<M> Widget<M> for Grid<M> {
+impl<M> Widget<M> for ItemGrid<M> {
     fn render(&self, canvas: &mut Canvas, region: Region) {
         if region.width <= 0 || region.height <= 0 {
             return;
@@ -98,16 +133,14 @@ impl<M> Widget<M> for Grid<M> {
     }
 
     fn desired_size(&self) -> Size {
-        // Grid fills available space; return reasonable minimum
-        let cols = self.style.grid.columns.unwrap_or(1) as u16;
+        // Return a reasonable minimum based on visible children
         let visible = self.visible_children() as u16;
-        let rows = if cols > 0 { (visible + cols - 1) / cols } else { 1 };
-        Size::new(cols * 10, rows * 3)
+        Size::new(visible.max(1) * 10, visible.max(1) * 3)
     }
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "Grid".to_string(),
+            type_name: "ItemGrid".to_string(),
             id: self.id.clone(),
             classes: Vec::new(),
             states: WidgetStates::empty(),
@@ -170,10 +203,8 @@ impl<M> Widget<M> for Grid<M> {
             return None;
         }
 
-        // Compute placements first (borrows self immutably)
         let placements = self.compute_child_placements(region);
 
-        // Then iterate and dispatch mouse events (borrows self mutably)
         for placement in placements {
             if placement.region.contains_point(mx, my) {
                 if let Some(msg) = self.children[placement.child_index].on_mouse(event, placement.region) {
@@ -235,11 +266,13 @@ impl<M> Widget<M> for Grid<M> {
         }
     }
 
-    fn pre_layout(&mut self, _layout: &mut dyn Layout) {
-        // Grid container doesn't configure layout at runtime
-        // Override in ItemGrid for min_column_width, etc.
+    fn pre_layout(&mut self, layout: &mut dyn Layout) {
+        // Configure GridLayout with our runtime properties
+        if let Some(grid) = layout.as_grid_mut() {
+            grid.min_column_width = self.min_column_width;
+            grid.max_column_width = self.max_column_width;
+            grid.stretch_height = self.stretch_height;
+            grid.regular = self.regular;
+        }
     }
 }
-
-// Tests for OccupancyGrid, ResolvedTrack, and child_region have been moved to
-// crates/textual/src/layouts/grid.rs where the layout algorithm is now implemented.

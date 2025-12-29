@@ -7,6 +7,7 @@ pub mod content;
 pub mod context;
 pub mod error;
 pub mod fraction;
+pub mod layouts;
 mod log_init;
 mod macros;
 pub mod message;
@@ -28,8 +29,8 @@ use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
 pub use containers::{
-    Center, Middle, grid::Grid, horizontal::Horizontal, scrollable::ScrollableContainer,
-    vertical::Vertical,
+    Center, Middle, container::Container, grid::Grid, horizontal::Horizontal,
+    item_grid::ItemGrid, scrollable::ScrollableContainer, vertical::Vertical,
 };
 pub use context::{AppContext, IntervalHandle};
 pub use error::Result;
