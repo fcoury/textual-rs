@@ -294,6 +294,11 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.scrollbar.visibility = *v;
         }
 
+        // Box model properties
+        Declaration::BoxSizing(b) => {
+            style.box_sizing = *b;
+        }
+
         // Overflow properties
         Declaration::OverflowX(o) => {
             style.overflow_x = *o;

@@ -117,11 +117,26 @@ fn build_inherited_context(style: &mut ComputedStyle, parent_inherited: &Inherit
 }
 
 /// Compute the effective background at this widget level.
-/// This is the widget's background (with tint applied) or the inherited background.
+/// This composites semi-transparent backgrounds over the parent's effective background,
+/// then applies any tint.
 fn compute_effective_background(style: &ComputedStyle, parent_inherited: &InheritedContext) -> Option<RgbaColor> {
-    match (&style.background, &style.background_tint) {
-        (Some(bg), Some(tint)) => Some(bg.tint(tint)),
-        (Some(bg), None) => Some(bg.clone()),
+    match (&style.background, &parent_inherited.effective_background) {
+        (Some(bg), Some(parent_bg)) if bg.a < 1.0 => {
+            // Composite semi-transparent background over parent
+            let composited = bg.blend_over(parent_bg);
+            // Apply tint if present
+            match &style.background_tint {
+                Some(tint) => Some(composited.tint(tint)),
+                None => Some(composited),
+            }
+        }
+        (Some(bg), _) => {
+            // Opaque background - apply tint if present
+            match &style.background_tint {
+                Some(tint) => Some(bg.tint(tint)),
+                None => Some(bg.clone()),
+            }
+        }
         (None, _) => parent_inherited.effective_background.clone(),
     }
 }

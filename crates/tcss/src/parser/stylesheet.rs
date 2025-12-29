@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
+use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -238,6 +238,10 @@ pub enum Declaration {
     ScrollbarGutter(ScrollbarGutter),
     /// The `scrollbar-visibility` property (visible or hidden).
     ScrollbarVisibility(ScrollbarVisibility),
+
+    // Box model properties
+    /// The `box-sizing` property (content-box or border-box).
+    BoxSizing(BoxSizing),
 
     // Overflow properties
     /// The `overflow-x` property for horizontal overflow behavior.

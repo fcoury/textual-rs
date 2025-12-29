@@ -76,8 +76,13 @@ impl Layout for VerticalLayout {
         let mut fr_remainder = Fraction::ZERO;
 
         for (i, (child_index, child_style, desired_size)) in children.iter().enumerate() {
-            // Resolve width
-            let width = resolve_width_with_intrinsic(child_style, desired_size.width, available.width);
+            // Get horizontal margins
+            let margin_left = child_style.margin.left.value as i32;
+            let margin_right = child_style.margin.right.value as i32;
+
+            // Resolve width, subtracting horizontal margins to prevent overflow
+            let base_width = resolve_width_with_intrinsic(child_style, desired_size.width, available.width);
+            let width = (base_width - margin_left - margin_right).max(0);
 
             // Resolve height - use Fraction for fr units to match Python Textual behavior
             let height = if let Some(h) = &child_style.height {
@@ -100,9 +105,8 @@ impl Layout for VerticalLayout {
                 resolve_height_fixed(child_style, available.height)
             };
 
-            // Get margin for positioning
+            // Get vertical margins for positioning
             let margin_top = child_style.margin.top.value as i32;
-            let margin_left = child_style.margin.left.value as i32;
             let margin_bottom = child_style.margin.bottom.value as i32;
 
             // CSS margin collapsing

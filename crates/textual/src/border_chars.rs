@@ -29,6 +29,8 @@ pub type BorderChars = [[char; 3]; 3];
 /// Each position in the 3×3 grid indicates which style to use:
 /// - 0: Use the widget's style (inner)
 /// - 1: Use the outer/parent style
+/// - 2: Reversed outer bg with inner fg (for block characters like ▊)
+/// - 3: Reversed inner bg with outer fg
 ///
 /// This is used for border types like "inner" where the border characters
 /// should use the outer style rather than the widget's style.
@@ -42,6 +44,15 @@ const INNER_LOCATIONS: BorderLocations = [[1, 1, 1], [1, 0, 1], [1, 1, 1]];
 
 /// Outer border location: all positions use outer style.
 const OUTER_LOCATIONS: BorderLocations = [[1, 1, 1], [1, 1, 1], [1, 1, 1]];
+
+/// Tall border location: left=reversed outer/inner, center=inner, right=outer.
+const TALL_LOCATIONS: BorderLocations = [[2, 0, 1], [2, 0, 1], [2, 0, 1]];
+
+/// Panel border location: same as tall (left=reversed, center=inner, right=outer).
+const PANEL_LOCATIONS: BorderLocations = [[2, 0, 1], [2, 0, 1], [2, 0, 1]];
+
+/// Wide border location: special mixed zones for horizontal emphasis.
+const WIDE_LOCATIONS: BorderLocations = [[1, 1, 1], [0, 1, 3], [1, 1, 1]];
 
 /// Map of border type names to their character grids.
 pub static BORDER_CHARS: phf::Map<&'static str, BorderChars> = phf_map! {
@@ -86,9 +97,9 @@ pub static BORDER_CHARS: phf::Map<&'static str, BorderChars> = phf_map! {
         ['+', '-', '+'],
     ],
     "dashed" => [
-        ['┌', '╌', '┐'],
-        ['╎', ' ', '╎'],
-        ['└', '╌', '┘'],
+        ['┏', '╍', '┓'],
+        ['╏', ' ', '╏'],
+        ['┗', '╍', '┛'],
     ],
     "thick" => [
         ['█', '▀', '█'],
@@ -144,9 +155,9 @@ pub static BORDER_LOCATIONS: phf::Map<&'static str, BorderLocations> = phf_map! 
     "ascii" => STANDARD_LOCATIONS,
     "dashed" => STANDARD_LOCATIONS,
     "thick" => STANDARD_LOCATIONS,
-    "tall" => STANDARD_LOCATIONS,
-    "panel" => STANDARD_LOCATIONS,
-    "wide" => STANDARD_LOCATIONS,
+    "tall" => TALL_LOCATIONS,
+    "panel" => PANEL_LOCATIONS,
+    "wide" => WIDE_LOCATIONS,
     "inner" => INNER_LOCATIONS,
     "outer" => OUTER_LOCATIONS,
     "hkey" => STANDARD_LOCATIONS,

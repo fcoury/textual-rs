@@ -71,3 +71,22 @@ pub enum Overflow {
     /// Always show scrollbars.
     Scroll,
 }
+
+/// Controls how width and height are calculated.
+///
+/// - `content-box`: Width/height apply to content only; padding and border are added outside
+/// - `border-box`: Width/height include content, padding, and border
+///
+/// ## CSS Syntax
+///
+/// ```css
+/// .component { box-sizing: border-box; }
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum BoxSizing {
+    /// Width/height is content only; padding/border added outside (default).
+    #[default]
+    ContentBox,
+    /// Width/height includes content, padding, and border.
+    BorderBox,
+}

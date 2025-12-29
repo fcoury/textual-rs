@@ -22,7 +22,7 @@ use crate::types::color::RgbaColor;
 use crate::types::scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarVisibility};
 use crate::types::text::TextStyle;
 use nom::{
-    IResult, bytes::complete::take_while1, character::complete::{digit1, multispace1}, combinator::opt,
+    IResult, bytes::complete::take_while1, character::complete::{char, digit1, multispace1}, combinator::opt,
     sequence::preceded,
 };
 
@@ -140,11 +140,16 @@ pub fn parse_border_edge(input: &str) -> IResult<&str, BorderEdge> {
         "dashed" => BorderKind::Dashed,
         "double" => BorderKind::Double,
         "heavy" => BorderKind::Heavy,
+        "hkey" => BorderKind::Hkey,
         "inner" => BorderKind::Inner,
         "outer" => BorderKind::Outer,
+        "panel" => BorderKind::Panel,
         "round" => BorderKind::Round,
         "solid" => BorderKind::Solid,
+        "tall" => BorderKind::Tall,
         "thick" => BorderKind::Thick,
+        "vkey" => BorderKind::Vkey,
+        "wide" => BorderKind::Wide,
         _ => {
             return Err(nom::Err::Error(nom::error::Error::new(
                 input,
@@ -240,6 +245,26 @@ pub fn parse_overflow(input: &str) -> IResult<&str, crate::types::Overflow> {
         "hidden" => Ok((input, Overflow::Hidden)),
         "auto" => Ok((input, Overflow::Auto)),
         "scroll" => Ok((input, Overflow::Scroll)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parse box-sizing: `content-box` or `border-box`.
+pub fn parse_box_sizing(input: &str) -> IResult<&str, crate::types::BoxSizing> {
+    use crate::types::BoxSizing;
+    let (input, ident) = parse_ident(input)?;
+    // Handle hyphenated identifiers by consuming the rest
+    let (input, rest) = opt(preceded(char('-'), parse_ident))(input)?;
+    let full_ident = match rest {
+        Some(suffix) => format!("{}-{}", ident, suffix),
+        None => ident.to_string(),
+    };
+    match full_ident.to_lowercase().as_str() {
+        "content-box" | "contentbox" => Ok((input, BoxSizing::ContentBox)),
+        "border-box" | "borderbox" => Ok((input, BoxSizing::BorderBox)),
         _ => Err(nom::Err::Error(nom::error::Error::new(
             input,
             nom::error::ErrorKind::Tag,
