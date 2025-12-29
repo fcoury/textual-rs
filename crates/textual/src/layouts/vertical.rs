@@ -22,8 +22,9 @@ impl Layout for VerticalLayout {
     ) -> Vec<WidgetPlacement> {
         let mut placements = Vec::with_capacity(children.len());
         let mut current_y = available.y;
+        let mut prev_margin_bottom: i32 = 0;
 
-        for (child_index, child_style) in children {
+        for (i, (child_index, child_style)) in children.iter().enumerate() {
             // Resolve child dimensions from CSS
             // Vertical layout: children fill width, have fixed/auto height
             let height = resolve_height_fixed(child_style, available.height);
@@ -32,9 +33,19 @@ impl Layout for VerticalLayout {
             // Get margin for positioning (Scalar.value is f64)
             let margin_top = child_style.margin.top.value as i32;
             let margin_left = child_style.margin.left.value as i32;
+            let margin_bottom = child_style.margin.bottom.value as i32;
 
-            // Apply margin to y position
-            current_y += margin_top;
+            // CSS margin collapsing: use max of adjacent margins, not sum
+            let effective_top_margin = if i == 0 {
+                margin_top // First child: full top margin
+            } else {
+                // Collapse: the gap between siblings is max(prev_bottom, current_top)
+                // We already advanced by prev_margin_bottom, so we only add the difference
+                // if current_top is larger
+                (margin_top - prev_margin_bottom).max(0)
+            };
+
+            current_y += effective_top_margin;
 
             placements.push(WidgetPlacement {
                 child_index: *child_index,
@@ -47,8 +58,8 @@ impl Layout for VerticalLayout {
             });
 
             // Advance by height + bottom margin
-            let margin_bottom = child_style.margin.bottom.value as i32;
             current_y += height + margin_bottom;
+            prev_margin_bottom = margin_bottom;
         }
 
         placements

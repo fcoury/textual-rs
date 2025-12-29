@@ -21,8 +21,9 @@ impl Layout for HorizontalLayout {
     ) -> Vec<WidgetPlacement> {
         let mut placements = Vec::with_capacity(children.len());
         let mut current_x = available.x;
+        let mut prev_margin_right: i32 = 0;
 
-        for (child_index, child_style) in children {
+        for (i, (child_index, child_style)) in children.iter().enumerate() {
             // Resolve child dimensions from CSS
             // Horizontal layout: children have fixed/auto width, fill height
             let width = resolve_width_fixed(child_style, available.width);
@@ -34,8 +35,17 @@ impl Layout for HorizontalLayout {
             let margin_top = child_style.margin.top.value as i32;
             let margin_bottom = child_style.margin.bottom.value as i32;
 
-            // Apply margin to x position
-            current_x += margin_left;
+            // CSS margin collapsing: use max of adjacent margins, not sum
+            let effective_left_margin = if i == 0 {
+                margin_left // First child: full left margin
+            } else {
+                // Collapse: the gap between siblings is max(prev_right, current_left)
+                // We already advanced by prev_margin_right, so we only add the difference
+                // if current_left is larger
+                (margin_left - prev_margin_right).max(0)
+            };
+
+            current_x += effective_left_margin;
 
             // Reduce height by vertical margins to prevent overflow
             let adjusted_height = (height - margin_top - margin_bottom).max(0);
@@ -52,6 +62,7 @@ impl Layout for HorizontalLayout {
 
             // Advance by width + right margin
             current_x += width + margin_right;
+            prev_margin_right = margin_right;
         }
 
         placements
