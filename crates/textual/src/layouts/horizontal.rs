@@ -5,7 +5,7 @@ use crate::fraction::Fraction;
 use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
-use super::size_resolver::resolve_height_with_intrinsic;
+use super::size_resolver::{apply_box_sizing_height, apply_box_sizing_width};
 use super::{Layout, WidgetPlacement};
 
 /// Horizontal layout - stacks children left-to-right.
@@ -51,18 +51,21 @@ impl Layout for HorizontalLayout {
                         total_fr += (width.value * 1000.0) as i64;
                     }
                     Unit::Cells => {
-                        fixed_width_used += width.value as i32;
+                        // Apply box-sizing: content-box adds chrome, border-box uses as-is
+                        let css_width = width.value as i32;
+                        fixed_width_used += apply_box_sizing_width(css_width, child_style);
                     }
                     Unit::Percent => {
-                        fixed_width_used += ((width.value / 100.0) * available.width as f64) as i32;
+                        let css_width = ((width.value / 100.0) * available.width as f64) as i32;
+                        fixed_width_used += apply_box_sizing_width(css_width, child_style);
                     }
                     _ => {
-                        // Auto or other - use intrinsic width
+                        // Auto or other - use intrinsic width (already includes chrome)
                         fixed_width_used += desired_size.width as i32;
                     }
                 }
             } else {
-                // No width specified - use intrinsic width
+                // No width specified - use intrinsic width (already includes chrome)
                 fixed_width_used += desired_size.width as i32;
             }
         }
@@ -77,11 +80,13 @@ impl Layout for HorizontalLayout {
 
         for (i, (child_index, child_style, desired_size)) in children.iter().enumerate() {
             // Resolve width - use Fraction for fr units to match Python Textual behavior
+            // Apply box-sizing: content-box adds chrome, border-box uses CSS value as-is
             let width = if let Some(w) = &child_style.width {
                 match w.unit {
                     Unit::Fraction => {
                         if total_fr > 0 {
                             // Use Fraction arithmetic: extra pixels go to later widgets
+                            // fr units fill available space, so no box-sizing adjustment needed
                             let fr_value = (w.value * 1000.0) as i64;
                             let raw = Fraction::new(remaining_for_fr * fr_value, total_fr) + fr_remainder;
                             let result = raw.floor() as i32;
@@ -91,17 +96,49 @@ impl Layout for HorizontalLayout {
                             0
                         }
                     }
-                    Unit::Cells => w.value as i32,
-                    Unit::Percent => ((w.value / 100.0) * available.width as f64) as i32,
-                    _ => desired_size.width as i32, // Use intrinsic width
+                    Unit::Cells => {
+                        let css_width = w.value as i32;
+                        apply_box_sizing_width(css_width, child_style)
+                    }
+                    Unit::Percent => {
+                        let css_width = ((w.value / 100.0) * available.width as f64) as i32;
+                        apply_box_sizing_width(css_width, child_style)
+                    }
+                    _ => desired_size.width as i32, // Use intrinsic width (already includes chrome)
                 }
             } else {
-                // No width specified - use intrinsic width
+                // No width specified - use intrinsic width (already includes chrome)
                 desired_size.width as i32
             };
 
             // Resolve height - horizontal layout children fill available height by default
-            let height = resolve_height_with_intrinsic(child_style, desired_size.height, available.height);
+            // Apply box-sizing only for explicit CSS heights, not auto/intrinsic
+            let height = if let Some(h) = &child_style.height {
+                match h.unit {
+                    Unit::Auto => {
+                        // Auto means intrinsic - already includes chrome
+                        desired_size.height as i32
+                    }
+                    Unit::Fraction => {
+                        // fr fills available - no box-sizing adjustment
+                        available.height
+                    }
+                    Unit::Cells => {
+                        apply_box_sizing_height(h.value as i32, child_style)
+                    }
+                    Unit::Percent => {
+                        let css_height = ((h.value / 100.0) * available.height as f64) as i32;
+                        apply_box_sizing_height(css_height, child_style)
+                    }
+                    _ => {
+                        // Other units - use value as-is with box-sizing
+                        apply_box_sizing_height(h.value as i32, child_style)
+                    }
+                }
+            } else {
+                // No height specified - fill available (horizontal layout default)
+                available.height
+            };
 
             // Get margins for positioning
             let margin_left = child_style.margin.left.value as i32;

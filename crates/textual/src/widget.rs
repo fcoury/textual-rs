@@ -1,3 +1,4 @@
+pub mod app_widget;
 pub mod label;
 pub mod placeholder;
 pub mod screen;

@@ -473,8 +473,10 @@ Static {
 
     fn desired_size(&self) -> Size {
         // Check CSS dimensions first, fall back to content size
+        // Account for box-sizing: border-box vs content-box
         let style = self.get_style();
         use tcss::types::border::BorderKind;
+        use tcss::types::BoxSizing;
 
         // Calculate border contribution (each visible edge adds 1 cell)
         let has_top = !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden);
@@ -489,38 +491,54 @@ Static {
         let padding_width = style.padding.left.value as u16 + style.padding.right.value as u16;
         let padding_height = style.padding.top.value as u16 + style.padding.bottom.value as u16;
 
+        // Chrome (border + padding) to add for content-box
+        let chrome_width = border_width + padding_width;
+        let chrome_height = border_height + padding_height;
+
         let width = if let Some(w) = &style.width {
             use tcss::types::Unit;
             match w.unit {
-                Unit::Cells => w.value as u16,
-                // For other units, fall back to content width + border + padding
+                Unit::Cells => {
+                    // Apply box-sizing: border-box returns as-is, content-box adds chrome
+                    match style.box_sizing {
+                        BoxSizing::BorderBox => w.value as u16,
+                        BoxSizing::ContentBox => w.value as u16 + chrome_width,
+                    }
+                }
+                // For other units (auto, percent, fr), fall back to content width + chrome
                 _ => {
                     let text = self.text();
                     let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
-                    content_width + border_width + padding_width
+                    content_width + chrome_width
                 }
             }
         } else {
             let text = self.text();
             let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
-            content_width + border_width + padding_width
+            content_width + chrome_width
         };
 
         let height = if let Some(h) = &style.height {
             use tcss::types::Unit;
             match h.unit {
-                Unit::Cells => h.value as u16,
-                // For other units, fall back to content height + border + padding
+                Unit::Cells => {
+                    // Apply box-sizing: border-box returns as-is, content-box adds chrome
+                    match style.box_sizing {
+                        BoxSizing::BorderBox => h.value as u16,
+                        BoxSizing::ContentBox => h.value as u16 + chrome_height,
+                    }
+                }
+                // For other units (auto, percent, fr), fall back to content height + chrome
                 _ => {
                     let text = self.text();
                     let content_height = text.lines().count().max(1) as u16;
-                    content_height + border_height + padding_height
+                    content_height + chrome_height
                 }
             }
         } else {
             let text = self.text();
             let content_height = text.lines().count().max(1) as u16;
-            content_height + border_height + padding_height
+            content_height + chrome_height
         };
 
         Size::new(width, height)

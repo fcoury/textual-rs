@@ -302,12 +302,11 @@ where
 
             // 2. Build the widget tree ONCE (persistent tree)
             // Use WidgetTree for O(d) focus-targeted dispatch and message bubbling
-            // IMPLICIT SCREEN: Wrap the user's composed tree in a Screen widget
-            let root = Box::new(
-                Screen::new(self.compose())
-                    .with_horizontal_breakpoints(self.horizontal_breakpoints())
-                    .with_vertical_breakpoints(self.vertical_breakpoints()),
-            );
+            // DOM hierarchy: App > Screen > user widgets (matches Python Textual)
+            let screen = Screen::new(self.compose())
+                .with_horizontal_breakpoints(self.horizontal_breakpoints())
+                .with_vertical_breakpoints(self.vertical_breakpoints());
+            let root = Box::new(widget::app_widget::AppWidget::new(Box::new(screen)));
             let mut tree = WidgetTree::new(root);
 
             // Initialize Screen with current terminal size for breakpoints
@@ -351,12 +350,11 @@ where
             while !self.should_quit() {
                 // Rebuild widget tree if app state changed
                 if needs_recompose {
-                    // IMPLICIT SCREEN: Wrap the user's composed tree in a Screen widget
-                    let root = Box::new(
-                        Screen::new(self.compose())
-                            .with_horizontal_breakpoints(self.horizontal_breakpoints())
-                            .with_vertical_breakpoints(self.vertical_breakpoints()),
-                    );
+                    // DOM hierarchy: App > Screen > user widgets (matches Python Textual)
+                    let screen = Screen::new(self.compose())
+                        .with_horizontal_breakpoints(self.horizontal_breakpoints())
+                        .with_vertical_breakpoints(self.vertical_breakpoints());
+                    let root = Box::new(widget::app_widget::AppWidget::new(Box::new(screen)));
                     tree = WidgetTree::new(root);
 
                     // Re-apply resize to new tree so breakpoints are correct

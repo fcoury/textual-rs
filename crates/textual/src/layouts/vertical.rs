@@ -5,7 +5,10 @@ use crate::fraction::Fraction;
 use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
-use super::size_resolver::{resolve_height_fixed, resolve_width_with_intrinsic, DEFAULT_FIXED_HEIGHT};
+use super::size_resolver::{
+    apply_box_sizing_height, resolve_height_fixed, resolve_width_with_intrinsic,
+    DEFAULT_FIXED_HEIGHT,
+};
 use super::{Layout, WidgetPlacement};
 
 /// Vertical layout - stacks children top-to-bottom.
@@ -51,18 +54,22 @@ impl Layout for VerticalLayout {
                         total_fr += (height.value * 1000.0) as i64;
                     }
                     Unit::Cells => {
-                        fixed_height_used += height.value as i32;
+                        // Apply box-sizing: content-box adds chrome, border-box uses as-is
+                        let css_height = height.value as i32;
+                        fixed_height_used += apply_box_sizing_height(css_height, child_style);
                     }
                     Unit::Percent => {
-                        fixed_height_used += ((height.value / 100.0) * available.height as f64) as i32;
+                        let css_height = ((height.value / 100.0) * available.height as f64) as i32;
+                        fixed_height_used += apply_box_sizing_height(css_height, child_style);
                     }
                     Unit::Auto => {
                         // Auto means size to content - use intrinsic height
+                        // Intrinsic height already includes chrome, no adjustment needed
                         fixed_height_used += desired_size.height as i32;
                     }
                     _ => {
                         // Other units - use default fixed height
-                        fixed_height_used += DEFAULT_FIXED_HEIGHT;
+                        fixed_height_used += apply_box_sizing_height(DEFAULT_FIXED_HEIGHT, child_style);
                     }
                 }
             } else if desired_size.height == u16::MAX {
@@ -70,6 +77,7 @@ impl Layout for VerticalLayout {
                 total_fr += 1000; // 1.0 * 1000
             } else {
                 // No height specified - use desired size (intrinsic height)
+                // Intrinsic height already includes chrome, no adjustment needed
                 fixed_height_used += desired_size.height as i32;
             }
         }
@@ -94,11 +102,13 @@ impl Layout for VerticalLayout {
             let width = (base_width - margin_left - margin_right).max(0);
 
             // Resolve height - use Fraction for fr units to match Python Textual behavior
+            // Apply box-sizing: content-box adds chrome, border-box uses CSS value as-is
             let height = if let Some(h) = &child_style.height {
                 match h.unit {
                     Unit::Fraction => {
                         if total_fr > 0 {
                             // Use Fraction arithmetic: extra pixels go to later widgets
+                            // fr units fill available space, so no box-sizing adjustment needed
                             let fr_value = (h.value * 1000.0) as i64;
                             let raw = Fraction::new(remaining_for_fr * fr_value, total_fr) + fr_remainder;
                             let result = raw.floor() as i32;
@@ -110,9 +120,14 @@ impl Layout for VerticalLayout {
                     }
                     Unit::Auto => {
                         // Auto means size to content - use intrinsic height
+                        // Intrinsic height already includes chrome
                         desired_size.height as i32
                     }
-                    _ => resolve_height_fixed(child_style, available.height),
+                    _ => {
+                        // Apply box-sizing to the resolved CSS height
+                        let css_height = resolve_height_fixed(child_style, available.height);
+                        apply_box_sizing_height(css_height, child_style)
+                    }
                 }
             } else if desired_size.height == u16::MAX && total_fr > 0 {
                 // No CSS height but widget wants to fill - use fr distribution (implicit 1fr)
@@ -122,10 +137,11 @@ impl Layout for VerticalLayout {
                 fr_remainder = raw.fract();
                 result
             } else if desired_size.height != u16::MAX {
-                // No CSS height - use intrinsic height
+                // No CSS height - use intrinsic height (already includes chrome)
                 desired_size.height as i32
             } else {
-                resolve_height_fixed(child_style, available.height)
+                let css_height = resolve_height_fixed(child_style, available.height);
+                apply_box_sizing_height(css_height, child_style)
             };
 
             // Get vertical margins for positioning
