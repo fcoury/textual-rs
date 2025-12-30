@@ -258,6 +258,37 @@ impl<'a, M> MountContext<'a, M> {
         self.tree.with_widget_by_type(type_name, f)
     }
 
+    /// Query for a single widget using a CSS-like selector.
+    ///
+    /// Supports the following selector formats:
+    /// - `"#my-id"` - ID selector (finds widget with id="my-id")
+    /// - `"Label"` - Type selector (finds first Label widget)
+    /// - `"Button#submit"` - Combined Type#ID (finds Button with id="submit")
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Find by ID
+    /// ctx.query_one("#my-label", |widget| {
+    ///     widget.set_border_title("Found by ID!");
+    /// });
+    ///
+    /// // Find by type
+    /// ctx.query_one("Label", |widget| {
+    ///     widget.set_border_title("Found first Label!");
+    /// });
+    ///
+    /// // Find by type AND ID
+    /// ctx.query_one("Button#submit", |widget| {
+    ///     widget.set_border_title("Found Submit Button!");
+    /// });
+    /// ```
+    pub fn query_one<F, R>(&mut self, selector: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        self.tree.query_one(selector, f)
+    }
+
     /// Get the underlying AppContext for timer/interval operations.
     pub fn app_context(&self) -> &AppContext<M> {
         &self.app_ctx

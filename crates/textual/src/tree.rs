@@ -208,6 +208,45 @@ impl<M> WidgetTree<M> {
         result
     }
 
+    /// Query for a single widget using a CSS-like selector.
+    ///
+    /// Supports the following selector formats:
+    /// - `"#my-id"` - ID selector (finds widget with id="my-id")
+    /// - `"Label"` - Type selector (finds first Label widget)
+    /// - `"Button#submit"` - Combined Type#ID (finds Button with id="submit")
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Find by ID
+    /// tree.query_one("#my-label", |widget| {
+    ///     widget.set_border_title("Found by ID!");
+    /// });
+    ///
+    /// // Find by type
+    /// tree.query_one("Label", |widget| {
+    ///     widget.set_border_title("Found first Label!");
+    /// });
+    ///
+    /// // Find by type AND ID
+    /// tree.query_one("Button#submit", |widget| {
+    ///     widget.set_border_title("Found Submit Button!");
+    /// });
+    /// ```
+    pub fn query_one<F, R>(&mut self, selector: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        let parsed = parse_simple_selector(selector);
+        let mut result = None;
+        let mut f = Some(f);
+        find_and_apply_by_selector(self.root.as_mut(), &parsed, &mut |widget| {
+            if let Some(f) = f.take() {
+                result = Some(f(widget));
+            }
+        });
+        result
+    }
+
     /// Bubble a message up from the focused widget to ancestors.
     ///
     /// Each ancestor gets a chance to intercept the message via `handle_message`.
@@ -326,6 +365,123 @@ where
     for i in 0..child_count {
         if let Some(child) = widget.get_child_mut(i) {
             if find_and_apply_by_type(child, type_name, f) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+// =============================================================================
+// Simple Selector Parsing
+// =============================================================================
+
+/// A parsed simple selector.
+///
+/// Supports:
+/// - `#id` - ID only
+/// - `Type` - Type name only
+/// - `Type#id` - Both type and ID
+#[derive(Debug, Clone, PartialEq)]
+pub struct SimpleSelector {
+    /// Type name constraint (e.g., "Label", "Button")
+    pub type_name: Option<String>,
+    /// ID constraint (e.g., "my-label")
+    pub id: Option<String>,
+}
+
+impl SimpleSelector {
+    /// Check if a widget matches this selector.
+    pub fn matches<M>(&self, widget: &dyn Widget<M>) -> bool {
+        // Check type constraint if present
+        if let Some(ref type_name) = self.type_name {
+            if widget.type_name() != type_name {
+                return false;
+            }
+        }
+
+        // Check ID constraint if present
+        if let Some(ref id) = self.id {
+            if widget.id() != Some(id.as_str()) {
+                return false;
+            }
+        }
+
+        // If no constraints, match nothing (empty selector)
+        self.type_name.is_some() || self.id.is_some()
+    }
+}
+
+/// Parse a simple selector string.
+///
+/// Formats:
+/// - `"#my-id"` → ID selector
+/// - `"Label"` → Type selector
+/// - `"Button#submit"` → Combined Type#ID
+pub fn parse_simple_selector(selector: &str) -> SimpleSelector {
+    let selector = selector.trim();
+
+    if selector.is_empty() {
+        return SimpleSelector {
+            type_name: None,
+            id: None,
+        };
+    }
+
+    // Check for ID-only selector: "#my-id"
+    if selector.starts_with('#') {
+        return SimpleSelector {
+            type_name: None,
+            id: Some(selector[1..].to_string()),
+        };
+    }
+
+    // Check for combined Type#ID selector: "Button#submit"
+    if let Some(hash_pos) = selector.find('#') {
+        let type_name = &selector[..hash_pos];
+        let id = &selector[hash_pos + 1..];
+        return SimpleSelector {
+            type_name: if type_name.is_empty() {
+                None
+            } else {
+                Some(type_name.to_string())
+            },
+            id: if id.is_empty() {
+                None
+            } else {
+                Some(id.to_string())
+            },
+        };
+    }
+
+    // Type-only selector: "Label"
+    SimpleSelector {
+        type_name: Some(selector.to_string()),
+        id: None,
+    }
+}
+
+/// Recursively find a widget matching a selector and apply a closure.
+///
+/// Performs depth-first search to find the first widget matching the selector.
+/// Returns true if the widget was found and the closure was applied.
+fn find_and_apply_by_selector<M, F>(
+    widget: &mut dyn Widget<M>,
+    selector: &SimpleSelector,
+    f: &mut F,
+) -> bool
+where
+    F: FnMut(&mut dyn Widget<M>),
+{
+    if selector.matches(widget) {
+        f(widget);
+        return true;
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            if find_and_apply_by_selector(child, selector, f) {
                 return true;
             }
         }
@@ -752,5 +908,210 @@ mod tests {
 
         // Depth-first: nested-label should be found first
         assert_eq!(found, Some(Some("nested-label".to_string())));
+    }
+
+    // ------------------------------------------------------------------------
+    // Selector parsing tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_parse_id_selector() {
+        let selector = parse_simple_selector("#my-id");
+        assert_eq!(selector.type_name, None);
+        assert_eq!(selector.id, Some("my-id".to_string()));
+    }
+
+    #[test]
+    fn test_parse_type_selector() {
+        let selector = parse_simple_selector("Label");
+        assert_eq!(selector.type_name, Some("Label".to_string()));
+        assert_eq!(selector.id, None);
+    }
+
+    #[test]
+    fn test_parse_combined_selector() {
+        let selector = parse_simple_selector("Button#submit");
+        assert_eq!(selector.type_name, Some("Button".to_string()));
+        assert_eq!(selector.id, Some("submit".to_string()));
+    }
+
+    #[test]
+    fn test_parse_empty_selector() {
+        let selector = parse_simple_selector("");
+        assert_eq!(selector.type_name, None);
+        assert_eq!(selector.id, None);
+    }
+
+    #[test]
+    fn test_parse_whitespace_selector() {
+        let selector = parse_simple_selector("  Label  ");
+        assert_eq!(selector.type_name, Some("Label".to_string()));
+        assert_eq!(selector.id, None);
+    }
+
+    #[test]
+    fn test_parse_id_with_hyphen() {
+        let selector = parse_simple_selector("#my-complex-id");
+        assert_eq!(selector.type_name, None);
+        assert_eq!(selector.id, Some("my-complex-id".to_string()));
+    }
+
+    // ------------------------------------------------------------------------
+    // query_one tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_query_one_by_id() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("my-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.query_one("#my-label", |widget| {
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(found, Some("Label".to_string()));
+    }
+
+    #[test]
+    fn test_query_one_by_type() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").with_id("btn").boxed(),
+                QueryTestWidget::new("Label").with_id("lbl").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.query_one("Button", |widget| {
+            widget.id().map(|s| s.to_string())
+        });
+
+        assert_eq!(found, Some(Some("btn".to_string())));
+    }
+
+    #[test]
+    fn test_query_one_combined_type_and_id() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").with_id("cancel").boxed(),
+                QueryTestWidget::new("Button").with_id("submit").boxed(),
+                QueryTestWidget::new("Label").with_id("submit").boxed(), // Same ID, different type
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Should find Button with id="submit", not Label with id="submit"
+        let found = tree.query_one("Button#submit", |widget| {
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(found, Some("Button".to_string()));
+    }
+
+    #[test]
+    fn test_query_one_combined_no_match() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").with_id("cancel").boxed(),
+                QueryTestWidget::new("Label").with_id("submit").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // No Button with id="submit" exists
+        let found = tree.query_one("Button#submit", |_| ());
+
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn test_query_one_deeply_nested() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Container")
+                    .with_children(vec![
+                        QueryTestWidget::new("Container")
+                            .with_children(vec![
+                                QueryTestWidget::new("Input").with_id("deep-input").boxed(),
+                            ])
+                            .boxed(),
+                    ])
+                    .boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.query_one("#deep-input", |widget| {
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(found, Some("Input".to_string()));
+    }
+
+    #[test]
+    fn test_query_one_can_modify() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("status").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Modify using query_one
+        tree.query_one("#status", |widget| {
+            widget.set_border_title("Updated via query_one");
+        });
+
+        // Verify modification
+        let title = tree.query_one("#status", |widget| {
+            widget.border_title().map(|s| s.to_string())
+        });
+
+        assert_eq!(title, Some(Some("Updated via query_one".to_string())));
+    }
+
+    #[test]
+    fn test_query_one_empty_selector_matches_nothing() {
+        let root = QueryTestWidget::new("Container")
+            .with_id("root")
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.query_one("", |_| ());
+
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn test_query_one_nonexistent_id() {
+        let root = QueryTestWidget::new("Container").boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.query_one("#nonexistent", |_| ());
+
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn test_query_one_nonexistent_type() {
+        let root = QueryTestWidget::new("Container").boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.query_one("NonexistentWidget", |_| ());
+
+        assert!(found.is_none());
     }
 }
