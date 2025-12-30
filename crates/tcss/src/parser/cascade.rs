@@ -378,6 +378,9 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Layout(l) => {
             style.layout = *l;
         }
+        Declaration::Dock(d) => {
+            style.dock = Some(*d);
+        }
         Declaration::GridSize(cols, rows) => {
             style.grid.columns = Some(*cols);
             style.grid.rows = *rows;

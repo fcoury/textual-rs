@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
+use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -256,6 +256,8 @@ pub enum Declaration {
     // Layout and Grid properties
     /// The `layout` property (vertical, horizontal, grid).
     Layout(Layout),
+    /// The `dock` property (top, bottom, left, right).
+    Dock(Dock),
     /// The `grid-size` property (columns, optional rows).
     GridSize(u16, Option<u16>),
     /// The `grid-columns` property (column width definitions).

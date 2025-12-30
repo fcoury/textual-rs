@@ -30,7 +30,7 @@ pub use size_resolver::{
 pub use vertical::VerticalLayout;
 
 use crate::canvas::{Region, Size};
-use tcss::types::{ComputedStyle, Layout as LayoutKind};
+use tcss::types::{ComputedStyle, Dock, Layout as LayoutKind};
 
 /// Result of layout arrangement - maps child indices to their computed regions.
 #[derive(Debug, Clone)]
@@ -73,9 +73,12 @@ pub trait Layout {
 /// Dispatch to the appropriate layout algorithm based on CSS.
 ///
 /// This is the main entry point for containers. It:
-/// 1. Creates the appropriate layout instance based on `parent_style.layout`
-/// 2. Runs the layout algorithm
-/// 3. Applies post-layout alignment based on `align_horizontal` and `align_vertical`
+/// 1. Separates docked widgets from normal layout widgets
+/// 2. Positions docked widgets at their edges (top, bottom, left, right)
+/// 3. Shrinks available region by the space consumed by docked widgets
+/// 4. Creates the appropriate layout instance based on `parent_style.layout`
+/// 5. Runs the layout algorithm on remaining widgets
+/// 6. Applies post-layout alignment based on `align_horizontal` and `align_vertical`
 ///
 /// # Arguments
 /// * `parent_style` - The computed style of the parent container
@@ -86,25 +89,138 @@ pub fn arrange_children(
     children: &[(usize, ComputedStyle, Size)],
     available: Region,
 ) -> Vec<WidgetPlacement> {
-    let mut placements = match parent_style.layout {
+    // Separate docked widgets from layout widgets
+    let (docked, layout_children): (Vec<_>, Vec<_>) =
+        children.iter().partition(|(_, style, _)| style.dock.is_some());
+
+    // Process docked widgets first
+    let (mut placements, dock_spacing) = arrange_docked_widgets(&docked, available);
+
+    // Shrink available region for layout widgets
+    let content_region = Region {
+        x: available.x + dock_spacing.left,
+        y: available.y + dock_spacing.top,
+        width: available
+            .width
+            .saturating_sub(dock_spacing.left + dock_spacing.right),
+        height: available
+            .height
+            .saturating_sub(dock_spacing.top + dock_spacing.bottom),
+    };
+
+    // Run normal layout on remaining widgets
+    let layout_children_vec: Vec<_> = layout_children
+        .iter()
+        .map(|(idx, style, size)| (*idx, style.clone(), *size))
+        .collect();
+
+    let mut layout_placements = match parent_style.layout {
         LayoutKind::Grid => {
             let mut layout = GridLayout::default();
-            layout.arrange(parent_style, children, available)
+            layout.arrange(parent_style, &layout_children_vec, content_region)
         }
         LayoutKind::Vertical => {
             let mut layout = VerticalLayout;
-            layout.arrange(parent_style, children, available)
+            layout.arrange(parent_style, &layout_children_vec, content_region)
         }
         LayoutKind::Horizontal => {
             let mut layout = HorizontalLayout;
-            layout.arrange(parent_style, children, available)
+            layout.arrange(parent_style, &layout_children_vec, content_region)
         }
     };
 
-    // Apply post-layout alignment
-    apply_alignment(&mut placements, parent_style, available);
+    // Apply post-layout alignment to layout widgets only
+    apply_alignment(&mut layout_placements, parent_style, content_region);
+
+    // Combine docked and layout placements
+    placements.extend(layout_placements);
 
     placements
+}
+
+/// Spacing consumed by docked widgets on each edge.
+#[derive(Debug, Clone, Copy, Default)]
+struct DockSpacing {
+    top: i32,
+    right: i32,
+    bottom: i32,
+    left: i32,
+}
+
+/// Arrange docked widgets at their respective edges.
+///
+/// Docked widgets are removed from normal layout flow and positioned
+/// at the container edges. Returns placements and the spacing consumed.
+///
+/// Following Textual Python's algorithm:
+/// - Widgets are processed in DOM order
+/// - Each docked widget is positioned relative to the full container
+/// - Space tracking accumulates to reduce available space for content
+fn arrange_docked_widgets(
+    docked: &[&(usize, ComputedStyle, Size)],
+    available: Region,
+) -> (Vec<WidgetPlacement>, DockSpacing) {
+    let mut placements = Vec::new();
+    let mut spacing = DockSpacing::default();
+
+    for (child_index, style, size) in docked.iter().copied() {
+        let dock = style.dock.expect("docked widget must have dock property");
+
+        // Convert size to i32 for region calculations
+        let widget_width = size.width as i32;
+        let widget_height = size.height as i32;
+
+        // Calculate region based on dock direction
+        let region = match dock {
+            Dock::Top => {
+                let region = Region {
+                    x: available.x,
+                    y: available.y,
+                    width: available.width,
+                    height: widget_height,
+                };
+                spacing.top = spacing.top.max(widget_height);
+                region
+            }
+            Dock::Bottom => {
+                let region = Region {
+                    x: available.x,
+                    y: available.y + available.height - widget_height,
+                    width: available.width,
+                    height: widget_height,
+                };
+                spacing.bottom = spacing.bottom.max(widget_height);
+                region
+            }
+            Dock::Left => {
+                let region = Region {
+                    x: available.x,
+                    y: available.y,
+                    width: widget_width,
+                    height: available.height,
+                };
+                spacing.left = spacing.left.max(widget_width);
+                region
+            }
+            Dock::Right => {
+                let region = Region {
+                    x: available.x + available.width - widget_width,
+                    y: available.y,
+                    width: widget_width,
+                    height: available.height,
+                };
+                spacing.right = spacing.right.max(widget_width);
+                region
+            }
+        };
+
+        placements.push(WidgetPlacement {
+            child_index: *child_index,
+            region,
+        });
+    }
+
+    (placements, spacing)
 }
 
 /// Dispatch with pre_layout hook support.
@@ -126,26 +242,54 @@ pub fn arrange_children_with_pre_layout<F>(
 where
     F: FnOnce(&mut dyn Layout),
 {
-    let mut placements = match parent_style.layout {
+    // Separate docked widgets from layout widgets
+    let (docked, layout_children): (Vec<_>, Vec<_>) =
+        children.iter().partition(|(_, style, _)| style.dock.is_some());
+
+    // Process docked widgets first
+    let (mut placements, dock_spacing) = arrange_docked_widgets(&docked, available);
+
+    // Shrink available region for layout widgets
+    let content_region = Region {
+        x: available.x + dock_spacing.left,
+        y: available.y + dock_spacing.top,
+        width: available
+            .width
+            .saturating_sub(dock_spacing.left + dock_spacing.right),
+        height: available
+            .height
+            .saturating_sub(dock_spacing.top + dock_spacing.bottom),
+    };
+
+    // Run normal layout on remaining widgets
+    let layout_children_vec: Vec<_> = layout_children
+        .iter()
+        .map(|(idx, style, size)| (*idx, style.clone(), *size))
+        .collect();
+
+    let mut layout_placements = match parent_style.layout {
         LayoutKind::Grid => {
             let mut layout = GridLayout::default();
             pre_layout(&mut layout);
-            layout.arrange(parent_style, children, available)
+            layout.arrange(parent_style, &layout_children_vec, content_region)
         }
         LayoutKind::Vertical => {
             let mut layout = VerticalLayout;
             pre_layout(&mut layout);
-            layout.arrange(parent_style, children, available)
+            layout.arrange(parent_style, &layout_children_vec, content_region)
         }
         LayoutKind::Horizontal => {
             let mut layout = HorizontalLayout;
             pre_layout(&mut layout);
-            layout.arrange(parent_style, children, available)
+            layout.arrange(parent_style, &layout_children_vec, content_region)
         }
     };
 
-    // Apply post-layout alignment
-    apply_alignment(&mut placements, parent_style, available);
+    // Apply post-layout alignment to layout widgets only
+    apply_alignment(&mut layout_placements, parent_style, content_region);
+
+    // Combine docked and layout placements
+    placements.extend(layout_placements);
 
     placements
 }

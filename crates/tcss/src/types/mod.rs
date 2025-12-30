@@ -39,7 +39,7 @@ pub use border::{Border, BorderEdge, BorderKind};
 pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing, Unit};
 pub use grid::{GridPlacement, GridStyle};
-pub use layout::{BoxSizing, Display, Layout, Overflow, Visibility};
+pub use layout::{BoxSizing, Display, Dock, Layout, Overflow, Visibility};
 pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
@@ -109,6 +109,9 @@ pub struct ComputedStyle {
     // Layout mode
     pub layout: Layout,
 
+    // Dock position (removes from layout flow)
+    pub dock: Option<Dock>,
+
     // Grid layout
     pub grid: GridStyle,
     pub grid_placement: GridPlacement,
@@ -161,6 +164,7 @@ impl Default for ComputedStyle {
             visibility: Visibility::default(),
             opacity: 1.0,
             layout: Layout::default(),
+            dock: None,
             grid: GridStyle::default(),
             grid_placement: GridPlacement::default(),
             overflow_x: Overflow::default(),

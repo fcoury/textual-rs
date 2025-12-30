@@ -201,7 +201,6 @@ fn test_rule_selector_list() {
 #[test]
 fn test_rule_header_dock() {
     // From Textual docs: Header { dock: top; }
-    // dock is not yet implemented, so it will be Unknown
     let (_, rule) = parse_rule("Header { dock: top; }").unwrap();
 
     assert_eq!(
@@ -209,12 +208,11 @@ fn test_rule_header_dock() {
         Selector::Type("Header".to_string())
     );
 
-    // dock is unknown for now
-    if let Declaration::Unknown(name) = &rule.declarations()[0] {
-        assert_eq!(name, "dock");
-    } else {
-        panic!("expected Unknown declaration for dock");
-    }
+    // dock is now implemented
+    assert!(matches!(
+        &rule.declarations()[0],
+        Declaration::Dock(tcss::types::Dock::Top)
+    ));
 }
 
 #[test]

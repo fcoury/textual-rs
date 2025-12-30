@@ -1078,3 +1078,76 @@ fn snapshot_column_span_example() {
     let canvas = render_to_canvas(&app, column_span_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Dock All Example
+// ============================================================================
+
+mod dock_all_example {
+    use super::*;
+    use textual::Container;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct DockAllApp;
+
+    impl Compose for DockAllApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Container(id: "big_container") {
+                    Container(id: "left") { Label("left") }
+                    Container(id: "top") { Label("top") }
+                    Container(id: "right") { Label("right") }
+                    Container(id: "bottom") { Label("bottom") }
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#left {
+    dock: left;
+    height: 100%;
+    width: auto;
+    align-vertical: middle;
+}
+#top {
+    dock: top;
+    height: auto;
+    width: 100%;
+    align-horizontal: center;
+}
+#right {
+    dock: right;
+    height: 100%;
+    width: auto;
+    align-vertical: middle;
+}
+#bottom {
+    dock: bottom;
+    height: auto;
+    width: 100%;
+    align-horizontal: center;
+}
+
+Screen {
+    align: center middle;
+}
+
+#big_container {
+    width: 75%;
+    height: 75%;
+    border: round white;
+}
+"#;
+}
+
+#[test]
+fn snapshot_dock_all_example() {
+    let app = dock_all_example::DockAllApp;
+    let canvas = render_to_canvas(&app, dock_all_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}

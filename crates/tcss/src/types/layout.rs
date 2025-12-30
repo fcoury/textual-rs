@@ -90,3 +90,27 @@ pub enum BoxSizing {
     #[default]
     BorderBox,
 }
+
+/// Controls docking behavior for widgets.
+///
+/// Docking removes a widget from normal layout flow and fixes it
+/// to an edge of the container. Docked widgets don't scroll with content.
+///
+/// ## CSS Syntax
+///
+/// ```css
+/// .header { dock: top; }
+/// .sidebar { dock: left; }
+/// .footer { dock: bottom; }
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dock {
+    /// Dock to the top edge.
+    Top,
+    /// Dock to the bottom edge.
+    Bottom,
+    /// Dock to the left edge.
+    Left,
+    /// Dock to the right edge.
+    Right,
+}

@@ -393,3 +393,22 @@ pub fn parse_text_style(input: &str) -> IResult<&str, TextStyle> {
 
     Ok((&input[end..], style))
 }
+
+/// Parse dock: `top`, `bottom`, `left`, or `right`.
+///
+/// Docking removes a widget from normal layout flow and fixes it
+/// to an edge of the container.
+pub fn parse_dock(input: &str) -> IResult<&str, crate::types::Dock> {
+    use crate::types::Dock;
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "top" => Ok((input, Dock::Top)),
+        "bottom" => Ok((input, Dock::Bottom)),
+        "left" => Ok((input, Dock::Left)),
+        "right" => Ok((input, Dock::Right)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}

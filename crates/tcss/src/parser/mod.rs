@@ -179,6 +179,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
 
         // Layout and Grid properties
         "layout" => map(units::parse_layout, Declaration::Layout)(input)?,
+        "dock" => map(values::parse_dock, Declaration::Dock)(input)?,
         "grid-size" => {
             let (input, (cols, rows)) = units::parse_grid_size(input)?;
             (input, Declaration::GridSize(cols, rows))

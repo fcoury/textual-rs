@@ -456,11 +456,27 @@ fn test_declaration_tabs() {
 // ============================================================================
 
 #[test]
-#[ignore = "dock property not yet implemented"]
 fn test_property_dock_top() {
     let decl = parse_first_declaration("Button { dock: top; }");
-    // Should parse as Declaration::Dock(Dock::Top)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    assert!(matches!(decl, Declaration::Dock(tcss::types::Dock::Top)));
+}
+
+#[test]
+fn test_property_dock_bottom() {
+    let decl = parse_first_declaration("Button { dock: bottom; }");
+    assert!(matches!(decl, Declaration::Dock(tcss::types::Dock::Bottom)));
+}
+
+#[test]
+fn test_property_dock_left() {
+    let decl = parse_first_declaration("Button { dock: left; }");
+    assert!(matches!(decl, Declaration::Dock(tcss::types::Dock::Left)));
+}
+
+#[test]
+fn test_property_dock_right() {
+    let decl = parse_first_declaration("Button { dock: right; }");
+    assert!(matches!(decl, Declaration::Dock(tcss::types::Dock::Right)));
 }
 
 #[test]
