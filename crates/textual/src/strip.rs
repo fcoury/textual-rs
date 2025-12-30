@@ -314,6 +314,20 @@ impl Strip {
 
         Strip::from_segments(tinted_segments)
     }
+
+    /// Apply a hatch pattern to this strip.
+    ///
+    /// Replaces space characters with the hatch character and applies
+    /// the hatch color as the foreground. Non-space characters are unchanged.
+    pub fn apply_hatch(&self, hatch_char: char, hatch_color: &RgbaColor, opacity: f32) -> Strip {
+        let hatched_segments: Vec<Segment> = self
+            .segments
+            .iter()
+            .map(|seg| seg.apply_hatch(hatch_char, hatch_color, opacity))
+            .collect();
+
+        Strip::from_segments(hatched_segments)
+    }
 }
 
 #[cfg(test)]

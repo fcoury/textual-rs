@@ -3,6 +3,7 @@
 //! Container is the base for all layout containers. It dispatches to the
 //! appropriate layout algorithm based on the `layout` CSS property.
 
+use tcss::types::Layout as LayoutDirection;
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, Size};
@@ -12,6 +13,9 @@ use crate::render_cache::RenderCache;
 use crate::segment::Style;
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent};
+
+// Re-export for use by Horizontal/Vertical
+pub use tcss::types::Layout as ContainerLayoutDirection;
 
 /// A generic container that arranges children using CSS-driven layout.
 ///
@@ -33,6 +37,9 @@ pub struct Container<M> {
     border_title: Option<String>,
     /// Subtitle displayed in the bottom border (supports markup).
     border_subtitle: Option<String>,
+    /// Optional layout direction override (takes precedence over CSS).
+    /// Used by Horizontal/Vertical wrappers to enforce their layout mode.
+    layout_override: Option<LayoutDirection>,
 }
 
 impl<M> Container<M> {
@@ -46,12 +53,22 @@ impl<M> Container<M> {
             classes: Vec::new(),
             border_title: None,
             border_subtitle: None,
+            layout_override: None,
         }
     }
 
     /// Set the widget ID for CSS targeting.
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
+        self
+    }
+
+    /// Set the layout direction, overriding CSS.
+    ///
+    /// This is used by Horizontal/Vertical wrappers to enforce their layout
+    /// mode regardless of CSS settings.
+    pub fn with_layout(mut self, direction: LayoutDirection) -> Self {
+        self.layout_override = Some(direction);
         self
     }
 
@@ -93,6 +110,11 @@ impl<M> Container<M> {
         self.border_subtitle.as_deref()
     }
 
+    /// Get the effective layout direction (override takes precedence over CSS).
+    fn effective_layout(&self) -> LayoutDirection {
+        self.layout_override.unwrap_or(self.style.layout)
+    }
+
     /// Compute child placements using the appropriate layout algorithm.
     fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles and desired sizes
@@ -104,8 +126,12 @@ impl<M> Container<M> {
             .map(|(i, c)| (i, c.get_style(), c.desired_size()))
             .collect();
 
-        // Dispatch to layout based on CSS
-        layouts::arrange_children(&self.style, &children_with_styles, region)
+        // Create a modified style with the effective layout direction
+        let mut effective_style = self.style.clone();
+        effective_style.layout = self.effective_layout();
+
+        // Dispatch to layout based on effective layout
+        layouts::arrange_children(&effective_style, &children_with_styles, region)
     }
 
     /// Calculate intrinsic size based on children and layout mode.
@@ -119,37 +145,59 @@ impl<M> Container<M> {
         }
 
         // Collect children sizes
+        // u16::MAX signals "fill available space" - propagate this signal
         let mut total_width: u16 = 0;
         let mut total_height: u16 = 0;
         let mut max_width: u16 = 0;
         let mut max_height: u16 = 0;
+        let mut any_child_wants_fill_width = false;
+        let mut any_child_wants_fill_height = false;
 
         for child in &self.children {
             if !child.participates_in_layout() {
                 continue;
             }
             let child_size = child.desired_size();
+            let child_style = child.get_style();
 
-            // Track max dimensions (cap at reasonable max to avoid overflow)
-            max_width = max_width.max(child_size.width.min(1000));
-            max_height = max_height.max(child_size.height.min(1000));
+            // Check for "fill available space" signals
+            if child_size.width == u16::MAX {
+                any_child_wants_fill_width = true;
+            }
+            if child_size.height == u16::MAX {
+                any_child_wants_fill_height = true;
+            }
+
+            // Track max dimensions (cap at reasonable max to avoid overflow, but preserve MAX signal)
+            let capped_width = if child_size.width == u16::MAX { 0 } else { child_size.width.min(1000) };
+            let capped_height = if child_size.height == u16::MAX { 0 } else { child_size.height.min(1000) };
+
+            // Include child margins in the size calculation
+            let margin_h = child_style.margin.left.value as u16 + child_style.margin.right.value as u16;
+            let margin_v = child_style.margin.top.value as u16 + child_style.margin.bottom.value as u16;
+
+            let width_with_margin = capped_width.saturating_add(margin_h);
+            let height_with_margin = capped_height.saturating_add(margin_v);
+
+            max_width = max_width.max(width_with_margin);
+            max_height = max_height.max(height_with_margin);
 
             // Track totals for stacking
-            total_width = total_width.saturating_add(child_size.width.min(1000));
-            total_height = total_height.saturating_add(child_size.height.min(1000));
+            total_width = total_width.saturating_add(width_with_margin);
+            total_height = total_height.saturating_add(height_with_margin);
         }
 
-        // Calculate based on layout mode
-        let (content_w, content_h) = match self.style.layout {
-            tcss::types::Layout::Vertical => {
+        // Calculate based on layout mode (use effective layout, not just CSS)
+        let (content_w, content_h) = match self.effective_layout() {
+            LayoutDirection::Vertical => {
                 // Stacked vertically: width = max child width, height = sum of heights
                 (max_width, total_height)
             }
-            tcss::types::Layout::Horizontal => {
+            LayoutDirection::Horizontal => {
                 // Stacked horizontally: width = sum of widths, height = max child height
                 (total_width, max_height)
             }
-            tcss::types::Layout::Grid => {
+            LayoutDirection::Grid => {
                 // Grid: use max dimensions as approximation
                 (max_width, max_height)
             }
@@ -160,10 +208,20 @@ impl<M> Container<M> {
         let padding_h = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
         let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
 
-        Size::new(
-            content_w.saturating_add(border_size).saturating_add(padding_h),
-            content_h.saturating_add(border_size).saturating_add(padding_v),
-        )
+        // If any child wants to fill available space, propagate that signal
+        let final_width = if any_child_wants_fill_width {
+            u16::MAX
+        } else {
+            content_w.saturating_add(border_size).saturating_add(padding_h)
+        };
+
+        let final_height = if any_child_wants_fill_height {
+            u16::MAX
+        } else {
+            content_h.saturating_add(border_size).saturating_add(padding_v)
+        };
+
+        Size::new(final_width, final_height)
     }
 }
 

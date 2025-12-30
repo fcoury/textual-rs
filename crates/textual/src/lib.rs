@@ -50,12 +50,31 @@ pub use widget::static_widget::Static;
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
-pub use textual_macros::ui;
+pub use textual_macros::{ui, widget};
 pub use widget::{
     Compose, Widget, placeholder::Placeholder, placeholder::PlaceholderVariant,
     screen::Breakpoint, screen::Screen, scrollbar::ScrollBar,
     scrollbar_corner::ScrollBarCorner, switch::Switch,
 };
+
+/// Helper for building widget vectors from iterators.
+///
+/// Provides a more ergonomic way to build dynamic widget lists.
+///
+/// # Example
+///
+/// ```ignore
+/// let items = vec!["a", "b", "c"];
+/// let widgets = widgets_from_iter(items, |item| {
+///     Box::new(Static::new(item)) as Box<dyn Widget<_>>
+/// });
+/// ```
+pub fn widgets_from_iter<M, T, F>(iter: impl IntoIterator<Item = T>, f: F) -> Vec<Box<dyn Widget<M>>>
+where
+    F: Fn(T) -> Box<dyn Widget<M>>,
+{
+    iter.into_iter().map(f).collect()
+}
 
 use crate::{
     error::TextualError,

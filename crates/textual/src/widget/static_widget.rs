@@ -460,7 +460,23 @@ Static {
                 subtitle_strip.as_ref(),
             );
 
-            // 8. Apply tint as post-processing (tints both fg and bg colors)
+            // 8. Apply hatch pattern to inner content area (inside borders, includes padding)
+            let strip = if let Some(hatch) = &self.style.hatch {
+                // Apply hatch to rows inside the border (content + padding area)
+                if y >= border_offset && y < height - border_offset {
+                    strip.apply_hatch(
+                        hatch.pattern.char(),
+                        &hatch.color,
+                        hatch.opacity,
+                    )
+                } else {
+                    strip
+                }
+            } else {
+                strip
+            };
+
+            // 9. Apply tint as post-processing (tints both fg and bg colors)
             let strip = if let Some(tint) = &self.style.tint {
                 strip.apply_tint(tint)
             } else {
@@ -505,8 +521,12 @@ Static {
                         BoxSizing::ContentBox => w.value as u16 + chrome_width,
                     }
                 }
-                // For other units (auto, percent, fr), fall back to content width + chrome
-                _ => {
+                // Percentage/fraction units: signal "fill available space"
+                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                    u16::MAX
+                }
+                // Auto: fall back to content width + chrome
+                Unit::Auto => {
                     let text = self.text();
                     let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
                     content_width + chrome_width
@@ -528,8 +548,12 @@ Static {
                         BoxSizing::ContentBox => h.value as u16 + chrome_height,
                     }
                 }
-                // For other units (auto, percent, fr), fall back to content height + chrome
-                _ => {
+                // Percentage/fraction units: signal "fill available space"
+                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                    u16::MAX
+                }
+                // Auto: fall back to content height + chrome
+                Unit::Auto => {
                     let text = self.text();
                     let content_height = text.lines().count().max(1) as u16;
                     content_height + chrome_height

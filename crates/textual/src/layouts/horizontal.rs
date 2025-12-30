@@ -60,13 +60,25 @@ impl Layout for HorizontalLayout {
                         fixed_width_used += apply_box_sizing_width(css_width, child_style);
                     }
                     _ => {
-                        // Auto or other - use intrinsic width (already includes chrome)
-                        fixed_width_used += desired_size.width as i32;
+                        // Auto or other - check if widget wants to fill (u16::MAX signals "fill available")
+                        if desired_size.width == u16::MAX {
+                            // Treat as 1fr (1000 in our scaled units)
+                            total_fr += 1000;
+                        } else {
+                            // Use intrinsic width (already includes chrome)
+                            fixed_width_used += desired_size.width as i32;
+                        }
                     }
                 }
             } else {
-                // No width specified - use intrinsic width (already includes chrome)
-                fixed_width_used += desired_size.width as i32;
+                // No width specified - check if widget wants to fill (u16::MAX signals "fill available")
+                if desired_size.width == u16::MAX {
+                    // Treat as 1fr (1000 in our scaled units)
+                    total_fr += 1000;
+                } else {
+                    // Use intrinsic width (already includes chrome)
+                    fixed_width_used += desired_size.width as i32;
+                }
             }
         }
 
@@ -104,11 +116,31 @@ impl Layout for HorizontalLayout {
                         let css_width = ((w.value / 100.0) * available.width as f64) as i32;
                         apply_box_sizing_width(css_width, child_style)
                     }
-                    _ => desired_size.width as i32, // Use intrinsic width (already includes chrome)
+                    _ => {
+                        // Check if widget wants to fill (u16::MAX signals "fill available")
+                        if desired_size.width == u16::MAX && total_fr > 0 {
+                            // Treat as 1fr
+                            let raw = Fraction::new(remaining_for_fr * 1000, total_fr) + fr_remainder;
+                            let result = raw.floor() as i32;
+                            fr_remainder = raw.fract();
+                            result
+                        } else {
+                            desired_size.width as i32 // Use intrinsic width
+                        }
+                    }
                 }
             } else {
-                // No width specified - use intrinsic width (already includes chrome)
-                desired_size.width as i32
+                // No width specified - check if widget wants to fill
+                if desired_size.width == u16::MAX && total_fr > 0 {
+                    // Treat as 1fr
+                    let raw = Fraction::new(remaining_for_fr * 1000, total_fr) + fr_remainder;
+                    let result = raw.floor() as i32;
+                    fr_remainder = raw.fract();
+                    result
+                } else {
+                    // Use intrinsic width (already includes chrome)
+                    desired_size.width as i32
+                }
             };
 
             // Resolve height - horizontal layout children fill available height by default

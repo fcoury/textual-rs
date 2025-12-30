@@ -412,3 +412,74 @@ pub fn parse_dock(input: &str) -> IResult<&str, crate::types::Dock> {
         ))),
     }
 }
+
+/// Parse hatch pattern: `<pattern> <color> [opacity%]`.
+///
+/// Pattern can be:
+/// - Named: `left`, `right`, `cross`, `horizontal`, `vertical`
+/// - Custom: A quoted single character like `"T"` or `'X'`
+///
+/// # Examples
+///
+/// - `hatch: cross $success` → cross pattern in success color
+/// - `hatch: horizontal red 80%` → horizontal pattern in red at 80% opacity
+/// - `hatch: "T" blue 50%` → custom 'T' pattern in blue at 50% opacity
+pub fn parse_hatch(input: &str) -> IResult<&str, crate::types::Hatch> {
+    use crate::types::hatch::{Hatch, HatchPattern};
+
+    let input = input.trim_start();
+
+    // Parse the pattern (identifier or quoted character)
+    let (input, pattern) = if input.starts_with('"') || input.starts_with('\'') {
+        // Quoted custom character
+        let quote = input.chars().next().unwrap();
+        let end = input[1..].find(quote).ok_or_else(|| {
+            nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Char))
+        })?;
+        let custom_char = &input[1..1 + end];
+        let pattern = HatchPattern::parse(custom_char).ok_or_else(|| {
+            nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag))
+        })?;
+        (&input[2 + end..], pattern)
+    } else {
+        // Named pattern
+        let (remaining, ident) = parse_ident(input)?;
+        let pattern = HatchPattern::parse(ident).ok_or_else(|| {
+            nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag))
+        })?;
+        (remaining, pattern)
+    };
+
+    // Consume whitespace
+    let input = input.trim_start();
+
+    // Parse the color (required)
+    let (input, color) = parse_color(input)?;
+
+    // Parse optional opacity percentage
+    let input = input.trim_start();
+    let (input, opacity) = if !input.is_empty() && !input.starts_with(';') && !input.starts_with('}') {
+        // Try to parse opacity percentage
+        let mut end = 0;
+        let mut found_digits = false;
+        for (i, c) in input.char_indices() {
+            if c.is_ascii_digit() || c == '.' {
+                found_digits = true;
+                end = i + c.len_utf8();
+            } else if c == '%' && found_digits {
+                let percent_str = &input[..end];
+                if let Ok(percent) = percent_str.parse::<f32>() {
+                    return Ok((&input[end + 1..], Hatch::new(pattern, color).with_opacity(percent / 100.0)));
+                }
+                break;
+            } else {
+                break;
+            }
+        }
+        (input, 1.0f32)
+    } else {
+        (input, 1.0f32)
+    };
+
+    Ok((input, Hatch::new(pattern, color).with_opacity(opacity)))
+}

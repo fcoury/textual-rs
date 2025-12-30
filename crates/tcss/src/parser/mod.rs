@@ -233,6 +233,9 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "border-left" => map(values::parse_border_edge, Declaration::BorderLeft)(input)?,
         "border-right" => map(values::parse_border_edge, Declaration::BorderRight)(input)?,
 
+        // Hatch pattern fill
+        "hatch" => map(values::parse_hatch, Declaration::Hatch)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;

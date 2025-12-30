@@ -6,10 +6,17 @@ use syn::{
     token, Expr, Ident, Result, Token,
 };
 
-/// Root of the UI tree - may contain multiple widgets.
+/// Root of the UI tree - may contain multiple widgets or splat expressions.
 #[derive(Debug)]
 pub struct UiRoot {
-    pub widgets: Vec<WidgetNode>,
+    pub items: Vec<ChildItem>,
+}
+
+/// A child item - either a widget node or a splat expression (..expr).
+#[derive(Debug)]
+pub enum ChildItem {
+    Widget(WidgetNode),
+    Splat(Expr),
 }
 
 /// A single widget node in the UI tree.
@@ -21,8 +28,8 @@ pub struct WidgetNode {
     pub positional_args: Vec<Expr>,
     /// Named attributes (name: value pairs) -> .with_name(value)
     pub named_attrs: Vec<NamedAttr>,
-    /// Child widgets (for containers)
-    pub children: Vec<WidgetNode>,
+    /// Child items (for containers) - widgets or splat expressions
+    pub children: Vec<ChildItem>,
 }
 
 /// A named attribute like `id: "my-id"`
@@ -32,20 +39,33 @@ pub struct NamedAttr {
     pub value: Expr,
 }
 
+/// Parse a child item - either a widget or splat expression (..expr).
+fn parse_child_item(input: ParseStream) -> Result<ChildItem> {
+    if input.peek(Token![..]) {
+        // Splat: ..expr
+        let _dotdot: Token![..] = input.parse()?;
+        let expr: Expr = input.parse()?;
+        Ok(ChildItem::Splat(expr))
+    } else {
+        // Regular widget
+        Ok(ChildItem::Widget(input.parse::<WidgetNode>()?))
+    }
+}
+
 impl Parse for UiRoot {
     fn parse(input: ParseStream) -> Result<Self> {
-        let mut widgets = Vec::new();
+        let mut items = Vec::new();
 
-        // Parse widgets until input is exhausted
+        // Parse widgets and splats until input is exhausted
         while !input.is_empty() {
-            widgets.push(input.parse::<WidgetNode>()?);
+            items.push(parse_child_item(input)?);
         }
 
-        if widgets.is_empty() {
-            return Err(input.error("ui! macro requires at least one widget"));
+        if items.is_empty() {
+            return Err(input.error("ui! macro requires at least one widget or splat"));
         }
 
-        Ok(UiRoot { widgets })
+        Ok(UiRoot { items })
     }
 }
 
@@ -70,7 +90,7 @@ impl Parse for WidgetNode {
             let content;
             braced!(content in input);
             while !content.is_empty() {
-                children.push(content.parse::<WidgetNode>()?);
+                children.push(parse_child_item(&content)?);
             }
         }
 

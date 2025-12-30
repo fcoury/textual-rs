@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
+use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -328,6 +328,11 @@ pub enum Declaration {
     BorderLeft(BorderEdge),
     /// The `border-right` property for right edge only.
     BorderRight(BorderEdge),
+
+    // Hatch pattern fill
+    /// The `hatch` property for filling an area with a pattern.
+    /// Syntax: `hatch: <pattern> <color> [opacity]`
+    Hatch(Hatch),
 
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),

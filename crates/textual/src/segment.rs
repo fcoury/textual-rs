@@ -333,6 +333,55 @@ impl Segment {
             meta: self.meta.clone(),
         }
     }
+
+    /// Apply a hatch pattern to this segment.
+    ///
+    /// Replaces space characters with the hatch character and applies
+    /// the hatch color as the foreground. Non-space characters are unchanged.
+    pub fn apply_hatch(&self, hatch_char: char, hatch_color: &RgbaColor, opacity: f32) -> Segment {
+        // Replace spaces with hatch character
+        let new_text: String = self
+            .text
+            .chars()
+            .map(|c| if c == ' ' { hatch_char } else { c })
+            .collect();
+
+        // Check if any characters were replaced
+        let has_hatch = new_text.contains(hatch_char);
+
+        if !has_hatch {
+            // No spaces to replace, return unchanged
+            return self.clone();
+        }
+
+        // Apply hatch color with opacity
+        let mut hatch_color = hatch_color.clone();
+        hatch_color.a *= opacity;
+
+        // Merge hatch color with existing style
+        let new_style = Some(match &self.style {
+            Some(s) => Style {
+                fg: Some(hatch_color),
+                bg: s.bg.clone(),
+                bold: s.bold,
+                dim: s.dim,
+                italic: s.italic,
+                underline: s.underline,
+                strike: s.strike,
+                reverse: s.reverse,
+            },
+            None => Style {
+                fg: Some(hatch_color),
+                ..Default::default()
+            },
+        });
+
+        Segment {
+            text: new_text,
+            style: new_style,
+            meta: self.meta.clone(),
+        }
+    }
 }
 
 impl Default for Segment {

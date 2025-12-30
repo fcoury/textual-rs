@@ -3,16 +3,16 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::parse::{NamedAttr, UiRoot, WidgetNode};
+use crate::parse::{ChildItem, NamedAttr, UiRoot, WidgetNode};
 
 /// Generate the final token stream from the parsed UI tree.
 pub fn generate(root: UiRoot) -> TokenStream {
-    let widget_exprs: Vec<TokenStream> = root.widgets.iter().map(generate_widget).collect();
+    generate_children_vec(&root.items)
+}
 
-    // Always return Vec<Box<dyn Widget<_>>>
-    quote! {
-        vec![#(#widget_exprs),*]
-    }
+/// Generate code for a single widget (used by widget! macro).
+pub fn generate_single(node: WidgetNode) -> TokenStream {
+    generate_widget(&node)
 }
 
 /// Generate code for a single widget node.
@@ -30,24 +30,65 @@ fn generate_widget(node: &WidgetNode) -> TokenStream {
             Box::new(#name::new(#(#positional),*) #attr_calls) as Box<dyn Widget<_>>
         }
     } else {
-        // Container widget: collect children first
-        let child_exprs: Vec<TokenStream> = children.iter().map(generate_widget).collect();
+        // Container widget: generate children vec
+        let children_code = generate_children_vec(children);
 
         if positional.is_empty() && node.named_attrs.is_empty() {
             // Container with children only: Widget::new(children)
             quote! {
-                Box::new(#name::new(vec![#(#child_exprs),*])) as Box<dyn Widget<_>>
+                Box::new(#name::new(#children_code)) as Box<dyn Widget<_>>
             }
         } else if positional.is_empty() {
             // Container with attrs but no positional args
             quote! {
-                Box::new(#name::new(vec![#(#child_exprs),*]) #attr_calls) as Box<dyn Widget<_>>
+                Box::new(#name::new(#children_code) #attr_calls) as Box<dyn Widget<_>>
             }
         } else {
             // Container with positional args and children
             // Convention: children is the last argument to ::new()
             quote! {
-                Box::new(#name::new(#(#positional,)* vec![#(#child_exprs),*]) #attr_calls) as Box<dyn Widget<_>>
+                Box::new(#name::new(#(#positional,)* #children_code) #attr_calls) as Box<dyn Widget<_>>
+            }
+        }
+    }
+}
+
+/// Generate code that builds a Vec from ChildItems (widgets + splats).
+fn generate_children_vec(children: &[ChildItem]) -> TokenStream {
+    // Check if we have any splats
+    let has_splats = children.iter().any(|c| matches!(c, ChildItem::Splat(_)));
+
+    if !has_splats {
+        // No splats - use simple vec! literal (more efficient)
+        let widget_exprs: Vec<TokenStream> = children
+            .iter()
+            .map(|c| match c {
+                ChildItem::Widget(node) => generate_widget(node),
+                ChildItem::Splat(_) => unreachable!(),
+            })
+            .collect();
+        quote! { vec![#(#widget_exprs),*] }
+    } else {
+        // Has splats - use extend pattern
+        let mut statements = Vec::new();
+
+        for child in children {
+            match child {
+                ChildItem::Widget(node) => {
+                    let widget_expr = generate_widget(node);
+                    statements.push(quote! { __children.push(#widget_expr); });
+                }
+                ChildItem::Splat(expr) => {
+                    statements.push(quote! { __children.extend(#expr); });
+                }
+            }
+        }
+
+        quote! {
+            {
+                let mut __children: Vec<Box<dyn Widget<_>>> = Vec::new();
+                #(#statements)*
+                __children
             }
         }
     }

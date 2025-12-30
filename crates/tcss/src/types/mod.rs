@@ -12,6 +12,7 @@
 //! - [`ComputedStyle`]: Final computed styles for a widget
 //! - [`ScrollbarStyle`]: Scrollbar styling and configuration
 //! - [`LinkStyle`]: Link styling (colors and text styles)
+//! - [`Hatch`], [`HatchPattern`]: Hatch pattern fills
 //!
 //! ## Module Organization
 //!
@@ -21,6 +22,7 @@
 //! - [`text`]: Text styling and alignment
 //! - [`layout`]: Display modes, layout modes, visibility, and overflow
 //! - [`grid`]: CSS Grid configuration and child placement
+//! - [`hatch`]: Hatch pattern fills
 //! - [`link`]: Link styling configuration
 //! - [`theme`]: Theme color palettes
 //! - [`scrollbar`]: Scrollbar styling, sizes, and visibility
@@ -29,6 +31,7 @@ pub mod border;
 pub mod color;
 pub mod geometry;
 pub mod grid;
+pub mod hatch;
 pub mod layout;
 pub mod link;
 pub mod scrollbar;
@@ -39,6 +42,7 @@ pub use border::{Border, BorderEdge, BorderKind};
 pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing, Unit};
 pub use grid::{GridPlacement, GridStyle};
+pub use hatch::{Hatch, HatchPattern};
 pub use layout::{BoxSizing, Display, Dock, Layout, Overflow, Visibility};
 pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
@@ -125,6 +129,9 @@ pub struct ComputedStyle {
 
     // Link styling
     pub link: LinkStyle,
+
+    // Hatch pattern fill
+    pub hatch: Option<Hatch>,
 }
 
 impl Default for ComputedStyle {
@@ -171,6 +178,7 @@ impl Default for ComputedStyle {
             overflow_y: Overflow::default(),
             scrollbar: ScrollbarStyle::default(),
             link: LinkStyle::default(),
+            hatch: None,
         }
     }
 }

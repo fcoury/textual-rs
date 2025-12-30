@@ -445,6 +445,13 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.align_vertical = *v;
         }
 
+        // Hatch pattern fill
+        Declaration::Hatch(h) => {
+            let mut resolved_hatch = h.clone();
+            resolved_hatch.color = resolve_theme_color(&h.color, theme);
+            style.hatch = Some(resolved_hatch);
+        }
+
         Declaration::Unknown(_) => {}
     }
 }

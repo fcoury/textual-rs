@@ -31,6 +31,23 @@ mod parse;
 /// // Multiple root widgets
 /// Label("First")
 /// Label("Second")
+///
+/// // Splat operator for dynamic widget lists
+/// let items: Vec<Box<dyn Widget<_>>> = build_items();
+/// ui! {
+///     Horizontal {
+///         Static("Header")
+///         ..items  // Spread the vector into children
+///         Static("Footer")
+///     }
+/// }
+///
+/// // Splat at root level
+/// ui! {
+///     Static("Before")
+///     ..dynamic_widgets
+///     Static("After")
+/// }
 /// ```
 ///
 /// # Attribute Mapping
@@ -48,4 +65,29 @@ mod parse;
 pub fn ui(input: TokenStream) -> TokenStream {
     let root = parse_macro_input!(input as parse::UiRoot);
     codegen::generate(root).into()
+}
+
+/// Macro for building a single widget.
+///
+/// Returns `Box<dyn Widget<_>>` instead of `Vec<Box<dyn Widget<_>>>`.
+/// Useful for iterator patterns when building dynamic widget lists.
+///
+/// # Example
+///
+/// ```ignore
+/// let items = vec!["a", "b", "c"];
+/// let widgets: Vec<_> = items.iter().map(|item| {
+///     widget! { Static(item, classes: "list-item") }
+/// }).collect();
+///
+/// ui! {
+///     Vertical {
+///         ..widgets
+///     }
+/// }
+/// ```
+#[proc_macro]
+pub fn widget(input: TokenStream) -> TokenStream {
+    let node = parse_macro_input!(input as parse::WidgetNode);
+    codegen::generate_single(node).into()
 }
