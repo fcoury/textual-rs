@@ -99,11 +99,11 @@ impl App for ApiApp {
         Switch:disabled { color: #666666; }
     ";
 
-    fn on_mount(&mut self, ctx: &AppContext<Message>) {
+    fn on_mount(&mut self, ctx: &mut textual::MountContext<Message>) {
         log::info!("App mounted - starting API fetch simulation...");
 
         // Store context for timer management
-        self.ctx = Some(ctx.clone());
+        self.ctx = Some(ctx.app_context().clone());
 
         // Start spinner animation (100ms = smooth animation)
         let handle = ctx.set_interval(Duration::from_millis(100), || Message::SpinnerTick);

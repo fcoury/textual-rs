@@ -323,6 +323,32 @@ pub trait Widget<M> {
             .last()
             .unwrap_or(full)
     }
+
+    // =========================================================================
+    // Border Title/Subtitle Methods (for Query API)
+    // =========================================================================
+
+    /// Set the border title (displayed in the top border).
+    ///
+    /// Default implementation does nothing. Override in widgets that support
+    /// border titles (e.g., Static, Label).
+    fn set_border_title(&mut self, _title: &str) {}
+
+    /// Set the border subtitle (displayed in the bottom border).
+    ///
+    /// Default implementation does nothing. Override in widgets that support
+    /// border subtitles (e.g., Static, Label).
+    fn set_border_subtitle(&mut self, _subtitle: &str) {}
+
+    /// Get the border title, if any.
+    fn border_title(&self) -> Option<&str> {
+        None
+    }
+
+    /// Get the border subtitle, if any.
+    fn border_subtitle(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// Allow boxed widgets to be used as widgets.
@@ -459,6 +485,22 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
         self.as_mut().for_each_child(f);
+    }
+
+    fn set_border_title(&mut self, title: &str) {
+        self.as_mut().set_border_title(title);
+    }
+
+    fn set_border_subtitle(&mut self, subtitle: &str) {
+        self.as_mut().set_border_subtitle(subtitle);
+    }
+
+    fn border_title(&self) -> Option<&str> {
+        self.as_ref().border_title()
+    }
+
+    fn border_subtitle(&self) -> Option<&str> {
+        self.as_ref().border_subtitle()
     }
 }
 

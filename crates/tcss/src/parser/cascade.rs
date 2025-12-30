@@ -275,6 +275,18 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::BorderSubtitleColor(c) => {
             style.border_subtitle_color = Some(resolve_theme_color(c, theme));
         }
+        Declaration::BorderTitleBackground(c) => {
+            style.border_title_background = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::BorderSubtitleBackground(c) => {
+            style.border_subtitle_background = Some(resolve_theme_color(c, theme));
+        }
+        Declaration::BorderTitleStyle(s) => {
+            style.border_title_style.merge(s);
+        }
+        Declaration::BorderSubtitleStyle(s) => {
+            style.border_subtitle_style.merge(s);
+        }
 
         // Edge-specific border properties
         Declaration::BorderTop(b) => {

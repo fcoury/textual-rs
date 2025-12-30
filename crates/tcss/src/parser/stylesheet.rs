@@ -304,6 +304,14 @@ pub enum Declaration {
     BorderTitleColor(RgbaColor),
     /// The `border-subtitle-color` property for subtitle text color.
     BorderSubtitleColor(RgbaColor),
+    /// The `border-title-background` property for title background color.
+    BorderTitleBackground(RgbaColor),
+    /// The `border-subtitle-background` property for subtitle background color.
+    BorderSubtitleBackground(RgbaColor),
+    /// The `border-title-style` property for title text style (bold, italic, etc.).
+    BorderTitleStyle(TextStyle),
+    /// The `border-subtitle-style` property for subtitle text style (bold, italic, etc.).
+    BorderSubtitleStyle(TextStyle),
 
     // Edge-specific border properties
     /// The `border-top` property for top edge only.

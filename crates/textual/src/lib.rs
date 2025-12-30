@@ -34,7 +34,7 @@ pub use containers::{
     Center, Middle, container::Container, grid::Grid, horizontal::Horizontal,
     item_grid::ItemGrid, scrollable::ScrollableContainer, vertical::Vertical,
 };
-pub use context::{AppContext, IntervalHandle};
+pub use context::{AppContext, IntervalHandle, MountContext};
 pub use error::Result;
 pub use fraction::Fraction;
 pub use log_init::init_logger;
@@ -128,16 +128,23 @@ where
 
     /// Called once when the application starts, after the widget tree is built.
     ///
-    /// Use this to start timers, spawn background tasks, or perform other
-    /// initialization that requires the `AppContext`.
+    /// Use this to start timers, spawn background tasks, query widgets, or
+    /// perform other initialization. The `MountContext` provides access to
+    /// both the widget tree and async messaging capabilities.
     ///
     /// # Example
     /// ```ignore
-    /// fn on_mount(&mut self, ctx: &AppContext<Self::Message>) {
+    /// fn on_mount(&mut self, ctx: &mut MountContext<Self::Message>) {
+    ///     // Query and modify widgets
+    ///     ctx.with_widget_by_id("my-label", |widget| {
+    ///         widget.set_border_title("Textual Rocks!");
+    ///     });
+    ///
+    ///     // Set up timers
     ///     ctx.set_interval(Duration::from_secs(1), || Message::Tick);
     /// }
     /// ```
-    fn on_mount(&mut self, _ctx: &AppContext<Self::Message>) {
+    fn on_mount(&mut self, _ctx: &mut MountContext<Self::Message>) {
         // Default: do nothing
     }
 
@@ -322,10 +329,12 @@ where
 
             // 3. Create message channel for async communication
             let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<Self::Message>>();
-            let ctx = AppContext::new(tx);
 
-            // Call lifecycle hook
-            self.on_mount(&ctx);
+            // Call lifecycle hook with MountContext (provides widget tree access)
+            // MountContext takes ownership of an AppContext, so we create one specifically for it
+            let mount_app_ctx = AppContext::new(tx.clone());
+            let mut mount_ctx = MountContext::new(mount_app_ctx, &mut tree);
+            self.on_mount(&mut mount_ctx);
 
             // 4. Create async event stream
             let mut event_stream = EventStream::new();

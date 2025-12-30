@@ -377,15 +377,31 @@ Static {
             .or_else(|| self.style.border.bottom.color.clone())
             .or_else(|| self.style.color.clone());
 
+        // Use border-title-background if set, otherwise fall back to widget background
+        let title_bg = self.style.border_title_background.clone()
+            .or_else(|| self.style.background.clone());
+        let subtitle_bg = self.style.border_subtitle_background.clone()
+            .or_else(|| self.style.background.clone());
+
         let title_style = Style {
             fg: title_fg,
-            bg: self.style.background.clone(),
-            ..Default::default()
+            bg: title_bg,
+            bold: self.style.border_title_style.bold,
+            dim: self.style.border_title_style.dim,
+            italic: self.style.border_title_style.italic,
+            underline: self.style.border_title_style.underline,
+            strike: self.style.border_title_style.strike,
+            reverse: self.style.border_title_style.reverse,
         };
         let subtitle_style = Style {
             fg: subtitle_fg,
-            bg: self.style.background.clone(),
-            ..Default::default()
+            bg: subtitle_bg,
+            bold: self.style.border_subtitle_style.bold,
+            dim: self.style.border_subtitle_style.dim,
+            italic: self.style.border_subtitle_style.italic,
+            underline: self.style.border_subtitle_style.underline,
+            strike: self.style.border_subtitle_style.strike,
+            reverse: self.style.border_subtitle_style.reverse,
         };
 
         // For border titles, don't wrap - let render_label_in_row handle truncation with ellipsis
@@ -553,6 +569,24 @@ Static {
 
     fn id(&self) -> Option<&str> {
         self.id.as_deref()
+    }
+
+    fn set_border_title(&mut self, title: &str) {
+        self.border_title = Some(title.to_string());
+        self.dirty = true;
+    }
+
+    fn set_border_subtitle(&mut self, subtitle: &str) {
+        self.border_subtitle = Some(subtitle.to_string());
+        self.dirty = true;
+    }
+
+    fn border_title(&self) -> Option<&str> {
+        self.border_title.as_deref()
+    }
+
+    fn border_subtitle(&self) -> Option<&str> {
+        self.border_subtitle.as_deref()
     }
 
     fn is_disabled(&self) -> bool {

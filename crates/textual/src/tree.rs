@@ -153,6 +153,61 @@ impl<M> WidgetTree<M> {
         })
     }
 
+    // =========================================================================
+    // Widget Query API
+    // =========================================================================
+
+    /// Find a widget by ID and call a closure with mutable access.
+    ///
+    /// Performs a depth-first search through the widget tree to find a widget
+    /// with the matching ID. If found, calls the closure with the widget and
+    /// returns the closure's result.
+    ///
+    /// # Example
+    /// ```ignore
+    /// tree.with_widget_by_id("my-label", |widget| {
+    ///     widget.set_border_title("Updated!");
+    /// });
+    /// ```
+    pub fn with_widget_by_id<F, R>(&mut self, id: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        let mut result = None;
+        let mut f = Some(f);
+        find_and_apply_by_id(self.root.as_mut(), id, &mut |widget| {
+            if let Some(f) = f.take() {
+                result = Some(f(widget));
+            }
+        });
+        result
+    }
+
+    /// Find a widget by type name and call a closure with mutable access.
+    ///
+    /// Performs a depth-first search through the widget tree to find the first
+    /// widget with a matching type name (e.g., "Label", "Switch").
+    ///
+    /// # Example
+    /// ```ignore
+    /// tree.with_widget_by_type("Label", |widget| {
+    ///     widget.set_border_title("Found!");
+    /// });
+    /// ```
+    pub fn with_widget_by_type<F, R>(&mut self, type_name: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        let mut result = None;
+        let mut f = Some(f);
+        find_and_apply_by_type(self.root.as_mut(), type_name, &mut |widget| {
+            if let Some(f) = f.take() {
+                result = Some(f(widget));
+            }
+        });
+        result
+    }
+
     /// Bubble a message up from the focused widget to ancestors.
     ///
     /// Each ancestor gets a chance to intercept the message via `handle_message`.
@@ -227,6 +282,54 @@ fn find_focus_path_recursive<M>(
         path.pop();
     }
 
+    false
+}
+
+/// Recursively find a widget by ID and apply a closure.
+///
+/// Performs depth-first search to find the first widget with the matching ID.
+/// Returns true if the widget was found and the closure was applied.
+fn find_and_apply_by_id<M, F>(widget: &mut dyn Widget<M>, id: &str, f: &mut F) -> bool
+where
+    F: FnMut(&mut dyn Widget<M>),
+{
+    if widget.id() == Some(id) {
+        f(widget);
+        return true;
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            if find_and_apply_by_id(child, id, f) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Recursively find a widget by type name and apply a closure.
+///
+/// Performs depth-first search to find the first widget with the matching type name.
+/// Returns true if the widget was found and the closure was applied.
+fn find_and_apply_by_type<M, F>(widget: &mut dyn Widget<M>, type_name: &str, f: &mut F) -> bool
+where
+    F: FnMut(&mut dyn Widget<M>),
+{
+    if widget.type_name() == type_name {
+        f(widget);
+        return true;
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            if find_and_apply_by_type(child, type_name, f) {
+                return true;
+            }
+        }
+    }
     false
 }
 

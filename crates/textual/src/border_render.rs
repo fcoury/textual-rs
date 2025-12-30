@@ -92,6 +92,9 @@ fn render_label_in_row(
     let min_padding = 1;
     let available_width = width.saturating_sub(min_padding * 2);
 
+    // Get the label's style for the surrounding spaces (use first segment's style)
+    let label_style = label.segments().first().and_then(|s| s.style().cloned());
+
     if label_len > available_width {
         // Label is too long - truncate with ellipsis
         // Reserve 1 char for ellipsis + 2 for spaces, so we can show (available_width - 3) chars of text
@@ -101,8 +104,11 @@ fn render_label_in_row(
         let mut segments = Vec::new();
         segments.push(repeat_char_segment(fill, min_padding));
 
-        // Space before label
-        segments.push(Segment::new(" "));
+        // Space before label (with label's style for background)
+        segments.push(match &label_style {
+            Some(s) => Segment::styled(" ", s.clone()),
+            None => Segment::new(" "),
+        });
 
         segments.extend(cropped.segments().iter().cloned());
 
@@ -113,8 +119,11 @@ fn render_label_in_row(
             None => Segment::new("…"),
         });
 
-        // Space after label (before fill)
-        segments.push(Segment::new(" "));
+        // Space after label (with label's style for background)
+        segments.push(match &label_style {
+            Some(s) => Segment::styled(" ", s.clone()),
+            None => Segment::new(" "),
+        });
 
         // Fill remaining space (should be min_padding chars)
         let used = min_padding + 1 + cropped.cell_length() + 1 + 1; // fill + space + text + ellipsis + space
@@ -151,14 +160,20 @@ fn render_label_in_row(
         segments.push(repeat_char_segment(fill, left_padding));
     }
 
-    // Space before label
-    segments.push(Segment::new(" "));
+    // Space before label (with label's style for background)
+    segments.push(match &label_style {
+        Some(s) => Segment::styled(" ", s.clone()),
+        None => Segment::new(" "),
+    });
 
     // The label
     segments.extend(label.segments().iter().cloned());
 
-    // Space after label
-    segments.push(Segment::new(" "));
+    // Space after label (with label's style for background)
+    segments.push(match &label_style {
+        Some(s) => Segment::styled(" ", s.clone()),
+        None => Segment::new(" "),
+    });
 
     // Right padding (fill characters)
     if right_padding > 0 {

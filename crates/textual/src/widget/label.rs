@@ -348,6 +348,22 @@ Label {
         "Label"
     }
 
+    fn set_border_title(&mut self, title: &str) {
+        self.inner.set_border_title(title);
+    }
+
+    fn set_border_subtitle(&mut self, subtitle: &str) {
+        self.inner.set_border_subtitle(subtitle);
+    }
+
+    fn border_title(&self) -> Option<&str> {
+        self.inner.border_title()
+    }
+
+    fn border_subtitle(&self) -> Option<&str> {
+        self.inner.border_subtitle()
+    }
+
     fn on_resize(&mut self, size: crate::Size) {
         self.inner.on_resize(size)
     }

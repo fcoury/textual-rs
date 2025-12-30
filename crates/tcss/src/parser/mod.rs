@@ -218,6 +218,10 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "border-subtitle-align" => map(values::parse_align_horizontal, Declaration::BorderSubtitleAlign)(input)?,
         "border-title-color" => map(values::parse_color, Declaration::BorderTitleColor)(input)?,
         "border-subtitle-color" => map(values::parse_color, Declaration::BorderSubtitleColor)(input)?,
+        "border-title-background" => map(values::parse_color, Declaration::BorderTitleBackground)(input)?,
+        "border-subtitle-background" => map(values::parse_color, Declaration::BorderSubtitleBackground)(input)?,
+        "border-title-style" => map(values::parse_text_style, Declaration::BorderTitleStyle)(input)?,
+        "border-subtitle-style" => map(values::parse_text_style, Declaration::BorderSubtitleStyle)(input)?,
 
         // Edge-specific border properties
         "border-top" => map(values::parse_border_edge, Declaration::BorderTop)(input)?,

@@ -715,3 +715,52 @@ fn snapshot_border_title_align_example() {
     let canvas = render_to_canvas(&app, border_title_align_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Border Title Colors Example
+// ============================================================================
+
+mod border_title_colors_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct BorderTitleColorsApp;
+
+    impl Compose for BorderTitleColorsApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("Hello, World!", id: "label", border_title: "Textual Rocks", border_subtitle: "Textual Rocks")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Screen {
+    align: center middle;
+}
+
+Label {
+    padding: 4 8;
+    border: heavy red;
+
+    border-title-color: green;
+    border-title-background: white;
+    border-title-style: bold;
+
+    border-subtitle-color: magenta;
+    border-subtitle-background: yellow;
+    border-subtitle-style: italic;
+}
+"#;
+}
+
+#[test]
+fn snapshot_border_title_colors_example() {
+    let app = border_title_colors_example::BorderTitleColorsApp;
+    let canvas = render_to_canvas(&app, border_title_colors_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}

@@ -88,12 +88,12 @@ impl App for TimerApp {
     /// Called once when the application starts.
     ///
     /// This is where you set up timers, intervals, and other async tasks.
-    fn on_mount(&mut self, ctx: &AppContext<Message>) {
+    fn on_mount(&mut self, ctx: &mut textual::MountContext<Message>) {
         log::info!("App mounted!");
 
         // Store the context for later use (e.g., restarting timers).
         // AppContext is cheap to clone - it's just an mpsc::UnboundedSender wrapper.
-        self.ctx = Some(ctx.clone());
+        self.ctx = Some(ctx.app_context().clone());
 
         // Start the initial timer
         self.toggle_timer();

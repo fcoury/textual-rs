@@ -5,12 +5,17 @@
 //! - Post messages to be processed in the next event loop tick
 //! - Set timers and intervals for delayed/periodic messages
 //! - Spawn async tasks that can send messages back
+//!
+//! The `MountContext` extends `AppContext` with widget tree access for querying
+//! and modifying widgets during the `on_mount` lifecycle hook.
 
 use std::time::Duration;
 
 use tokio::sync::mpsc;
 
 use crate::message::MessageEnvelope;
+use crate::tree::WidgetTree;
+use crate::Widget;
 
 /// Context provided to widgets for posting messages and spawning async tasks.
 ///
@@ -184,6 +189,112 @@ impl IntervalHandle {
 impl Drop for IntervalHandle {
     fn drop(&mut self) {
         self.cancel();
+    }
+}
+
+// =============================================================================
+// MountContext - Context with widget tree access for on_mount
+// =============================================================================
+
+/// Context provided during the `on_mount` lifecycle hook.
+///
+/// `MountContext` wraps `AppContext` and adds access to the widget tree,
+/// enabling widget queries and modifications during initialization.
+///
+/// # Example
+/// ```ignore
+/// fn on_mount(&mut self, ctx: &mut MountContext<Self::Message>) {
+///     // Find a widget by ID and modify it
+///     ctx.with_widget_by_id("my-label", |widget| {
+///         widget.set_border_title("Textual Rocks!");
+///     });
+///
+///     // Use AppContext methods for timers/intervals
+///     ctx.set_interval(Duration::from_secs(1), || Message::Tick);
+/// }
+/// ```
+pub struct MountContext<'a, M> {
+    app_ctx: AppContext<M>,
+    tree: &'a mut WidgetTree<M>,
+}
+
+impl<'a, M> MountContext<'a, M> {
+    /// Create a new MountContext wrapping an AppContext and WidgetTree.
+    pub fn new(app_ctx: AppContext<M>, tree: &'a mut WidgetTree<M>) -> Self {
+        Self { app_ctx, tree }
+    }
+
+    /// Find a widget by ID and call a closure with mutable access.
+    ///
+    /// Returns `Some(R)` if the widget was found, `None` otherwise.
+    ///
+    /// # Example
+    /// ```ignore
+    /// ctx.with_widget_by_id("status-label", |widget| {
+    ///     widget.set_border_title("Ready");
+    /// });
+    /// ```
+    pub fn with_widget_by_id<F, R>(&mut self, id: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        self.tree.with_widget_by_id(id, f)
+    }
+
+    /// Find a widget by type name and call a closure with mutable access.
+    ///
+    /// Finds the first widget with the given type name (e.g., "Label", "Switch").
+    ///
+    /// # Example
+    /// ```ignore
+    /// ctx.with_widget_by_type("Label", |widget| {
+    ///     widget.set_border_subtitle("Found!");
+    /// });
+    /// ```
+    pub fn with_widget_by_type<F, R>(&mut self, type_name: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        self.tree.with_widget_by_type(type_name, f)
+    }
+
+    /// Get the underlying AppContext for timer/interval operations.
+    pub fn app_context(&self) -> &AppContext<M> {
+        &self.app_ctx
+    }
+}
+
+// Delegate AppContext methods to MountContext
+impl<'a, M: Send + 'static> MountContext<'a, M> {
+    /// Post a message to be processed in the next event loop tick.
+    ///
+    /// See [`AppContext::post`] for details.
+    pub fn post(&self, message: M) {
+        self.app_ctx.post(message);
+    }
+
+    /// Set a one-shot timer that fires a message after a delay.
+    ///
+    /// See [`AppContext::set_timer`] for details.
+    pub fn set_timer(&self, delay: Duration, message: M) {
+        self.app_ctx.set_timer(delay, message);
+    }
+
+    /// Set a repeating interval that fires a message periodically.
+    ///
+    /// See [`AppContext::set_interval`] for details.
+    pub fn set_interval<F>(&self, interval: Duration, message_fn: F) -> IntervalHandle
+    where
+        F: Fn() -> M + Send + 'static,
+    {
+        self.app_ctx.set_interval(interval, message_fn)
+    }
+
+    /// Get a clone of the sender for use in async tasks.
+    ///
+    /// See [`AppContext::sender`] for details.
+    pub fn sender(&self) -> mpsc::UnboundedSender<MessageEnvelope<M>> {
+        self.app_ctx.sender()
     }
 }
 
