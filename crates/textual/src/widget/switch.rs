@@ -145,7 +145,7 @@ where
     }
 }
 
-impl<M, F> Widget<M> for Switch<M, F>
+impl<M: 'static, F: 'static> Widget<M> for Switch<M, F>
 where
     F: Fn(bool) -> M,
 {
@@ -394,5 +394,13 @@ where
             self.disabled = disabled;
             self.dirty = true;
         }
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
     }
 }

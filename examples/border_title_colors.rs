@@ -33,8 +33,7 @@ impl App for BorderTitleApp {
     const CSS: &'static str = include_str!("border_title_colors.tcss");
 
     fn on_mount(&mut self, ctx: &mut MountContext<Self::Message>) {
-        // Use the query API to find and modify the label
-        ctx.with_widget_by_id("label", |widget| {
+        ctx.query_one("Label", |widget| {
             widget.set_border_title("Textual Rocks");
             widget.set_border_subtitle("Textual Rocks");
         });

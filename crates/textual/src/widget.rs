@@ -349,6 +349,42 @@ pub trait Widget<M> {
     fn border_subtitle(&self) -> Option<&str> {
         None
     }
+
+    // =========================================================================
+    // Downcasting support for typed queries
+    // =========================================================================
+
+    /// Returns a reference to `self` as `&dyn Any` for downcasting.
+    ///
+    /// This enables typed widget queries like `query_one_as::<Label>()`.
+    /// The default implementation returns `None`, meaning the widget
+    /// doesn't support downcasting. Override this in concrete widget types.
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn as_any(&self) -> Option<&dyn std::any::Any> {
+    ///     Some(self)
+    /// }
+    /// ```
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        None
+    }
+
+    /// Returns a mutable reference to `self` as `&mut dyn Any` for downcasting.
+    ///
+    /// This enables typed widget queries like `query_one_as::<Label>()`.
+    /// The default implementation returns `None`, meaning the widget
+    /// doesn't support downcasting. Override this in concrete widget types.
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+    ///     Some(self)
+    /// }
+    /// ```
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        None
+    }
 }
 
 /// Allow boxed widgets to be used as widgets.
@@ -501,6 +537,14 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn border_subtitle(&self) -> Option<&str> {
         self.as_ref().border_subtitle()
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        self.as_ref().as_any()
+    }
+
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        self.as_mut().as_any_mut()
     }
 }
 

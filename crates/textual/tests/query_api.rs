@@ -415,3 +415,146 @@ fn integration_query_one_with_real_widget_types() {
     let not_found = tree.query_one("Container#submit", |_| ());
     assert!(not_found.is_none());
 }
+
+// =============================================================================
+// Phase 2.5: query_one_as with typed downcast
+// =============================================================================
+
+#[test]
+fn integration_query_one_as_finds_label_typed() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Query using typed access - should get &mut Label<()>, not &mut dyn Widget
+    let found = tree.query_one_as::<Label<()>, _, _>("#header", |label| {
+        // Can call Label-specific methods
+        label.update("Updated Header");
+        label.variant()
+    });
+
+    // variant() returns Option<LabelVariant>
+    assert!(found.is_some());
+}
+
+#[test]
+fn integration_query_one_as_finds_container_typed() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Query for Container by ID with typed access
+    let found = tree.query_one_as::<Container<()>, _, _>("#content", |container| {
+        // Can call Container-specific methods
+        container.set_border_title("Content Section");
+        container.border_title().map(|s| s.to_string())
+    });
+
+    assert_eq!(found, Some(Some("Content Section".to_string())));
+}
+
+#[test]
+fn integration_query_one_as_type_mismatch_returns_none() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Query for #header as Container - but header is a Label!
+    // This should return None because the downcast fails
+    let found = tree.query_one_as::<Container<()>, _, _>("#header", |_| ());
+
+    assert!(found.is_none());
+}
+
+#[test]
+fn integration_query_one_as_combined_selector_typed() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Use Type#ID selector with typed access
+    let found = tree.query_one_as::<Label<()>, _, _>("Label#footer", |label| {
+        label.update("New Footer");
+        true
+    });
+
+    assert_eq!(found, Some(true));
+}
+
+#[test]
+fn integration_query_one_as_deeply_nested() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Query deeply nested item-1 with typed access
+    let found = tree.query_one_as::<Label<()>, _, _>("#item-1", |label| {
+        label.update("Item 1 Updated");
+        "success"
+    });
+
+    assert_eq!(found, Some("success"));
+}
+
+#[test]
+fn integration_mount_context_query_one_as() {
+    let (tx, _rx) = mpsc::unbounded_channel();
+    let app_ctx: AppContext<()> = AppContext::new(tx);
+
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+    let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+    // Use typed query through MountContext
+    let found = ctx.query_one_as::<Label<()>, _, _>("#footer", |label| {
+        label.update("Modified via MountContext");
+        label.variant()
+    });
+
+    assert!(found.is_some());
+}
+
+#[test]
+fn integration_mount_context_query_one_as_modify_and_verify() {
+    let (tx, _rx) = mpsc::unbounded_channel();
+    let app_ctx: AppContext<()> = AppContext::new(tx);
+
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+    let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+    // Modify Label via typed query
+    ctx.query_one_as::<Label<()>, _, _>("#header", |label| {
+        label.set_border_title("Typed Title");
+    });
+
+    // Verify modification with untyped query
+    let title = ctx.query_one("#header", |widget| {
+        widget.border_title().map(|s| s.to_string())
+    });
+
+    assert_eq!(title, Some(Some("Typed Title".to_string())));
+}
+
+#[test]
+fn integration_query_one_as_type_selector_only() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Query first Container with typed access
+    let found = tree.query_one_as::<Container<()>, _, _>("Container", |container| {
+        container.id().map(|s| s.to_string())
+    });
+
+    // Should find root container
+    assert_eq!(found, Some(Some("root".to_string())));
+}
+
+#[test]
+fn integration_query_one_as_first_label() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Query first Label - should be "header" in depth-first order
+    let found = tree.query_one_as::<Label<()>, _, _>("Label", |label| {
+        // Access the inner Static widget
+        label.as_static().id().map(|s| s.to_string())
+    });
+
+    assert_eq!(found, Some(Some("header".to_string())));
+}

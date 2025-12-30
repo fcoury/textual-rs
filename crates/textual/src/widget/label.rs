@@ -212,7 +212,7 @@ impl<M> Label<M> {
 }
 
 // Manual Widget implementation to provide Label-specific default_css
-impl<M> crate::Widget<M> for Label<M> {
+impl<M: 'static> crate::Widget<M> for Label<M> {
     fn default_css(&self) -> &'static str {
         r#"
 Label {
@@ -370,5 +370,13 @@ Label {
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn crate::Widget<M>)) {
         self.inner.for_each_child(f)
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
     }
 }

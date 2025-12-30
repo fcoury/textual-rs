@@ -247,6 +247,47 @@ impl<M> WidgetTree<M> {
         result
     }
 
+    /// Query for a single widget with typed access via downcasting.
+    ///
+    /// This is the typed version of `query_one` that provides direct access
+    /// to the concrete widget type instead of `&mut dyn Widget<M>`.
+    ///
+    /// The type parameter `W` must match the actual widget type. If the selector
+    /// finds a widget but it's not of type `W`, returns `None`.
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Find Label by ID and get typed access
+    /// tree.query_one_as::<Label<_>, _, _>("#my-label", |label| {
+    ///     // label is &mut Label, not &mut dyn Widget
+    ///     label.set_text("Updated!");
+    /// });
+    ///
+    /// // Combined selector with type verification
+    /// tree.query_one_as::<Container<_>, _, _>("Container#sidebar", |container| {
+    ///     container.set_border_title("Sidebar");
+    /// });
+    /// ```
+    pub fn query_one_as<W, F, R>(&mut self, selector: &str, f: F) -> Option<R>
+    where
+        W: 'static,
+        F: FnOnce(&mut W) -> R,
+    {
+        let parsed = parse_simple_selector(selector);
+        let mut result = None;
+        let mut f = Some(f);
+        find_and_apply_by_selector_typed::<M, W, _>(
+            self.root.as_mut(),
+            &parsed,
+            &mut |widget: &mut W| {
+                if let Some(f) = f.take() {
+                    result = Some(f(widget));
+                }
+            },
+        );
+        result
+    }
+
     /// Bubble a message up from the focused widget to ancestors.
     ///
     /// Each ancestor gets a chance to intercept the message via `handle_message`.
@@ -482,6 +523,44 @@ where
     for i in 0..child_count {
         if let Some(child) = widget.get_child_mut(i) {
             if find_and_apply_by_selector(child, selector, f) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Recursively find a widget matching a selector, downcast it, and apply a typed closure.
+///
+/// Performs depth-first search to find the first widget matching the selector,
+/// then attempts to downcast it to the concrete type W. If both the selector matches
+/// and downcasting succeeds, the closure is called with the typed reference.
+/// Returns true if the widget was found, matched, and the closure was applied.
+fn find_and_apply_by_selector_typed<M, W, F>(
+    widget: &mut dyn Widget<M>,
+    selector: &SimpleSelector,
+    f: &mut F,
+) -> bool
+where
+    W: 'static,
+    F: FnMut(&mut W),
+{
+    if selector.matches(widget) {
+        // Try to downcast to the concrete type
+        if let Some(any) = widget.as_any_mut() {
+            if let Some(typed) = any.downcast_mut::<W>() {
+                f(typed);
+                return true;
+            }
+        }
+        // Selector matched but downcast failed - continue searching
+        // (user might have wrong type, or this is a different widget with same selector)
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            if find_and_apply_by_selector_typed::<M, W, F>(child, selector, f) {
                 return true;
             }
         }

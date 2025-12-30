@@ -164,7 +164,7 @@ impl<M> Container<M> {
     }
 }
 
-impl<M> Widget<M> for Container<M> {
+impl<M: 'static> Widget<M> for Container<M> {
     fn default_css(&self) -> &'static str {
         // Match Python Textual's Container DEFAULT_CSS
         r#"
@@ -483,5 +483,13 @@ Container {
     fn pre_layout(&mut self, _layout: &mut dyn Layout) {
         // Default container doesn't configure layout
         // Override in ItemGrid to set min_column_width, etc.
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
     }
 }

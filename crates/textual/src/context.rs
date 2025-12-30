@@ -289,6 +289,37 @@ impl<'a, M> MountContext<'a, M> {
         self.tree.query_one(selector, f)
     }
 
+    /// Query for a single widget using a selector, with typed downcast access.
+    ///
+    /// This is like `query_one`, but downcasts the widget to a concrete type,
+    /// giving you access to type-specific methods instead of just `&mut dyn Widget`.
+    ///
+    /// Returns `Some(R)` if the widget was found AND could be downcast to type `W`.
+    /// Returns `None` if the widget wasn't found or couldn't be downcast.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use textual::Label;
+    ///
+    /// // Get typed access to a Label widget
+    /// ctx.query_one_as::<Label<_>, _, _>("#my-label", |label| {
+    ///     // label is &mut Label, not &mut dyn Widget
+    ///     label.update("New text!");
+    /// });
+    ///
+    /// // Combined selector with typed access
+    /// ctx.query_one_as::<Container<_>, _, _>("Container#sidebar", |container| {
+    ///     container.set_border_title("Sidebar");
+    /// });
+    /// ```
+    pub fn query_one_as<W, F, R>(&mut self, selector: &str, f: F) -> Option<R>
+    where
+        W: 'static,
+        F: FnOnce(&mut W) -> R,
+    {
+        self.tree.query_one_as::<W, F, R>(selector, f)
+    }
+
     /// Get the underlying AppContext for timer/interval operations.
     pub fn app_context(&self) -> &AppContext<M> {
         &self.app_ctx

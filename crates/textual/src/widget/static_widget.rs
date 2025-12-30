@@ -319,7 +319,7 @@ impl<M> Static<M> {
     }
 }
 
-impl<M> Widget<M> for Static<M> {
+impl<M: 'static> Widget<M> for Static<M> {
     fn default_css(&self) -> &'static str {
         r#"
 Static {
@@ -604,5 +604,13 @@ Static {
 
     fn on_mouse(&mut self, _event: MouseEvent, _region: Region) -> Option<M> {
         None
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
     }
 }
