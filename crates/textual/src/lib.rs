@@ -35,6 +35,7 @@ pub use containers::{
     item_grid::ItemGrid, scrollable::ScrollableContainer, vertical::Vertical,
 };
 pub use context::{AppContext, IntervalHandle, MountContext};
+pub use tree::DOMQuery;
 pub use error::Result;
 pub use fraction::Fraction;
 pub use log_init::init_logger;

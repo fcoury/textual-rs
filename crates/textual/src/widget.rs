@@ -385,6 +385,61 @@ pub trait Widget<M> {
     fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         None
     }
+
+    // =========================================================================
+    // CSS Class Management (Python Textual DOMNode parity)
+    // =========================================================================
+
+    /// Add a CSS class to this widget.
+    ///
+    /// Does nothing by default. Override in widgets that support CSS classes.
+    fn add_class(&mut self, _class: &str) {}
+
+    /// Remove a CSS class from this widget.
+    ///
+    /// Does nothing by default. Override in widgets that support CSS classes.
+    fn remove_class(&mut self, _class: &str) {}
+
+    /// Toggle a CSS class on this widget.
+    ///
+    /// If the class is present, it's removed. If absent, it's added.
+    fn toggle_class(&mut self, class: &str) {
+        if self.has_class(class) {
+            self.remove_class(class);
+        } else {
+            self.add_class(class);
+        }
+    }
+
+    /// Check if this widget has a CSS class.
+    ///
+    /// Returns false by default. Override in widgets that support CSS classes.
+    fn has_class(&self, _class: &str) -> bool {
+        false
+    }
+
+    /// Conditionally add or remove a class based on a condition.
+    ///
+    /// If `add` is true, adds the class; otherwise removes it.
+    fn set_class(&mut self, add: bool, class: &str) {
+        if add {
+            self.add_class(class);
+        } else {
+            self.remove_class(class);
+        }
+    }
+
+    /// Replace all CSS classes with the given space-separated string.
+    ///
+    /// Does nothing by default. Override in widgets that support CSS classes.
+    fn set_classes(&mut self, _classes: &str) {}
+
+    /// Get all CSS classes on this widget.
+    ///
+    /// Returns an empty vector by default. Override in widgets that support CSS classes.
+    fn classes(&self) -> Vec<String> {
+        Vec::new()
+    }
 }
 
 /// Allow boxed widgets to be used as widgets.
@@ -545,6 +600,34 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         self.as_mut().as_any_mut()
+    }
+
+    fn add_class(&mut self, class: &str) {
+        self.as_mut().add_class(class);
+    }
+
+    fn remove_class(&mut self, class: &str) {
+        self.as_mut().remove_class(class);
+    }
+
+    fn toggle_class(&mut self, class: &str) {
+        self.as_mut().toggle_class(class);
+    }
+
+    fn has_class(&self, class: &str) -> bool {
+        self.as_ref().has_class(class)
+    }
+
+    fn set_class(&mut self, add: bool, class: &str) {
+        self.as_mut().set_class(add, class);
+    }
+
+    fn set_classes(&mut self, classes: &str) {
+        self.as_mut().set_classes(classes);
+    }
+
+    fn classes(&self) -> Vec<String> {
+        self.as_ref().classes()
     }
 }
 

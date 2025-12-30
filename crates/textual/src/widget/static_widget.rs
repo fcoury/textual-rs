@@ -613,4 +613,31 @@ Static {
     fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         Some(self)
     }
+
+    fn add_class(&mut self, class: &str) {
+        if !self.classes.iter().any(|c| c == class) {
+            self.classes.push(class.to_string());
+            self.dirty = true;
+        }
+    }
+
+    fn remove_class(&mut self, class: &str) {
+        if let Some(pos) = self.classes.iter().position(|c| c == class) {
+            self.classes.remove(pos);
+            self.dirty = true;
+        }
+    }
+
+    fn has_class(&self, class: &str) -> bool {
+        self.classes.iter().any(|c| c == class)
+    }
+
+    fn set_classes(&mut self, classes: &str) {
+        self.classes = classes.split_whitespace().map(String::from).collect();
+        self.dirty = true;
+    }
+
+    fn classes(&self) -> Vec<String> {
+        self.classes.clone()
+    }
 }

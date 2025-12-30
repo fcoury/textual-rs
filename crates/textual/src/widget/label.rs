@@ -379,4 +379,24 @@ Label {
     fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
         Some(self)
     }
+
+    fn add_class(&mut self, class: &str) {
+        self.inner.add_class(class);
+    }
+
+    fn remove_class(&mut self, class: &str) {
+        self.inner.remove_class(class);
+    }
+
+    fn has_class(&self, class: &str) -> bool {
+        self.inner.has_class(class)
+    }
+
+    fn set_classes(&mut self, classes: &str) {
+        self.inner.set_classes(classes);
+    }
+
+    fn classes(&self) -> Vec<String> {
+        self.inner.classes()
+    }
 }

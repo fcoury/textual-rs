@@ -288,6 +288,53 @@ impl<M> WidgetTree<M> {
         result
     }
 
+    /// Internal version of query_one that takes a pre-parsed selector.
+    ///
+    /// Used by DOMQuery::first() to avoid re-parsing the selector.
+    pub(crate) fn query_one_internal<F, R>(&mut self, selector: &SimpleSelector, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        let mut result = None;
+        let mut f = Some(f);
+        find_and_apply_by_selector(self.root.as_mut(), selector, &mut |widget| {
+            if let Some(f) = f.take() {
+                result = Some(f(widget));
+            }
+        });
+        result
+    }
+
+    /// Query for multiple widgets matching a selector.
+    ///
+    /// Returns a `DOMQuery` that enables bulk operations on all matching widgets.
+    /// Unlike `query_one`, this finds ALL widgets matching the selector.
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Apply to all Labels
+    /// tree.query("Label").for_each(|w| {
+    ///     w.set_border_title("Found!");
+    /// });
+    ///
+    /// // Add class to all Buttons
+    /// tree.query("Button").add_class("styled");
+    ///
+    /// // Count Containers
+    /// let count = tree.query("Container").count();
+    ///
+    /// // First/last operations
+    /// tree.query("#items Label").first(|w| w.set_border_title("First"));
+    /// tree.query("#items Label").last(|w| w.set_border_title("Last"));
+    /// ```
+    pub fn query(&mut self, selector: &str) -> DOMQuery<'_, M>
+    where
+        M: 'static,
+    {
+        let parsed = parse_simple_selector(selector);
+        DOMQuery::new(self, parsed)
+    }
+
     /// Bubble a message up from the focused widget to ancestors.
     ///
     /// Each ancestor gets a chance to intercept the message via `handle_message`.
@@ -568,6 +615,203 @@ where
     false
 }
 
+// =============================================================================
+// Multi-Widget Query (DOMQuery)
+// =============================================================================
+
+/// Find all widgets matching a selector and apply a closure to each.
+///
+/// Unlike `find_and_apply_by_selector`, this continues searching after finding
+/// a match, visiting all matching widgets in depth-first order.
+fn find_all_and_apply<M, F>(
+    widget: &mut dyn Widget<M>,
+    selector: &SimpleSelector,
+    f: &mut F,
+) where
+    F: FnMut(&mut dyn Widget<M>),
+{
+    // Check if this widget matches
+    if selector.matches(widget) {
+        f(widget);
+    }
+
+    // Recurse into children (continue after match, unlike query_one)
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            find_all_and_apply(child, selector, f);
+        }
+    }
+}
+
+/// Query result that enables chainable multi-widget operations.
+///
+/// `DOMQuery` holds a reference to the widget tree and selector criteria.
+/// Terminal operations (`for_each`, `first`, `count`, etc.) re-traverse the
+/// tree to find matching widgets, avoiding borrow checker issues.
+///
+/// # Example
+///
+/// ```ignore
+/// // Apply to all matching widgets
+/// tree.query("Label").for_each(|w| {
+///     w.set_border_title("Found!");
+/// });
+///
+/// // Add class to all matching widgets
+/// tree.query("Button").add_class("styled");
+///
+/// // Count matching widgets
+/// let count = tree.query("Container").count();
+///
+/// // Apply to first match only
+/// tree.query("#header").first(|w| {
+///     w.set_border_subtitle("Header");
+/// });
+/// ```
+pub struct DOMQuery<'a, M> {
+    /// Reference to the widget tree (for traversal).
+    tree: &'a mut WidgetTree<M>,
+    /// The parsed selector criteria.
+    selector: SimpleSelector,
+}
+
+impl<'a, M: 'static> DOMQuery<'a, M> {
+    /// Create a new DOMQuery for the given tree and selector.
+    pub(crate) fn new(tree: &'a mut WidgetTree<M>, selector: SimpleSelector) -> Self {
+        Self { tree, selector }
+    }
+
+    /// Apply a closure to all matching widgets.
+    ///
+    /// Traverses the entire tree and calls the closure for each widget
+    /// that matches the selector, in depth-first order.
+    pub fn for_each<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut dyn Widget<M>),
+    {
+        find_all_and_apply(self.tree.root_mut(), &self.selector, &mut f);
+    }
+
+    /// Count the number of matching widgets.
+    pub fn count(&mut self) -> usize {
+        let mut count = 0;
+        self.for_each(|_| count += 1);
+        count
+    }
+
+    /// Apply a closure to the first matching widget.
+    ///
+    /// Returns the closure's result, or `None` if no widget matches.
+    pub fn first<F, R>(&mut self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        // Use query_one internally since it already does first-match
+        self.tree.query_one_internal(&self.selector, f)
+    }
+
+    /// Apply a closure to the last matching widget.
+    ///
+    /// Returns the closure's result, or `None` if no widget matches.
+    pub fn last<F, R>(&mut self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        // Collect paths to all matching widgets, then apply to last
+        let mut paths: Vec<Vec<usize>> = Vec::new();
+        collect_matching_paths(
+            self.tree.root_mut(),
+            &self.selector,
+            &mut Vec::new(),
+            &mut paths,
+        );
+
+        if let Some(last_path) = paths.last() {
+            // Navigate to the last matching widget
+            let mut current: &mut dyn Widget<M> = self.tree.root_mut();
+            for &index in last_path {
+                current = current.get_child_mut(index)?;
+            }
+            Some(f(current))
+        } else {
+            None
+        }
+    }
+
+    // =========================================================================
+    // Bulk Class Operations
+    // =========================================================================
+
+    /// Add a CSS class to all matching widgets.
+    pub fn add_class(&mut self, class: &str) {
+        let class = class.to_string();
+        self.for_each(|w| w.add_class(&class));
+    }
+
+    /// Remove a CSS class from all matching widgets.
+    pub fn remove_class(&mut self, class: &str) {
+        let class = class.to_string();
+        self.for_each(|w| w.remove_class(&class));
+    }
+
+    /// Toggle a CSS class on all matching widgets.
+    pub fn toggle_class(&mut self, class: &str) {
+        let class = class.to_string();
+        self.for_each(|w| w.toggle_class(&class));
+    }
+
+    /// Conditionally add or remove a class on all matching widgets.
+    ///
+    /// If `add` is true, adds the class; otherwise removes it.
+    pub fn set_class(&mut self, add: bool, class: &str) {
+        let class = class.to_string();
+        self.for_each(|w| w.set_class(add, &class));
+    }
+
+    // =========================================================================
+    // Bulk State Operations
+    // =========================================================================
+
+    /// Set visibility on all matching widgets.
+    pub fn set_visible(&mut self, visible: bool) {
+        self.for_each(|w| w.set_visible(visible));
+    }
+
+    /// Set disabled state on all matching widgets.
+    pub fn set_disabled(&mut self, disabled: bool) {
+        self.for_each(|w| w.set_disabled(disabled));
+    }
+
+    /// Mark all matching widgets as dirty (needs re-render).
+    pub fn mark_dirty(&mut self) {
+        self.for_each(|w| w.mark_dirty());
+    }
+}
+
+/// Collect paths to all widgets matching a selector.
+///
+/// Used by `DOMQuery::last()` to find the last matching widget.
+fn collect_matching_paths<M>(
+    widget: &mut dyn Widget<M>,
+    selector: &SimpleSelector,
+    current_path: &mut Vec<usize>,
+    paths: &mut Vec<Vec<usize>>,
+) {
+    if selector.matches(widget) {
+        paths.push(current_path.clone());
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        current_path.push(i);
+        if let Some(child) = widget.get_child_mut(i) {
+            collect_matching_paths(child, selector, current_path, paths);
+        }
+        current_path.pop();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -666,6 +910,9 @@ mod tests {
         type_name: &'static str,
         children: Vec<Box<dyn Widget<()>>>,
         border_title: Option<String>,
+        classes: Vec<String>,
+        visible: bool,
+        disabled: bool,
     }
 
     impl QueryTestWidget {
@@ -675,6 +922,9 @@ mod tests {
                 type_name,
                 children: Vec::new(),
                 border_title: None,
+                classes: Vec::new(),
+                visible: true,
+                disabled: false,
             }
         }
 
@@ -726,6 +976,46 @@ mod tests {
 
         fn border_title(&self) -> Option<&str> {
             self.border_title.as_deref()
+        }
+
+        fn add_class(&mut self, class: &str) {
+            if !self.classes.iter().any(|c| c == class) {
+                self.classes.push(class.to_string());
+            }
+        }
+
+        fn remove_class(&mut self, class: &str) {
+            if let Some(pos) = self.classes.iter().position(|c| c == class) {
+                self.classes.remove(pos);
+            }
+        }
+
+        fn has_class(&self, class: &str) -> bool {
+            self.classes.iter().any(|c| c == class)
+        }
+
+        fn set_classes(&mut self, classes: &str) {
+            self.classes = classes.split_whitespace().map(String::from).collect();
+        }
+
+        fn classes(&self) -> Vec<String> {
+            self.classes.clone()
+        }
+
+        fn is_visible(&self) -> bool {
+            self.visible
+        }
+
+        fn set_visible(&mut self, visible: bool) {
+            self.visible = visible;
+        }
+
+        fn is_disabled(&self) -> bool {
+            self.disabled
+        }
+
+        fn set_disabled(&mut self, disabled: bool) {
+            self.disabled = disabled;
         }
     }
 
@@ -1192,5 +1482,317 @@ mod tests {
         let found = tree.query_one("NonexistentWidget", |_| ());
 
         assert!(found.is_none());
+    }
+
+    // ------------------------------------------------------------------------
+    // DOMQuery tests (multi-widget query)
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_query_count_labels() {
+        // Container with 3 Labels
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("label-1").boxed(),
+                QueryTestWidget::new("Label").with_id("label-2").boxed(),
+                QueryTestWidget::new("Label").with_id("label-3").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let count = tree.query("Label").count();
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_query_count_nested() {
+        // Container > Container > Label, Container > Label
+        // Should count nested labels too
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Container")
+                    .with_children(vec![
+                        QueryTestWidget::new("Label").with_id("nested-1").boxed(),
+                        QueryTestWidget::new("Label").with_id("nested-2").boxed(),
+                    ])
+                    .boxed(),
+                QueryTestWidget::new("Label").with_id("sibling").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Should find all 3 labels
+        let count = tree.query("Label").count();
+        assert_eq!(count, 3);
+
+        // Should find 2 containers (root + nested)
+        let count = tree.query("Container").count();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_query_for_each() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("label-1").boxed(),
+                QueryTestWidget::new("Label").with_id("label-2").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Apply border title to all labels
+        tree.query("Label").for_each(|w| {
+            w.set_border_title("Modified");
+        });
+
+        // Verify all labels were modified
+        let mut modified_count = 0;
+        tree.query("Label").for_each(|w| {
+            if w.border_title() == Some("Modified") {
+                modified_count += 1;
+            }
+        });
+        assert_eq!(modified_count, 2);
+    }
+
+    #[test]
+    fn test_query_first() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("first-label").boxed(),
+                QueryTestWidget::new("Label").with_id("second-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let id = tree.query("Label").first(|w| w.id().map(|s| s.to_string()));
+
+        assert_eq!(id, Some(Some("first-label".to_string())));
+    }
+
+    #[test]
+    fn test_query_last() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("first-label").boxed(),
+                QueryTestWidget::new("Label").with_id("second-label").boxed(),
+                QueryTestWidget::new("Label").with_id("last-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let id = tree.query("Label").last(|w| w.id().map(|s| s.to_string()));
+
+        assert_eq!(id, Some(Some("last-label".to_string())));
+    }
+
+    #[test]
+    fn test_query_add_class() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").with_id("btn-1").boxed(),
+                QueryTestWidget::new("Button").with_id("btn-2").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Add class to all buttons
+        tree.query("Button").add_class("styled");
+
+        // Verify all buttons have the class
+        let mut has_class_count = 0;
+        tree.query("Button").for_each(|w| {
+            if w.has_class("styled") {
+                has_class_count += 1;
+            }
+        });
+        assert_eq!(has_class_count, 2);
+    }
+
+    #[test]
+    fn test_query_remove_class() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").boxed(),
+                QueryTestWidget::new("Label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Add class, then remove it
+        tree.query("Label").add_class("highlighted");
+        tree.query("Label").remove_class("highlighted");
+
+        // Verify all labels lost the class
+        let mut has_class_count = 0;
+        tree.query("Label").for_each(|w| {
+            if w.has_class("highlighted") {
+                has_class_count += 1;
+            }
+        });
+        assert_eq!(has_class_count, 0);
+    }
+
+    #[test]
+    fn test_query_toggle_class() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Toggle on
+        tree.query("Label").toggle_class("active");
+        let has_class = tree.query("Label").first(|w| w.has_class("active"));
+        assert_eq!(has_class, Some(true));
+
+        // Toggle off
+        tree.query("Label").toggle_class("active");
+        let has_class = tree.query("Label").first(|w| w.has_class("active"));
+        assert_eq!(has_class, Some(false));
+    }
+
+    #[test]
+    fn test_query_set_class() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // set_class(true, ...) adds the class
+        tree.query("Label").set_class(true, "enabled");
+        let has_class = tree.query("Label").first(|w| w.has_class("enabled"));
+        assert_eq!(has_class, Some(true));
+
+        // set_class(false, ...) removes the class
+        tree.query("Label").set_class(false, "enabled");
+        let has_class = tree.query("Label").first(|w| w.has_class("enabled"));
+        assert_eq!(has_class, Some(false));
+    }
+
+    #[test]
+    fn test_query_set_visible() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("lbl-1").boxed(),
+                QueryTestWidget::new("Label").with_id("lbl-2").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Hide all labels
+        tree.query("Label").set_visible(false);
+
+        // Verify all labels are hidden
+        let mut hidden_count = 0;
+        tree.query("Label").for_each(|w| {
+            if !w.is_visible() {
+                hidden_count += 1;
+            }
+        });
+        assert_eq!(hidden_count, 2);
+    }
+
+    #[test]
+    fn test_query_set_disabled() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").boxed(),
+                QueryTestWidget::new("Button").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Disable all buttons
+        tree.query("Button").set_disabled(true);
+
+        // Verify all buttons are disabled
+        let mut disabled_count = 0;
+        tree.query("Button").for_each(|w| {
+            if w.is_disabled() {
+                disabled_count += 1;
+            }
+        });
+        assert_eq!(disabled_count, 2);
+    }
+
+    #[test]
+    fn test_query_by_id() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("special").boxed(),
+                QueryTestWidget::new("Label").with_id("normal").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Query by ID should find exactly one
+        let count = tree.query("#special").count();
+        assert_eq!(count, 1);
+
+        // Can modify specific widget by ID
+        tree.query("#special").add_class("highlighted");
+
+        // Verify only the one with ID "special" got the class
+        let has_class = tree.query("#special").first(|w| w.has_class("highlighted"));
+        assert_eq!(has_class, Some(true));
+
+        let has_class = tree.query("#normal").first(|w| w.has_class("highlighted"));
+        assert_eq!(has_class, Some(false));
+    }
+
+    #[test]
+    fn test_query_combined_type_and_id() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").with_id("submit").boxed(),
+                QueryTestWidget::new("Label").with_id("submit").boxed(), // Same ID, different type
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Should find only the Button with id="submit"
+        let count = tree.query("Button#submit").count();
+        assert_eq!(count, 1);
+
+        tree.query("Button#submit").add_class("btn-primary");
+
+        // Verify only the Button got the class
+        let btn_has_class = tree.query("Button#submit").first(|w| w.has_class("btn-primary"));
+        assert_eq!(btn_has_class, Some(true));
+
+        let lbl_has_class = tree.query("Label#submit").first(|w| w.has_class("btn-primary"));
+        assert_eq!(lbl_has_class, Some(false));
+    }
+
+    #[test]
+    fn test_query_no_matches() {
+        let root = QueryTestWidget::new("Container").boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // No Labels in tree
+        assert_eq!(tree.query("Label").count(), 0);
+        assert!(tree.query("Label").first(|_| ()).is_none());
+        assert!(tree.query("Label").last(|_| ()).is_none());
+
+        // add_class on empty results should not panic
+        tree.query("Label").add_class("test"); // Should be a no-op
     }
 }

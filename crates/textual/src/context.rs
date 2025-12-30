@@ -14,7 +14,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 use crate::message::MessageEnvelope;
-use crate::tree::WidgetTree;
+use crate::tree::{DOMQuery, WidgetTree};
 use crate::Widget;
 
 /// Context provided to widgets for posting messages and spawning async tasks.
@@ -318,6 +318,36 @@ impl<'a, M> MountContext<'a, M> {
         F: FnOnce(&mut W) -> R,
     {
         self.tree.query_one_as::<W, F, R>(selector, f)
+    }
+
+    /// Query for multiple widgets matching a selector.
+    ///
+    /// Returns a `DOMQuery` that enables bulk operations on all matching widgets.
+    /// Unlike `query_one`, this finds ALL widgets matching the selector.
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn on_mount(&mut self, ctx: &mut MountContext<Self::Message>) {
+    ///     // Add class to all Labels
+    ///     ctx.query("Label").add_class("styled");
+    ///
+    ///     // Count Containers
+    ///     let count = ctx.query("Container").count();
+    ///
+    ///     // Apply to all Buttons
+    ///     ctx.query("Button").for_each(|w| {
+    ///         w.set_border_title("Found!");
+    ///     });
+    ///
+    ///     // Set visibility on widgets with a specific ID pattern
+    ///     ctx.query("#sidebar").set_visible(false);
+    /// }
+    /// ```
+    pub fn query(&mut self, selector: &str) -> DOMQuery<'_, M>
+    where
+        M: 'static,
+    {
+        self.tree.query(selector)
     }
 
     /// Get the underlying AppContext for timer/interval operations.
