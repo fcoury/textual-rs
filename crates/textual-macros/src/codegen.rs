@@ -19,35 +19,37 @@ pub fn generate_single(node: WidgetNode) -> TokenStream {
 fn generate_widget(node: &WidgetNode) -> TokenStream {
     let name = &node.name;
     let positional = &node.positional_args;
-    let children = &node.children;
 
     // Generate builder method chains for named attributes
     let attr_calls = generate_attr_calls(&node.named_attrs);
 
-    if children.is_empty() {
-        // Leaf widget: Widget::new(args).with_attr1(v1).with_attr2(v2)
-        quote! {
-            Box::new(#name::new(#(#positional),*) #attr_calls) as Box<dyn Widget<_>>
+    match &node.children {
+        None => {
+            // Leaf widget (no braces): Widget::new(args).with_attr1(v1).with_attr2(v2)
+            quote! {
+                Box::new(#name::new(#(#positional),*) #attr_calls) as Box<dyn Widget<_>>
+            }
         }
-    } else {
-        // Container widget: generate children vec
-        let children_code = generate_children_vec(children);
+        Some(children) => {
+            // Container widget (has braces, even if empty): pass children to new()
+            let children_code = generate_children_vec(children);
 
-        if positional.is_empty() && node.named_attrs.is_empty() {
-            // Container with children only: Widget::new(children)
-            quote! {
-                Box::new(#name::new(#children_code)) as Box<dyn Widget<_>>
-            }
-        } else if positional.is_empty() {
-            // Container with attrs but no positional args
-            quote! {
-                Box::new(#name::new(#children_code) #attr_calls) as Box<dyn Widget<_>>
-            }
-        } else {
-            // Container with positional args and children
-            // Convention: children is the last argument to ::new()
-            quote! {
-                Box::new(#name::new(#(#positional,)* #children_code) #attr_calls) as Box<dyn Widget<_>>
+            if positional.is_empty() && node.named_attrs.is_empty() {
+                // Container with children only: Widget::new(children)
+                quote! {
+                    Box::new(#name::new(#children_code)) as Box<dyn Widget<_>>
+                }
+            } else if positional.is_empty() {
+                // Container with attrs but no positional args
+                quote! {
+                    Box::new(#name::new(#children_code) #attr_calls) as Box<dyn Widget<_>>
+                }
+            } else {
+                // Container with positional args and children
+                // Convention: children is the last argument to ::new()
+                quote! {
+                    Box::new(#name::new(#(#positional,)* #children_code) #attr_calls) as Box<dyn Widget<_>>
+                }
             }
         }
     }

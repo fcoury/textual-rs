@@ -29,7 +29,8 @@ pub struct WidgetNode {
     /// Named attributes (name: value pairs) -> .with_name(value)
     pub named_attrs: Vec<NamedAttr>,
     /// Child items (for containers) - widgets or splat expressions
-    pub children: Vec<ChildItem>,
+    /// None = no braces (leaf widget), Some(vec![]) = empty braces (container with no children)
+    pub children: Option<Vec<ChildItem>>,
 }
 
 /// A named attribute like `id: "my-id"`
@@ -76,7 +77,7 @@ impl Parse for WidgetNode {
 
         let mut positional_args = Vec::new();
         let mut named_attrs = Vec::new();
-        let mut children = Vec::new();
+        let mut children = None;
 
         // 2. Check for arguments in parentheses: Widget(args)
         if input.peek(token::Paren) {
@@ -86,12 +87,15 @@ impl Parse for WidgetNode {
         }
 
         // 3. Check for children in braces: Widget { children }
+        // Some(vec![]) = empty braces, None = no braces at all
         if input.peek(token::Brace) {
             let content;
             braced!(content in input);
+            let mut child_items = Vec::new();
             while !content.is_empty() {
-                children.push(parse_child_item(&content)?);
+                child_items.push(parse_child_item(&content)?);
             }
+            children = Some(child_items);
         }
 
         Ok(WidgetNode {
