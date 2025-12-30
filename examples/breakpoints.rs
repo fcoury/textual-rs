@@ -14,9 +14,7 @@
 //!
 //! Run with: cargo run --example breakpoints
 
-use textual::{
-    App, Compose, Grid, KeyCode, MessageEnvelope, Placeholder, Widget,
-};
+use textual::{App, Compose, Grid, KeyCode, MessageEnvelope, Placeholder, Widget};
 
 #[derive(Clone)]
 enum Message {}
@@ -38,18 +36,18 @@ impl Compose for BreakpointApp {
         // Create a grid of placeholders - the grid-size is controlled by CSS
         // based on the current breakpoint class
         vec![Box::new(Grid::new(vec![
-            Box::new(Placeholder::new("Item 1")),
-            Box::new(Placeholder::new("Item 2")),
-            Box::new(Placeholder::new("Item 3")),
-            Box::new(Placeholder::new("Item 4")),
-            Box::new(Placeholder::new("Item 5")),
-            Box::new(Placeholder::new("Item 6")),
-            Box::new(Placeholder::new("Item 7")),
-            Box::new(Placeholder::new("Item 8")),
-            Box::new(Placeholder::new("Item 9")),
-            Box::new(Placeholder::new("Item 10")),
-            Box::new(Placeholder::new("Item 11")),
-            Box::new(Placeholder::new("Item 12")),
+            Box::new(Placeholder::new().with_label("Item 1")),
+            Box::new(Placeholder::new().with_label("Item 2")),
+            Box::new(Placeholder::new().with_label("Item 3")),
+            Box::new(Placeholder::new().with_label("Item 4")),
+            Box::new(Placeholder::new().with_label("Item 5")),
+            Box::new(Placeholder::new().with_label("Item 6")),
+            Box::new(Placeholder::new().with_label("Item 7")),
+            Box::new(Placeholder::new().with_label("Item 8")),
+            Box::new(Placeholder::new().with_label("Item 9")),
+            Box::new(Placeholder::new().with_label("Item 10")),
+            Box::new(Placeholder::new().with_label("Item 11")),
+            Box::new(Placeholder::new().with_label("Item 12")),
         ]))]
     }
 }

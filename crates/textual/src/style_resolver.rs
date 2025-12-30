@@ -24,7 +24,14 @@ pub fn resolve_styles<M>(
     ancestors: &mut Vec<WidgetMeta>,
 ) {
     // Delegate to dirty resolver, forcing all widgets to be restyled
-    resolve_dirty_styles(widget, stylesheet, theme, ancestors, true, &InheritedContext::default());
+    resolve_dirty_styles(
+        widget,
+        stylesheet,
+        theme,
+        ancestors,
+        true,
+        &InheritedContext::default(),
+    );
 }
 
 /// Resolves styles only for dirty widgets and their descendants.
@@ -60,7 +67,7 @@ pub fn resolve_dirty_styles<M>(
         // Apply CSS inheritance for properties that weren't explicitly set
         apply_inheritance(&mut style, inherited);
 
-        log::debug!(
+        log::trace!(
             "CASCADE: Widget='{}' States={:?} -> Color={:?} (dirty={})",
             meta.type_name,
             meta.states,
@@ -84,7 +91,14 @@ pub fn resolve_dirty_styles<M>(
 
     // Recurse into children, propagating dirty state
     widget.for_each_child(&mut |child| {
-        resolve_dirty_styles(child, stylesheet, theme, ancestors, should_restyle, &child_inherited);
+        resolve_dirty_styles(
+            child,
+            stylesheet,
+            theme,
+            ancestors,
+            should_restyle,
+            &child_inherited,
+        );
     });
 
     // Clean up stack after visiting subtree
@@ -105,7 +119,10 @@ fn apply_inheritance(style: &mut ComputedStyle, inherited: &InheritedContext) {
 }
 
 /// Build the inherited context to pass to children.
-fn build_inherited_context(style: &mut ComputedStyle, parent_inherited: &InheritedContext) -> InheritedContext {
+fn build_inherited_context(
+    style: &mut ComputedStyle,
+    parent_inherited: &InheritedContext,
+) -> InheritedContext {
     // Compute effective background for this widget
     let effective_bg = compute_effective_background(style, parent_inherited);
 
@@ -119,7 +136,10 @@ fn build_inherited_context(style: &mut ComputedStyle, parent_inherited: &Inherit
 /// Compute the effective background at this widget level.
 /// This composites semi-transparent backgrounds over the parent's effective background,
 /// then applies any tint.
-fn compute_effective_background(style: &ComputedStyle, parent_inherited: &InheritedContext) -> Option<RgbaColor> {
+fn compute_effective_background(
+    style: &ComputedStyle,
+    parent_inherited: &InheritedContext,
+) -> Option<RgbaColor> {
     match (&style.background, &parent_inherited.effective_background) {
         (Some(bg), Some(parent_bg)) if bg.a < 1.0 => {
             // Composite semi-transparent background over parent
