@@ -91,9 +91,9 @@ impl<M> ItemGrid<M> {
         self
     }
 
-    /// Count visible children.
+    /// Count visible children that participate in layout.
     fn visible_children(&self) -> usize {
-        self.children.iter().filter(|c| c.is_visible()).count()
+        self.children.iter().filter(|c| c.participates_in_layout()).count()
     }
 
     /// Compute child placements using GridLayout with pre_layout configuration.
@@ -103,7 +103,7 @@ impl<M> ItemGrid<M> {
             .children
             .iter()
             .enumerate()
-            .filter(|(_, c)| c.is_visible())
+            .filter(|(_, c)| c.participates_in_layout())
             .map(|(i, c)| (i, c.get_style(), c.desired_size()))
             .collect();
 
@@ -188,7 +188,7 @@ impl<M> Widget<M> for ItemGrid<M> {
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.participates_in_layout() {
                 continue;
             }
             if let Some(msg) = child.on_event(key) {
@@ -222,14 +222,14 @@ impl<M> Widget<M> for ItemGrid<M> {
     fn count_focusable(&self) -> usize {
         self.children
             .iter()
-            .filter(|c| c.is_visible())
+            .filter(|c| c.participates_in_layout())
             .map(|c| c.count_focusable())
             .sum()
     }
 
     fn clear_focus(&mut self) {
         for child in &mut self.children {
-            if child.is_visible() {
+            if child.participates_in_layout() {
                 child.clear_focus();
             }
         }
@@ -237,7 +237,7 @@ impl<M> Widget<M> for ItemGrid<M> {
 
     fn focus_nth(&mut self, mut n: usize) -> bool {
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.participates_in_layout() {
                 continue;
             }
             let count = child.count_focusable();
@@ -251,7 +251,7 @@ impl<M> Widget<M> for ItemGrid<M> {
 
     fn clear_hover(&mut self) {
         for child in &mut self.children {
-            if child.is_visible() {
+            if child.participates_in_layout() {
                 child.clear_hover();
             }
         }

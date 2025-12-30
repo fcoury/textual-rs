@@ -233,6 +233,20 @@ pub trait Widget<M> {
         true
     }
 
+    /// Returns true if this widget should participate in layout, rendering, and events.
+    ///
+    /// A widget participates if:
+    /// 1. `is_visible()` returns true (runtime visibility)
+    /// 2. CSS `display` is not `none` (style-driven visibility)
+    ///
+    /// Use this in container loops instead of checking both conditions separately.
+    /// This centralizes the visibility logic and makes it easy to extend with
+    /// future conditions.
+    fn participates_in_layout(&self) -> bool {
+        use tcss::types::Display;
+        self.is_visible() && self.get_style().display != Display::None
+    }
+
     /// Set the visibility of this widget.
     fn set_visible(&mut self, _visible: bool) {}
 
@@ -515,6 +529,10 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn is_visible(&self) -> bool {
         self.as_ref().is_visible()
+    }
+
+    fn participates_in_layout(&self) -> bool {
+        self.as_ref().participates_in_layout()
     }
 
     fn set_visible(&mut self, visible: bool) {

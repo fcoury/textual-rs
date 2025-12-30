@@ -100,7 +100,7 @@ impl<M> Container<M> {
             .children
             .iter()
             .enumerate()
-            .filter(|(_, c)| c.is_visible())
+            .filter(|(_, c)| c.participates_in_layout())
             .map(|(i, c)| (i, c.get_style(), c.desired_size()))
             .collect();
 
@@ -125,7 +125,7 @@ impl<M> Container<M> {
         let mut max_height: u16 = 0;
 
         for child in &self.children {
-            if !child.is_visible() {
+            if !child.participates_in_layout() {
                 continue;
             }
             let child_size = child.desired_size();
@@ -383,7 +383,7 @@ Container {
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.participates_in_layout() {
                 continue;
             }
             if let Some(msg) = child.on_event(key) {
@@ -418,14 +418,14 @@ Container {
     fn count_focusable(&self) -> usize {
         self.children
             .iter()
-            .filter(|c| c.is_visible())
+            .filter(|c| c.participates_in_layout())
             .map(|c| c.count_focusable())
             .sum()
     }
 
     fn clear_focus(&mut self) {
         for child in &mut self.children {
-            if child.is_visible() {
+            if child.participates_in_layout() {
                 child.clear_focus();
             }
         }
@@ -433,7 +433,7 @@ Container {
 
     fn focus_nth(&mut self, mut n: usize) -> bool {
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.participates_in_layout() {
                 continue;
             }
             let count = child.count_focusable();
@@ -447,7 +447,7 @@ Container {
 
     fn clear_hover(&mut self) {
         for child in &mut self.children {
-            if child.is_visible() {
+            if child.participates_in_layout() {
                 child.clear_hover();
             }
         }

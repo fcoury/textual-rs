@@ -1,6 +1,5 @@
 use crate::layouts::{resolve_height_fixed, resolve_width_fill};
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
-use tcss::types::Display;
 use tcss::ComputedStyle;
 
 pub struct Vertical<M> {
@@ -34,7 +33,7 @@ impl<M> Widget<M> for Vertical<M> {
         let mut is_first = true;
 
         for child in &self.children {
-            if !child.is_visible() || child.get_style().display == Display::None {
+            if !child.participates_in_layout() {
                 continue;
             }
             let size = child.desired_size();
@@ -79,7 +78,7 @@ impl<M> Widget<M> for Vertical<M> {
         let mut is_first = true;
 
         for child in &self.children {
-            if !child.is_visible() || child.get_style().display == Display::None {
+            if !child.participates_in_layout() {
                 continue;
             }
 
@@ -161,7 +160,7 @@ impl<M> Widget<M> for Vertical<M> {
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
         // Pass event to visible children until one handles it
         for child in &mut self.children {
-            if !child.is_visible() || child.get_style().display == Display::None {
+            if !child.participates_in_layout() {
                 continue;
             }
             if let Some(msg) = child.on_event(key) {
@@ -174,14 +173,14 @@ impl<M> Widget<M> for Vertical<M> {
     fn count_focusable(&self) -> usize {
         self.children
             .iter()
-            .filter(|c| c.is_visible() && c.get_style().display != Display::None)
+            .filter(|c| c.participates_in_layout())
             .map(|c| c.count_focusable())
             .sum()
     }
 
     fn clear_focus(&mut self) {
         for child in &mut self.children {
-            if !child.is_visible() || child.get_style().display == Display::None {
+            if !child.participates_in_layout() {
                 continue;
             }
             child.clear_focus();
@@ -190,7 +189,7 @@ impl<M> Widget<M> for Vertical<M> {
 
     fn focus_nth(&mut self, mut n: usize) -> bool {
         for child in &mut self.children {
-            if !child.is_visible() || child.get_style().display == Display::None {
+            if !child.participates_in_layout() {
                 continue;
             }
             let count = child.count_focusable();
@@ -215,7 +214,7 @@ impl<M> Widget<M> for Vertical<M> {
         let mut is_first = true;
 
         for child in &mut self.children {
-            if !child.is_visible() || child.get_style().display == Display::None {
+            if !child.participates_in_layout() {
                 continue;
             }
 
@@ -265,7 +264,7 @@ impl<M> Widget<M> for Vertical<M> {
 
     fn clear_hover(&mut self) {
         for child in &mut self.children {
-            if !child.is_visible() || child.get_style().display == Display::None {
+            if !child.participates_in_layout() {
                 continue;
             }
             child.clear_hover();
