@@ -1,0 +1,23 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+                                      #p1
+
+
+
+
+
+                            #p2                                      #p3
+
+
+
+
+
+                  #p4                                      #p5
+
+
+
+
+
+       #p6                                      #p7

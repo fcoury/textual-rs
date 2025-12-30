@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
+use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -242,6 +242,10 @@ pub enum Declaration {
     // Box model properties
     /// The `box-sizing` property (content-box or border-box).
     BoxSizing(BoxSizing),
+
+    // Display properties
+    /// The `display` property (block or none).
+    Display(Display),
 
     // Overflow properties
     /// The `overflow-x` property for horizontal overflow behavior.

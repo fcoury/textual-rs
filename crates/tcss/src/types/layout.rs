@@ -84,9 +84,9 @@ pub enum Overflow {
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BoxSizing {
-    /// Width/height is content only; padding/border added outside (default).
-    #[default]
+    /// Width/height is content only; padding/border added outside.
     ContentBox,
-    /// Width/height includes content, padding, and border.
+    /// Width/height includes content, padding, and border (default, matches Python Textual).
+    #[default]
     BorderBox,
 }

@@ -170,6 +170,9 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         // Box model properties
         "box-sizing" => map(values::parse_box_sizing, Declaration::BoxSizing)(input)?,
 
+        // Display properties
+        "display" => map(values::parse_display, Declaration::Display)(input)?,
+
         // Overflow properties
         "overflow-x" => map(values::parse_overflow, Declaration::OverflowX)(input)?,
         "overflow-y" => map(values::parse_overflow, Declaration::OverflowY)(input)?,

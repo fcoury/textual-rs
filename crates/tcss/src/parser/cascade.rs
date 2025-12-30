@@ -361,6 +361,11 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.box_sizing = *b;
         }
 
+        // Display properties
+        Declaration::Display(d) => {
+            style.display = *d;
+        }
+
         // Overflow properties
         Declaration::OverflowX(o) => {
             style.overflow_x = *o;

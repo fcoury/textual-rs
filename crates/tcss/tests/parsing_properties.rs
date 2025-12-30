@@ -482,11 +482,17 @@ fn test_property_layout_grid() {
 }
 
 #[test]
-#[ignore = "display property not yet implemented"]
 fn test_property_display_none() {
+    use tcss::types::Display;
     let decl = parse_first_declaration("Button { display: none; }");
-    // Should parse as Declaration::Display(Display::None)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    assert!(matches!(decl, Declaration::Display(Display::None)));
+}
+
+#[test]
+fn test_property_display_block() {
+    use tcss::types::Display;
+    let decl = parse_first_declaration("Button { display: block; }");
+    assert!(matches!(decl, Declaration::Display(Display::Block)));
 }
 
 #[test]

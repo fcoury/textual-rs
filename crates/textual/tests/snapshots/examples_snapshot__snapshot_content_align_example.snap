@@ -1,0 +1,26 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+ With content-align you can...
+
+
+
+
+
+
+
+
+
+                           ...Easily align content...
+
+
+
+
+
+
+
+
+
+
+                                                ...Horizontally and vertically!

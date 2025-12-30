@@ -764,3 +764,317 @@ fn snapshot_border_title_colors_example() {
     let canvas = render_to_canvas(&app, border_title_colors_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Display Example
+// ============================================================================
+
+mod display_example {
+    use super::*;
+    use textual::Static;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct DisplayApp;
+
+    impl Compose for DisplayApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Static("Widget 1")
+                Static("Widget 2", classes: "remove")
+                Static("Widget 3")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Screen {
+    background: green;
+}
+
+Static {
+    height: 5;
+    background: white;
+    color: blue;
+    border: heavy blue;
+}
+
+Static.remove {
+    display: none;
+}
+"#;
+}
+
+#[test]
+fn snapshot_display_example() {
+    let app = display_example::DisplayApp;
+    let canvas = render_to_canvas(&app, display_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Box Sizing Example
+// ============================================================================
+
+mod box_sizing_example {
+    use super::*;
+    use textual::Static;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct BoxSizingApp;
+
+    impl Compose for BoxSizingApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Static("I'm using border-box!", id: "static1")
+                Static("I'm using content-box!", id: "static2")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#static1 {
+    box-sizing: border-box;
+}
+
+#static2 {
+    box-sizing: content-box;
+}
+
+Screen {
+    background: white;
+    color: black;
+}
+
+Static {
+    background: blue 20%;
+    height: 5;
+    margin: 2;
+    padding: 1;
+    border: wide black;
+}
+"#;
+}
+
+#[test]
+fn snapshot_box_sizing_example() {
+    let app = box_sizing_example::BoxSizingApp;
+    let canvas = render_to_canvas(&app, box_sizing_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Content Align Example
+// ============================================================================
+
+mod content_align_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct ContentAlignApp;
+
+    impl Compose for ContentAlignApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("With [i]content-align[/] you can...", id: "box1")
+                Label("...[b]Easily align content[/]...", id: "box2")
+                Label("...Horizontally [i]and[/] vertically!", id: "box3")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#box1 {
+    content-align: left top;
+    background: red;
+}
+
+#box2 {
+    content-align-horizontal: center;
+    content-align-vertical: middle;
+    background: green;
+}
+
+#box3 {
+    content-align: right bottom;
+    background: blue;
+}
+
+Label {
+    width: 100%;
+    height: 1fr;
+    padding: 1;
+    color: white;
+}
+"#;
+}
+
+#[test]
+fn snapshot_content_align_example() {
+    let app = content_align_example::ContentAlignApp;
+    let canvas = render_to_canvas(&app, content_align_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Content Align All Example
+// ============================================================================
+
+mod content_align_all_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct ContentAlignAllApp;
+
+    impl Compose for ContentAlignAllApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("left top", id: "left-top")
+                Label("center top", id: "center-top")
+                Label("right top", id: "right-top")
+                Label("left middle", id: "left-middle")
+                Label("center middle", id: "center-middle")
+                Label("right middle", id: "right-middle")
+                Label("left bottom", id: "left-bottom")
+                Label("center bottom", id: "center-bottom")
+                Label("right bottom", id: "right-bottom")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#left-top {
+    /* content-align: left top; this is the default implied value. */
+}
+#center-top {
+    content-align: center top;
+}
+#right-top {
+    content-align: right top;
+}
+#left-middle {
+    content-align: left middle;
+}
+#center-middle {
+    content-align: center middle;
+}
+#right-middle {
+    content-align: right middle;
+}
+#left-bottom {
+    content-align: left bottom;
+}
+#center-bottom {
+    content-align: center bottom;
+}
+#right-bottom {
+    content-align: right bottom;
+}
+
+Screen {
+    layout: grid;
+    grid-size: 3 3;
+    grid-gutter: 1;
+}
+
+Label {
+    width: 100%;
+    height: 100%;
+    background: $primary;
+}
+"#;
+}
+
+#[test]
+fn snapshot_content_align_all_example() {
+    let app = content_align_all_example::ContentAlignAllApp;
+    let canvas = render_to_canvas(&app, content_align_all_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Column Span Example
+// ============================================================================
+
+mod column_span_example {
+    use super::*;
+    use textual::{Grid, Placeholder};
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct ColumnSpanApp;
+
+    impl Compose for ColumnSpanApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Grid {
+                    Placeholder(id: "p1")
+                    Placeholder(id: "p2")
+                    Placeholder(id: "p3")
+                    Placeholder(id: "p4")
+                    Placeholder(id: "p5")
+                    Placeholder(id: "p6")
+                    Placeholder(id: "p7")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#p1 {
+    column-span: 4;
+}
+#p2 {
+    column-span: 3;
+}
+#p3 {
+    column-span: 1;
+}
+#p4 {
+    column-span: 2;
+}
+#p5 {
+    column-span: 2;
+}
+#p6 {
+    /* Default value is 1. */
+}
+#p7 {
+    column-span: 3;
+}
+
+Grid {
+    grid-size: 4 4;
+    grid-gutter: 1 2;
+}
+
+Placeholder {
+    height: 100%;
+}
+"#;
+}
+
+#[test]
+fn snapshot_column_span_example() {
+    let app = column_span_example::ColumnSpanApp;
+    let canvas = render_to_canvas(&app, column_span_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}

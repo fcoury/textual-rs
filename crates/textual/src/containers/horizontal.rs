@@ -1,4 +1,5 @@
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
+use tcss::types::Display;
 use tcss::ComputedStyle;
 
 pub struct Horizontal<M> {
@@ -29,7 +30,7 @@ impl<M> Widget<M> for Horizontal<M> {
         let mut width = 0;
         let mut height = 0;
         for child in &self.children {
-            if !child.is_visible() {
+            if !child.is_visible() || child.get_style().display == Display::None {
                 continue;
             }
             let size = child.desired_size();
@@ -51,7 +52,7 @@ impl<M> Widget<M> for Horizontal<M> {
 
         let mut current_x = inner_region.x;
         for child in &self.children {
-            if !child.is_visible() {
+            if !child.is_visible() || child.get_style().display == Display::None {
                 continue;
             }
 
@@ -107,7 +108,7 @@ impl<M> Widget<M> for Horizontal<M> {
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
         // Pass event to visible children until one handles it
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.is_visible() || child.get_style().display == Display::None {
                 continue;
             }
             if let Some(msg) = child.on_event(key) {
@@ -120,14 +121,14 @@ impl<M> Widget<M> for Horizontal<M> {
     fn count_focusable(&self) -> usize {
         self.children
             .iter()
-            .filter(|c| c.is_visible())
+            .filter(|c| c.is_visible() && c.get_style().display != Display::None)
             .map(|c| c.count_focusable())
             .sum()
     }
 
     fn clear_focus(&mut self) {
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.is_visible() || child.get_style().display == Display::None {
                 continue;
             }
             child.clear_focus();
@@ -136,7 +137,7 @@ impl<M> Widget<M> for Horizontal<M> {
 
     fn focus_nth(&mut self, mut n: usize) -> bool {
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.is_visible() || child.get_style().display == Display::None {
                 continue;
             }
             let count = child.count_focusable();
@@ -158,7 +159,7 @@ impl<M> Widget<M> for Horizontal<M> {
 
         let mut current_x = region.x;
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.is_visible() || child.get_style().display == Display::None {
                 continue;
             }
 
@@ -184,7 +185,7 @@ impl<M> Widget<M> for Horizontal<M> {
 
     fn clear_hover(&mut self) {
         for child in &mut self.children {
-            if !child.is_visible() {
+            if !child.is_visible() || child.get_style().display == Display::None {
                 continue;
             }
             child.clear_hover();

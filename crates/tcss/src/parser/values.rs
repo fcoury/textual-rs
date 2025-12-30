@@ -272,6 +272,20 @@ pub fn parse_box_sizing(input: &str) -> IResult<&str, crate::types::BoxSizing> {
     }
 }
 
+/// Parse display: `block` or `none`.
+pub fn parse_display(input: &str) -> IResult<&str, crate::types::Display> {
+    use crate::types::Display;
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "block" => Ok((input, Display::Block)),
+        "none" => Ok((input, Display::None)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
 /// Parse horizontal alignment: `left`, `center`, or `right`.
 pub fn parse_align_horizontal(input: &str) -> IResult<&str, crate::types::AlignHorizontal> {
     use crate::types::AlignHorizontal;
