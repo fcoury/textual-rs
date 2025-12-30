@@ -22,26 +22,56 @@
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 use tcss::types::RgbaColor;
+use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, TextAttributes};
 use crate::widget::Widget;
-use crate::{KeyCode, MouseEvent, Size};
+use crate::{KeyCode, MouseEvent, MouseEventKind, Size};
+
+/// Display variants for the Placeholder widget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlaceholderVariant {
+    /// Shows the label or widget ID (e.g., #p1)
+    #[default]
+    Default,
+    /// Shows the widget's dimensions (e.g., 80 x 24)
+    Size,
+    /// Shows Lorem Ipsum text
+    Text,
+}
+
+impl PlaceholderVariant {
+    /// Get the next variant in the cycle.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Default => Self::Size,
+            Self::Size => Self::Text,
+            Self::Text => Self::Default,
+        }
+    }
+}
+
+/// Lorem ipsum paragraph for the Text variant.
+const LOREM_IPSUM_PARAGRAPH: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam feugiat ac elit sit amet accumsan. Suspendisse bibendum nec libero quis gravida. Phasellus id eleifend ligula. Nullam imperdiet sem tellus, sed vehicula nisl faucibus sit amet. Praesent iaculis tempor ultricies. Sed lacinia, tellus id rutrum lacinia, sapien sapien congue mauris, sit amet pellentesque quam quam vel nisl. Curabitur vulputate erat pellentesque mauris posuere, non dictum risus mattis.";
 
 /// Global counter for auto-assigning palette indices.
 static PLACEHOLDER_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-/// 8-color harmonious palette (matches Python Textual style).
-const PALETTE: [(u8, u8, u8); 8] = [
-    (255, 107, 107), // Coral
-    (255, 159, 64),  // Orange
-    (255, 217, 61),  // Yellow
-    (72, 207, 173),  // Teal
-    (77, 171, 247),  // Blue
-    (127, 90, 240),  // Purple
-    (210, 82, 127),  // Pink
-    (113, 128, 150), // Slate
+/// 12-color palette matching Python Textual's _PLACEHOLDER_BACKGROUND_COLORS.
+const PALETTE: [(u8, u8, u8); 12] = [
+    (136, 17, 119),  // #881177 - Purple
+    (170, 51, 85),   // #aa3355 - Maroon
+    (204, 102, 102), // #cc6666 - Rose
+    (238, 153, 68),  // #ee9944 - Orange
+    (238, 221, 0),   // #eedd00 - Yellow
+    (153, 221, 85),  // #99dd55 - Lime
+    (68, 221, 136),  // #44dd88 - Teal
+    (34, 204, 187),  // #22ccbb - Cyan-teal
+    (0, 187, 204),   // #00bbcc - Cyan
+    (0, 153, 204),   // #0099cc - Blue-cyan
+    (51, 102, 187),  // #3366bb - Blue
+    (102, 51, 153),  // #663399 - Violet
 ];
 
 /// A placeholder widget for prototyping layouts.
@@ -49,25 +79,39 @@ const PALETTE: [(u8, u8, u8); 8] = [
 /// Displays a colored background with a centered label.
 /// Colors auto-cycle through a harmonious palette unless
 /// overridden via CSS.
+///
+/// Supports three display variants:
+/// - `Default`: Shows the label or widget ID (e.g., #p1)
+/// - `Size`: Shows the widget's dimensions (e.g., 80 x 24)
+/// - `Text`: Shows Lorem Ipsum text
+///
+/// Click the placeholder to cycle through variants.
 pub struct Placeholder {
-    label: String,
+    label: Option<String>,
     palette_index: usize,
     style: ComputedStyle,
     dirty: bool,
     id: Option<String>,
+    variant: PlaceholderVariant,
 }
 
 impl Placeholder {
     /// Create a new Placeholder with the given label.
-    pub fn new(label: impl Into<String>) -> Self {
+    pub fn new() -> Self {
         let index = PLACEHOLDER_COUNTER.fetch_add(1, Ordering::Relaxed);
         Self {
-            label: label.into(),
+            label: None,
             palette_index: index % PALETTE.len(),
             style: ComputedStyle::default(),
             dirty: true,
             id: None,
+            variant: PlaceholderVariant::default(),
         }
+    }
+
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Set the widget ID for CSS targeting and message tracking.
@@ -76,11 +120,102 @@ impl Placeholder {
         self
     }
 
-    /// Get the background color (CSS or palette).
+    /// Set the display variant.
+    pub fn with_variant(mut self, variant: PlaceholderVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
+    /// Get the current display variant.
+    pub fn variant(&self) -> PlaceholderVariant {
+        self.variant
+    }
+
+    /// Set the variant (for cycling on click).
+    pub fn set_variant(&mut self, variant: PlaceholderVariant) {
+        self.variant = variant;
+        self.dirty = true;
+    }
+
+    /// Get the display content based on the current variant.
+    fn get_display_content(&self, region: &Region) -> Option<String> {
+        match self.variant {
+            PlaceholderVariant::Default => {
+                // Explicit label > #id > None
+                self.label
+                    .clone()
+                    .or_else(|| self.id.as_ref().map(|id| format!("#{}", id)))
+            }
+            PlaceholderVariant::Size => Some(format!("{} x {}", region.width, region.height)),
+            PlaceholderVariant::Text => {
+                // 5 paragraphs joined by double newlines (matching Python Textual)
+                let paragraphs: Vec<&str> = (0..5).map(|_| LOREM_IPSUM_PARAGRAPH).collect();
+                Some(paragraphs.join("\n\n"))
+            }
+        }
+    }
+
+    /// Word-wrap text to fit within a given width.
+    /// Handles newlines in the input and wraps at word boundaries.
+    fn word_wrap(text: &str, max_width: usize) -> Vec<String> {
+        let mut lines = Vec::new();
+
+        for paragraph in text.split('\n') {
+            if paragraph.is_empty() {
+                lines.push(String::new());
+                continue;
+            }
+
+            let mut current_line = String::new();
+
+            for word in paragraph.split_whitespace() {
+                if current_line.is_empty() {
+                    // First word on line
+                    if word.len() > max_width {
+                        // Word is longer than max_width, break it up
+                        let mut remaining = word;
+                        while remaining.len() > max_width {
+                            lines.push(remaining[..max_width].to_string());
+                            remaining = &remaining[max_width..];
+                        }
+                        current_line = remaining.to_string();
+                    } else {
+                        current_line = word.to_string();
+                    }
+                } else if current_line.len() + 1 + word.len() <= max_width {
+                    // Word fits on current line with a space
+                    current_line.push(' ');
+                    current_line.push_str(word);
+                } else {
+                    // Word doesn't fit, start a new line
+                    lines.push(current_line);
+                    if word.len() > max_width {
+                        // Word is longer than max_width, break it up
+                        let mut remaining = word;
+                        while remaining.len() > max_width {
+                            lines.push(remaining[..max_width].to_string());
+                            remaining = &remaining[max_width..];
+                        }
+                        current_line = remaining.to_string();
+                    } else {
+                        current_line = word.to_string();
+                    }
+                }
+            }
+
+            if !current_line.is_empty() {
+                lines.push(current_line);
+            }
+        }
+
+        lines
+    }
+
+    /// Get the background color (CSS or palette with 50% opacity).
     fn effective_background(&self) -> RgbaColor {
         self.style.background.clone().unwrap_or_else(|| {
             let (r, g, b) = PALETTE[self.palette_index];
-            RgbaColor::rgb(r, g, b)
+            RgbaColor::rgba(r, g, b, 0.5)
         })
     }
 
@@ -109,12 +244,87 @@ impl<M> Widget<M> for Placeholder {
             }
         }
 
-        // Center label
-        let label_len = self.label.len() as i32;
-        let x = region.x + (region.width - label_len).max(0) / 2;
-        let y = region.y + region.height / 2;
+        // Get display content based on variant
+        let display_content = self.get_display_content(&region);
 
-        canvas.put_str(x, y, &self.label, Some(fg), Some(bg), TextAttributes::default());
+        if let Some(content) = &display_content {
+            match self.variant {
+                PlaceholderVariant::Text => {
+                    // Text variant: 1-cell padding on all sides, word wrap, block-centered
+                    let padding = 1;
+                    let content_x = region.x + padding;
+                    let content_y = region.y + padding;
+                    let content_width = (region.width - 2 * padding).max(1) as usize;
+                    let content_height = (region.height - 2 * padding).max(1) as usize;
+
+                    log::info!(
+                        "Placeholder Text variant='#{}' content area={}x{} at ({},{})",
+                        self.id.as_deref().unwrap_or(""),
+                        content_width,
+                        content_height,
+                        content_x,
+                        content_y
+                    );
+
+                    // Word-wrap the text into lines
+                    let lines = Self::word_wrap(&content, content_width);
+
+                    // Find the width of the text block (longest line among RENDERED lines only)
+                    let rendered_lines: Vec<_> = lines.iter().take(content_height).collect();
+                    let max_line_len =
+                        rendered_lines.iter().map(|l| l.len()).max().unwrap_or(0) as i32;
+
+                    // Calculate horizontal centering for the ENTIRE BLOCK
+                    let gap = content_width as i32 - max_line_len;
+                    let x_offset = (gap / 2).max(0);
+
+                    // Calculate vertical centering
+                    let total_lines = rendered_lines.len();
+                    let y_offset = ((content_height as i32 - total_lines as i32) / 2).max(0);
+
+                    // Render each line, left-aligned WITHIN the centered block
+                    for (i, line) in rendered_lines.iter().enumerate() {
+                        let y = content_y + y_offset + i as i32;
+
+                        canvas.put_str(
+                            content_x + x_offset, // Same X for ALL lines
+                            y,
+                            line,
+                            Some(fg.clone()),
+                            Some(bg.clone()),
+                            TextAttributes::default(),
+                        );
+                    }
+                }
+                PlaceholderVariant::Size => {
+                    // Size: center the label, bold text
+                    let label_len = content.len() as i32;
+                    let x = region.x + (region.width - label_len).max(0) / 2;
+                    let y = region.y + (region.height - 1) / 2;
+
+                    canvas.put_str(
+                        x,
+                        y,
+                        content,
+                        Some(fg),
+                        Some(bg),
+                        TextAttributes {
+                            bold: true,
+                            ..Default::default()
+                        },
+                    );
+                }
+                PlaceholderVariant::Default => {
+                    // Default: center the label
+                    // Use (height - 1) / 2 to match Python Textual's centering
+                    let label_len = content.len() as i32;
+                    let x = region.x + (region.width - label_len).max(0) / 2;
+                    let y = region.y + (region.height - 1) / 2;
+
+                    canvas.put_str(x, y, content, Some(fg), Some(bg), TextAttributes::default());
+                }
+            }
+        }
     }
 
     fn desired_size(&self) -> Size {
@@ -159,7 +369,23 @@ impl<M> Widget<M> for Placeholder {
         None
     }
 
-    fn on_mouse(&mut self, _event: MouseEvent, _region: Region) -> Option<M> {
+    fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        // Check if click is within our region
+        let col = event.column as i32;
+        let row = event.row as i32;
+        let in_bounds = col >= region.x
+            && col < region.x + region.width
+            && row >= region.y
+            && row < region.y + region.height;
+
+        if let MouseEventKind::Down(_) = event.kind {
+            if in_bounds {
+                // Cycle to next variant
+                self.variant = self.variant.next();
+                self.dirty = true;
+            }
+        }
+
         None
     }
 }

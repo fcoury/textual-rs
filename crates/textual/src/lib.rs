@@ -52,8 +52,9 @@ pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
 pub use textual_macros::ui;
 pub use widget::{
-    Compose, Widget, placeholder::Placeholder, screen::Breakpoint, screen::Screen,
-    scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch,
+    Compose, Widget, placeholder::Placeholder, placeholder::PlaceholderVariant,
+    screen::Breakpoint, screen::Screen, scrollbar::ScrollBar,
+    scrollbar_corner::ScrollBarCorner, switch::Switch,
 };
 
 use crate::{
