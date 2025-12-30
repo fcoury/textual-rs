@@ -26,7 +26,7 @@ use crossterm::event::{DisableMouseCapture, EnableMouseCapture, EventStream};
 pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use crossterm::{cursor, execute, terminal};
 use futures::StreamExt;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
@@ -325,7 +325,7 @@ where
             tree.update_focus(self.focus_index());
 
             // Initial style resolution for all widgets
-            let mut ancestors = Vec::new();
+            let mut ancestors = VecDeque::new();
             resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
 
             // 3. Create message channel for async communication
@@ -367,7 +367,7 @@ where
                     last_focus_index = self.focus_index();
 
                     // Full style resolution for new tree
-                    let mut ancestors = Vec::new();
+                    let mut ancestors = VecDeque::new();
                     resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
 
                     needs_recompose = false;
@@ -386,7 +386,7 @@ where
 
                 if needs_render {
                     // Resolve styles only for dirty widgets
-                    let mut ancestors = Vec::new();
+                    let mut ancestors = VecDeque::new();
                     resolve_dirty_styles(
                         tree.root_mut(),
                         &stylesheet,

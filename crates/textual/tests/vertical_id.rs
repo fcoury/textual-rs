@@ -77,6 +77,7 @@ Vertical {
 #[test]
 fn test_style_resolver_applies_styles_correctly() {
     use tcss::parser::parse_stylesheet;
+    use std::collections::VecDeque;
     use tcss::types::Theme;
     use textual::{Vertical, Widget, Label};
     use textual::style_resolver::resolve_styles;
@@ -113,11 +114,11 @@ Vertical {
     );
 
     // Resolve styles for each widget
-    let mut ancestors: Vec<WidgetMeta> = Vec::new();
+    let mut ancestors: VecDeque<WidgetMeta> = VecDeque::new();
     resolve_styles(v1.as_mut(), &stylesheet, &theme, &mut ancestors);
-    let mut ancestors: Vec<WidgetMeta> = Vec::new();
+    let mut ancestors: VecDeque<WidgetMeta> = VecDeque::new();
     resolve_styles(v2.as_mut(), &stylesheet, &theme, &mut ancestors);
-    let mut ancestors: Vec<WidgetMeta> = Vec::new();
+    let mut ancestors: VecDeque<WidgetMeta> = VecDeque::new();
     resolve_styles(v3.as_mut(), &stylesheet, &theme, &mut ancestors);
 
     // Check that styles were applied
@@ -198,6 +199,7 @@ fn test_render_cache_produces_tinted_background() {
 #[test]
 fn test_auto_color_resolves_against_effective_background() {
     use tcss::parser::parse_stylesheet;
+    use std::collections::VecDeque;
     use tcss::types::Theme;
     use textual::{Vertical, Widget, Label};
     use textual::style_resolver::resolve_styles;
@@ -229,9 +231,9 @@ Vertical {
     );
 
     // Resolve styles
-    let mut ancestors: Vec<WidgetMeta> = Vec::new();
+    let mut ancestors: VecDeque<WidgetMeta> = VecDeque::new();
     resolve_styles(v1.as_mut(), &stylesheet, &theme, &mut ancestors);
-    let mut ancestors: Vec<WidgetMeta> = Vec::new();
+    let mut ancestors: VecDeque<WidgetMeta> = VecDeque::new();
     resolve_styles(v5.as_mut(), &stylesheet, &theme, &mut ancestors);
 
     // Check that auto_color is set

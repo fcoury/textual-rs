@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::widget::Widget;
 use tcss::parser::StyleSheet;
 use tcss::parser::cascade::{WidgetMeta, compute_style};
@@ -21,7 +23,7 @@ pub fn resolve_styles<M>(
     widget: &mut dyn Widget<M>,
     stylesheet: &StyleSheet,
     theme: &Theme,
-    ancestors: &mut Vec<WidgetMeta>,
+    ancestors: &mut VecDeque<WidgetMeta>,
 ) {
     // Delegate to dirty resolver, forcing all widgets to be restyled
     resolve_dirty_styles(
@@ -43,11 +45,14 @@ pub fn resolve_styles<M>(
 /// Invisible widgets are skipped entirely (optimization).
 ///
 /// After restyling, widgets are marked clean.
+///
+/// Note: `ancestors` uses VecDeque with push_front/pop_front to maintain
+/// leaf-to-root order (immediate parent first), as required by cascade matching.
 pub fn resolve_dirty_styles<M>(
     widget: &mut dyn Widget<M>,
     stylesheet: &StyleSheet,
     theme: &Theme,
-    ancestors: &mut Vec<WidgetMeta>,
+    ancestors: &mut VecDeque<WidgetMeta>,
     parent_dirty: bool,
     inherited: &InheritedContext,
 ) {
@@ -61,8 +66,10 @@ pub fn resolve_dirty_styles<M>(
 
     let mut style = if should_restyle {
         // Compute style for the current widget
+        // make_contiguous() ensures the VecDeque can be passed as a slice
         let meta = widget.get_meta();
-        let mut style = compute_style(&meta, ancestors, stylesheet, theme);
+        let ancestors_slice = ancestors.make_contiguous();
+        let mut style = compute_style(&meta, ancestors_slice, stylesheet, theme);
 
         // Apply CSS inheritance for properties that weren't explicitly set
         apply_inheritance(&mut style, inherited);
@@ -85,9 +92,9 @@ pub fn resolve_dirty_styles<M>(
     // Build inherited context for children
     let child_inherited = build_inherited_context(&mut style, inherited);
 
-    // Prepare for children: push current widget onto ancestor stack
+    // Prepare for children: push current widget onto ancestor stack (at front for leaf-to-root order)
     let meta = widget.get_meta();
-    ancestors.push(meta);
+    ancestors.push_front(meta);
 
     // Recurse into children, propagating dirty state
     widget.for_each_child(&mut |child| {
@@ -102,7 +109,7 @@ pub fn resolve_dirty_styles<M>(
     });
 
     // Clean up stack after visiting subtree
-    ancestors.pop();
+    ancestors.pop_front();
 }
 
 /// Apply CSS property inheritance from parent context.

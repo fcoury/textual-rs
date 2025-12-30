@@ -3,7 +3,7 @@
 //! This module provides headless rendering without the event loop,
 //! useful for snapshot testing UI layouts.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use crate::{
     canvas::Canvas,
@@ -76,7 +76,7 @@ where
     let stylesheet = tcss::parser::parse_stylesheet(&combined_css).expect("CSS parsing failed");
 
     // Resolve styles
-    let mut ancestors = Vec::new();
+    let mut ancestors = VecDeque::new();
     resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
 
     // Render to canvas
