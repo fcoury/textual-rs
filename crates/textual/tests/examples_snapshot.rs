@@ -1151,3 +1151,69 @@ fn snapshot_dock_all_example() {
     let canvas = render_to_canvas(&app, dock_all_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Hatch Example
+// ============================================================================
+
+mod hatch_example {
+    use super::*;
+    use textual::{Horizontal, Static, Vertical, widget};
+
+    const HATCHES: &[&str] = &["cross", "horizontal", "custom", "left", "right"];
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct HatchApp;
+
+    impl Compose for HatchApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            let hatch_widgets: Vec<Box<dyn Widget<Message>>> = HATCHES
+                .iter()
+                .map(|&hatch| {
+                    widget! {
+                        Vertical {
+                            Static("", classes: format!("hatch {}", hatch), border_title: hatch)
+                        }
+                    }
+                })
+                .collect();
+
+            vec![Box::new(Horizontal::new(hatch_widgets))]
+        }
+    }
+
+    pub const CSS: &str = r#"
+.hatch {
+    width: 1fr;
+    height: 1fr;
+    border: solid $secondary;
+
+    &.cross {
+        hatch: cross $success;
+    }
+    &.horizontal {
+        hatch: horizontal $success 80%;
+    }
+    &.custom {
+        hatch: "T" $success 60%;
+    }
+    &.left {
+        hatch: left $success 40%;
+    }
+    &.right {
+        hatch: right $success 20%;
+    }
+}
+"#;
+}
+
+#[test]
+fn snapshot_hatch_example() {
+    let app = hatch_example::HatchApp;
+    let canvas = render_to_canvas(&app, hatch_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
