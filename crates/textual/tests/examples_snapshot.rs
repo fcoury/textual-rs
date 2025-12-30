@@ -599,3 +599,119 @@ fn snapshot_border_sub_title_align_all_example() {
     let canvas = render_to_canvas(&app, border_sub_title_align_all_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Border Subtitle Align Example
+// ============================================================================
+
+mod border_subtitle_align_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct BorderSubtitleAlignApp;
+
+    impl Compose for BorderSubtitleAlignApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("My subtitle is on the left.", id: "label1", border_subtitle: "< Left")
+                Label("My subtitle is centered", id: "label2", border_subtitle: "Centered!")
+                Label("My subtitle is on the right", id: "label3", border_subtitle: "Right >")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#label1 {
+    border: solid $secondary;
+    border-subtitle-align: left;
+}
+
+#label2 {
+    border: dashed $secondary;
+    border-subtitle-align: center;
+}
+
+#label3 {
+    border: tall $secondary;
+    border-subtitle-align: right;
+}
+
+Screen > Label {
+    width: 100%;
+    height: 5;
+    content-align: center middle;
+    color: white;
+    margin: 1;
+    box-sizing: border-box;
+}
+"#;
+}
+
+#[test]
+fn snapshot_border_subtitle_align_example() {
+    let app = border_subtitle_align_example::BorderSubtitleAlignApp;
+    let canvas = render_to_canvas(&app, border_subtitle_align_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Border Title Align Example
+// ============================================================================
+
+mod border_title_align_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct BorderTitleAlignApp;
+
+    impl Compose for BorderTitleAlignApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("My title is on the left.", id: "label1", border_title: "< Left")
+                Label("My title is centered", id: "label2", border_title: "Centered!")
+                Label("My title is on the right", id: "label3", border_title: "Right >")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#label1 {
+    border: solid $secondary;
+    border-title-align: left;
+}
+
+#label2 {
+    border: dashed $secondary;
+    border-title-align: center;
+}
+
+#label3 {
+    border: tall $secondary;
+    border-title-align: right;
+}
+
+Screen > Label {
+    width: 100%;
+    height: 5;
+    content-align: center middle;
+    color: white;
+    margin: 1;
+    box-sizing: border-box;
+}
+"#;
+}
+
+#[test]
+fn snapshot_border_title_align_example() {
+    let app = border_title_align_example::BorderTitleAlignApp;
+    let canvas = render_to_canvas(&app, border_title_align_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}

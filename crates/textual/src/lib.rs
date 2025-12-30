@@ -49,6 +49,7 @@ pub use widget::static_widget::Static;
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
 pub use tcss::{parser::parse_stylesheet, types::Theme};
+pub use textual_macros::ui;
 pub use widget::{
     Compose, Widget, placeholder::Placeholder, screen::Breakpoint, screen::Screen,
     scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch,

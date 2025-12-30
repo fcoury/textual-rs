@@ -679,10 +679,20 @@ dependencies = [
  "portable-pty",
  "rich",
  "tcss",
+ "textual-macros",
  "thiserror",
  "tokio",
  "unicode-width 0.2.2",
  "vt100",
+]
+
+[[package]]
+name = "textual-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
