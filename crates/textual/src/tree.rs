@@ -644,6 +644,30 @@ fn find_all_and_apply<M, F>(
     }
 }
 
+/// Find all widgets matching a selector AND filter, apply a closure to each.
+fn find_all_and_apply_filtered<M, F, P>(
+    widget: &mut dyn Widget<M>,
+    selector: &SimpleSelector,
+    filter: &P,
+    f: &mut F,
+) where
+    F: FnMut(&mut dyn Widget<M>),
+    P: Fn(&dyn Widget<M>) -> bool,
+{
+    // Check if this widget matches selector AND filter
+    if selector.matches(widget) && filter(widget) {
+        f(widget);
+    }
+
+    // Recurse into children
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            find_all_and_apply_filtered(child, selector, filter, f);
+        }
+    }
+}
+
 /// Query result that enables chainable multi-widget operations.
 ///
 /// `DOMQuery` holds a reference to the widget tree and selector criteria.
@@ -664,6 +688,11 @@ fn find_all_and_apply<M, F>(
 /// // Count matching widgets
 /// let count = tree.query("Container").count();
 ///
+/// // Filter then apply
+/// tree.query("Label")
+///     .filter(|w| w.id() == Some("status"))
+///     .add_class("highlighted");
+///
 /// // Apply to first match only
 /// tree.query("#header").first(|w| {
 ///     w.set_border_subtitle("Header");
@@ -674,23 +703,59 @@ pub struct DOMQuery<'a, M> {
     tree: &'a mut WidgetTree<M>,
     /// The parsed selector criteria.
     selector: SimpleSelector,
+    /// Optional filter predicate applied after selector matching.
+    filter_fn: Option<Box<dyn Fn(&dyn Widget<M>) -> bool + 'a>>,
 }
 
 impl<'a, M: 'static> DOMQuery<'a, M> {
     /// Create a new DOMQuery for the given tree and selector.
     pub(crate) fn new(tree: &'a mut WidgetTree<M>, selector: SimpleSelector) -> Self {
-        Self { tree, selector }
+        Self {
+            tree,
+            selector,
+            filter_fn: None,
+        }
+    }
+
+    /// Filter results by a predicate.
+    ///
+    /// The predicate is applied after the selector match. Only widgets that
+    /// match the selector AND pass the filter will be included in results.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Find Labels with a specific ID prefix
+    /// tree.query("Label")
+    ///     .filter(|w| w.id().map(|id| id.starts_with("item-")).unwrap_or(false))
+    ///     .add_class("item");
+    ///
+    /// // Find widgets with a specific class
+    /// tree.query("Button")
+    ///     .filter(|w| w.has_class("primary"))
+    ///     .set_disabled(true);
+    /// ```
+    pub fn filter<F>(mut self, predicate: F) -> Self
+    where
+        F: Fn(&dyn Widget<M>) -> bool + 'a,
+    {
+        self.filter_fn = Some(Box::new(predicate));
+        self
     }
 
     /// Apply a closure to all matching widgets.
     ///
     /// Traverses the entire tree and calls the closure for each widget
-    /// that matches the selector, in depth-first order.
+    /// that matches the selector (and filter, if set), in depth-first order.
     pub fn for_each<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut dyn Widget<M>),
     {
-        find_all_and_apply(self.tree.root_mut(), &self.selector, &mut f);
+        if let Some(ref filter) = self.filter_fn {
+            find_all_and_apply_filtered(self.tree.root_mut(), &self.selector, filter, &mut f);
+        } else {
+            find_all_and_apply(self.tree.root_mut(), &self.selector, &mut f);
+        }
     }
 
     /// Count the number of matching widgets.
@@ -707,8 +772,25 @@ impl<'a, M: 'static> DOMQuery<'a, M> {
     where
         F: FnOnce(&mut dyn Widget<M>) -> R,
     {
-        // Use query_one internally since it already does first-match
-        self.tree.query_one_internal(&self.selector, f)
+        if let Some(ref filter) = self.filter_fn {
+            // With filter: use find_first_filtered
+            let mut result = None;
+            let mut f = Some(f);
+            find_first_filtered(
+                self.tree.root_mut(),
+                &self.selector,
+                filter,
+                &mut |widget| {
+                    if let Some(f) = f.take() {
+                        result = Some(f(widget));
+                    }
+                },
+            );
+            result
+        } else {
+            // Without filter: use existing query_one_internal
+            self.tree.query_one_internal(&self.selector, f)
+        }
     }
 
     /// Apply a closure to the last matching widget.
@@ -720,12 +802,22 @@ impl<'a, M: 'static> DOMQuery<'a, M> {
     {
         // Collect paths to all matching widgets, then apply to last
         let mut paths: Vec<Vec<usize>> = Vec::new();
-        collect_matching_paths(
-            self.tree.root_mut(),
-            &self.selector,
-            &mut Vec::new(),
-            &mut paths,
-        );
+        if let Some(ref filter) = self.filter_fn {
+            collect_matching_paths_filtered(
+                self.tree.root_mut(),
+                &self.selector,
+                filter,
+                &mut Vec::new(),
+                &mut paths,
+            );
+        } else {
+            collect_matching_paths(
+                self.tree.root_mut(),
+                &self.selector,
+                &mut Vec::new(),
+                &mut paths,
+            );
+        }
 
         if let Some(last_path) = paths.last() {
             // Navigate to the last matching widget
@@ -810,6 +902,61 @@ fn collect_matching_paths<M>(
         }
         current_path.pop();
     }
+}
+
+/// Collect paths to all widgets matching a selector AND filter.
+///
+/// Used by `DOMQuery::last()` when a filter is set.
+fn collect_matching_paths_filtered<M, P>(
+    widget: &mut dyn Widget<M>,
+    selector: &SimpleSelector,
+    filter: &P,
+    current_path: &mut Vec<usize>,
+    paths: &mut Vec<Vec<usize>>,
+) where
+    P: Fn(&dyn Widget<M>) -> bool,
+{
+    if selector.matches(widget) && filter(widget) {
+        paths.push(current_path.clone());
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        current_path.push(i);
+        if let Some(child) = widget.get_child_mut(i) {
+            collect_matching_paths_filtered(child, selector, filter, current_path, paths);
+        }
+        current_path.pop();
+    }
+}
+
+/// Find the first widget matching a selector AND filter, apply closure.
+///
+/// Returns true if a match was found.
+fn find_first_filtered<M, F, P>(
+    widget: &mut dyn Widget<M>,
+    selector: &SimpleSelector,
+    filter: &P,
+    f: &mut F,
+) -> bool
+where
+    F: FnMut(&mut dyn Widget<M>),
+    P: Fn(&dyn Widget<M>) -> bool,
+{
+    if selector.matches(widget) && filter(widget) {
+        f(widget);
+        return true;
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            if find_first_filtered(child, selector, filter, f) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -1794,5 +1941,190 @@ mod tests {
 
         // add_class on empty results should not panic
         tree.query("Label").add_class("test"); // Should be a no-op
+    }
+
+    // ------------------------------------------------------------------------
+    // DOMQuery filter tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_query_filter_by_id() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("header").boxed(),
+                QueryTestWidget::new("Label").with_id("content").boxed(),
+                QueryTestWidget::new("Label").with_id("footer").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Filter to only "header" label
+        let count = tree
+            .query("Label")
+            .filter(|w| w.id() == Some("header"))
+            .count();
+
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_query_filter_by_id_prefix() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("item-1").boxed(),
+                QueryTestWidget::new("Label").with_id("item-2").boxed(),
+                QueryTestWidget::new("Label").with_id("item-3").boxed(),
+                QueryTestWidget::new("Label").with_id("other").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Filter to labels with "item-" prefix
+        let count = tree
+            .query("Label")
+            .filter(|w| w.id().map(|id| id.starts_with("item-")).unwrap_or(false))
+            .count();
+
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn test_query_filter_add_class() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").with_id("primary-btn").boxed(),
+                QueryTestWidget::new("Button").with_id("secondary-btn").boxed(),
+                QueryTestWidget::new("Button").with_id("primary-action").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Add class only to buttons with "primary" in their ID
+        tree.query("Button")
+            .filter(|w| w.id().map(|id| id.contains("primary")).unwrap_or(false))
+            .add_class("primary-style");
+
+        // Verify only the correct buttons got the class
+        let primary_btn = tree.query("#primary-btn").first(|w| w.has_class("primary-style"));
+        assert_eq!(primary_btn, Some(true));
+
+        let secondary_btn = tree.query("#secondary-btn").first(|w| w.has_class("primary-style"));
+        assert_eq!(secondary_btn, Some(false));
+
+        let primary_action = tree.query("#primary-action").first(|w| w.has_class("primary-style"));
+        assert_eq!(primary_action, Some(true));
+    }
+
+    #[test]
+    fn test_query_filter_first() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("a").boxed(),
+                QueryTestWidget::new("Label").with_id("b").boxed(),
+                QueryTestWidget::new("Label").with_id("c").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Get first label that is NOT "a"
+        let id = tree
+            .query("Label")
+            .filter(|w| w.id() != Some("a"))
+            .first(|w| w.id().map(|s| s.to_string()));
+
+        assert_eq!(id, Some(Some("b".to_string())));
+    }
+
+    #[test]
+    fn test_query_filter_last() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("a").boxed(),
+                QueryTestWidget::new("Label").with_id("b").boxed(),
+                QueryTestWidget::new("Label").with_id("c").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Get last label that is NOT "c"
+        let id = tree
+            .query("Label")
+            .filter(|w| w.id() != Some("c"))
+            .last(|w| w.id().map(|s| s.to_string()));
+
+        assert_eq!(id, Some(Some("b".to_string())));
+    }
+
+    #[test]
+    fn test_query_filter_by_class() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Button").with_id("btn-1").boxed(),
+                QueryTestWidget::new("Button").with_id("btn-2").boxed(),
+                QueryTestWidget::new("Button").with_id("btn-3").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // First, add "active" class to btn-1 and btn-3
+        tree.query("#btn-1").add_class("active");
+        tree.query("#btn-3").add_class("active");
+
+        // Now filter to only active buttons
+        let count = tree
+            .query("Button")
+            .filter(|w| w.has_class("active"))
+            .count();
+
+        assert_eq!(count, 2);
+
+        // Disable only active buttons
+        tree.query("Button")
+            .filter(|w| w.has_class("active"))
+            .set_disabled(true);
+
+        // Verify
+        let btn1_disabled = tree.query("#btn-1").first(|w| w.is_disabled());
+        assert_eq!(btn1_disabled, Some(true));
+
+        let btn2_disabled = tree.query("#btn-2").first(|w| w.is_disabled());
+        assert_eq!(btn2_disabled, Some(false));
+
+        let btn3_disabled = tree.query("#btn-3").first(|w| w.is_disabled());
+        assert_eq!(btn3_disabled, Some(true));
+    }
+
+    #[test]
+    fn test_query_filter_no_matches() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("a").boxed(),
+                QueryTestWidget::new("Label").with_id("b").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Filter that matches nothing
+        let count = tree
+            .query("Label")
+            .filter(|w| w.id() == Some("nonexistent"))
+            .count();
+
+        assert_eq!(count, 0);
+
+        // first/last should return None
+        let first = tree
+            .query("Label")
+            .filter(|w| w.id() == Some("nonexistent"))
+            .first(|_| ());
+
+        assert!(first.is_none());
     }
 }
