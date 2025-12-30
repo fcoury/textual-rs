@@ -1,0 +1,253 @@
+//! Integration tests for the Widget Query API (Phase 1).
+//!
+//! These tests verify that `with_widget_by_id` and `with_widget_by_type` work
+//! correctly with real widgets like Label and Container.
+
+use textual::context::{AppContext, MountContext};
+use textual::tree::WidgetTree;
+use textual::{Container, Label, Widget};
+use tokio::sync::mpsc;
+
+/// Create a simple widget tree with nested containers and labels.
+fn create_test_tree() -> Box<dyn Widget<()>> {
+    // Structure:
+    // Container (root)
+    //   ├── Label (id: "header")
+    //   ├── Container (id: "content")
+    //   │   ├── Label (id: "item-1")
+    //   │   └── Label (id: "item-2")
+    //   └── Label (id: "footer")
+
+    let header = Label::<()>::new("Header").with_id("header");
+    let item1 = Label::<()>::new("Item 1").with_id("item-1");
+    let item2 = Label::<()>::new("Item 2").with_id("item-2");
+    let footer = Label::<()>::new("Footer").with_id("footer");
+
+    let content = Container::<()>::new(vec![
+        Box::new(item1),
+        Box::new(item2),
+    ]).with_id("content");
+
+    let root = Container::<()>::new(vec![
+        Box::new(header),
+        Box::new(content),
+        Box::new(footer),
+    ]).with_id("root");
+
+    Box::new(root)
+}
+
+#[test]
+fn integration_query_by_id_finds_root_container() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    let found = tree.with_widget_by_id("root", |widget| {
+        widget.type_name().to_string()
+    });
+
+    assert_eq!(found, Some("Container".to_string()));
+}
+
+#[test]
+fn integration_query_by_id_finds_direct_child() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    let found = tree.with_widget_by_id("header", |widget| {
+        widget.type_name().to_string()
+    });
+
+    assert_eq!(found, Some("Label".to_string()));
+}
+
+#[test]
+fn integration_query_by_id_finds_nested_container() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    let found = tree.with_widget_by_id("content", |widget| {
+        widget.type_name().to_string()
+    });
+
+    assert_eq!(found, Some("Container".to_string()));
+}
+
+#[test]
+fn integration_query_by_id_finds_deeply_nested_label() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // item-1 and item-2 are nested inside "content" container
+    let found1 = tree.with_widget_by_id("item-1", |widget| {
+        widget.type_name().to_string()
+    });
+
+    let found2 = tree.with_widget_by_id("item-2", |widget| {
+        widget.type_name().to_string()
+    });
+
+    assert_eq!(found1, Some("Label".to_string()));
+    assert_eq!(found2, Some("Label".to_string()));
+}
+
+#[test]
+fn integration_query_by_type_finds_first_container() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // The root is a Container, so it should be found first
+    let found = tree.with_widget_by_type("Container", |widget| {
+        widget.id().map(|s| s.to_string())
+    });
+
+    assert_eq!(found, Some(Some("root".to_string())));
+}
+
+#[test]
+fn integration_query_by_type_finds_first_label() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // "header" is the first Label in depth-first order
+    let found = tree.with_widget_by_type("Label", |widget| {
+        widget.id().map(|s| s.to_string())
+    });
+
+    assert_eq!(found, Some(Some("header".to_string())));
+}
+
+#[test]
+fn integration_query_can_modify_border_title() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Set border title on the header label
+    tree.with_widget_by_id("header", |widget| {
+        widget.set_border_title("Modified Header");
+    });
+
+    // Verify the modification
+    let title = tree.with_widget_by_id("header", |widget| {
+        widget.border_title().map(|s| s.to_string())
+    });
+
+    assert_eq!(title, Some(Some("Modified Header".to_string())));
+}
+
+#[test]
+fn integration_query_can_modify_border_subtitle() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    // Set border subtitle on the content container
+    tree.with_widget_by_id("content", |widget| {
+        widget.set_border_subtitle("Content Subtitle");
+    });
+
+    // Verify the modification
+    let subtitle = tree.with_widget_by_id("content", |widget| {
+        widget.border_subtitle().map(|s| s.to_string())
+    });
+
+    assert_eq!(subtitle, Some(Some("Content Subtitle".to_string())));
+}
+
+#[test]
+fn integration_query_returns_none_for_nonexistent_id() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    let found = tree.with_widget_by_id("does-not-exist", |_| ());
+
+    assert!(found.is_none());
+}
+
+#[test]
+fn integration_query_returns_none_for_nonexistent_type() {
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+
+    let found = tree.with_widget_by_type("Button", |_| ());
+
+    assert!(found.is_none());
+}
+
+#[test]
+fn integration_mount_context_query_works() {
+    let (tx, _rx) = mpsc::unbounded_channel();
+    let app_ctx: AppContext<()> = AppContext::new(tx);
+
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+    let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+    // Query through MountContext
+    let found = ctx.with_widget_by_id("footer", |widget| {
+        widget.type_name().to_string()
+    });
+
+    assert_eq!(found, Some("Label".to_string()));
+}
+
+#[test]
+fn integration_mount_context_can_modify_multiple_widgets() {
+    let (tx, _rx) = mpsc::unbounded_channel();
+    let app_ctx: AppContext<()> = AppContext::new(tx);
+
+    let root = create_test_tree();
+    let mut tree = WidgetTree::new(root);
+    let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+    // Modify multiple widgets
+    ctx.with_widget_by_id("header", |widget| {
+        widget.set_border_title("Welcome");
+    });
+
+    ctx.with_widget_by_id("footer", |widget| {
+        widget.set_border_subtitle("Goodbye");
+    });
+
+    // Verify both modifications
+    let header_title = ctx.with_widget_by_id("header", |widget| {
+        widget.border_title().map(|s| s.to_string())
+    });
+
+    let footer_subtitle = ctx.with_widget_by_id("footer", |widget| {
+        widget.border_subtitle().map(|s| s.to_string())
+    });
+
+    assert_eq!(header_title, Some(Some("Welcome".to_string())));
+    assert_eq!(footer_subtitle, Some(Some("Goodbye".to_string())));
+}
+
+#[test]
+fn integration_query_depth_first_order() {
+    // Verify depth-first traversal order
+    // Tree:
+    // Container (root)
+    //   ├── Container (branch-a)
+    //   │   └── Label (leaf-a)
+    //   └── Label (sibling)
+
+    let leaf_a = Label::<()>::new("Leaf A").with_id("leaf-a");
+    let branch_a = Container::<()>::new(vec![
+        Box::new(leaf_a),
+    ]).with_id("branch-a");
+
+    let sibling = Label::<()>::new("Sibling").with_id("sibling");
+
+    let root = Container::<()>::new(vec![
+        Box::new(branch_a),
+        Box::new(sibling),
+    ]).with_id("root");
+
+    let mut tree = WidgetTree::new(Box::new(root) as Box<dyn Widget<()>>);
+
+    // Depth-first: should find "leaf-a" before "sibling"
+    let first_label = tree.with_widget_by_type("Label", |widget| {
+        widget.id().map(|s| s.to_string())
+    });
+
+    assert_eq!(first_label, Some(Some("leaf-a".to_string())));
+}

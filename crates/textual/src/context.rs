@@ -374,4 +374,234 @@ mod tests {
         let remaining: Vec<_> = std::iter::from_fn(|| rx.try_recv().ok()).collect();
         assert!(remaining.len() <= 1, "Should have stopped after cancel");
     }
+
+    // ========================================================================
+    // MountContext tests
+    // ========================================================================
+
+    use crate::canvas::Size;
+    use crate::Canvas;
+    use crate::Region;
+
+    /// Minimal test widget for MountContext tests
+    struct MountTestWidget {
+        id: Option<String>,
+        type_name: &'static str,
+        children: Vec<Box<dyn Widget<()>>>,
+        border_title: Option<String>,
+    }
+
+    impl MountTestWidget {
+        fn new(type_name: &'static str) -> Self {
+            Self {
+                id: None,
+                type_name,
+                children: Vec::new(),
+                border_title: None,
+            }
+        }
+
+        fn with_id(mut self, id: &str) -> Self {
+            self.id = Some(id.to_string());
+            self
+        }
+
+        fn with_children(mut self, children: Vec<Box<dyn Widget<()>>>) -> Self {
+            self.children = children;
+            self
+        }
+
+        fn boxed(self) -> Box<dyn Widget<()>> {
+            Box::new(self)
+        }
+    }
+
+    impl Widget<()> for MountTestWidget {
+        fn render(&self, _canvas: &mut Canvas, _region: Region) {}
+
+        fn desired_size(&self) -> Size {
+            Size { width: 1, height: 1 }
+        }
+
+        fn id(&self) -> Option<&str> {
+            self.id.as_deref()
+        }
+
+        fn type_name(&self) -> &'static str {
+            self.type_name
+        }
+
+        fn child_count(&self) -> usize {
+            self.children.len()
+        }
+
+        fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<()> + '_)> {
+            if index < self.children.len() {
+                Some(self.children[index].as_mut())
+            } else {
+                None
+            }
+        }
+
+        fn set_border_title(&mut self, title: &str) {
+            self.border_title = Some(title.to_string());
+        }
+
+        fn border_title(&self) -> Option<&str> {
+            self.border_title.as_deref()
+        }
+    }
+
+    #[test]
+    fn test_mount_context_with_widget_by_id() {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let app_ctx: AppContext<()> = AppContext::new(tx);
+
+        let root = MountTestWidget::new("Container")
+            .with_children(vec![
+                MountTestWidget::new("Label").with_id("my-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+        let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+        // Query by ID and modify
+        let result = ctx.with_widget_by_id("my-label", |widget| {
+            widget.set_border_title("Modified Title");
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(result, Some("Label".to_string()));
+
+        // Verify the modification persisted
+        let title = ctx.with_widget_by_id("my-label", |widget| {
+            widget.border_title().map(|s| s.to_string())
+        });
+
+        assert_eq!(title, Some(Some("Modified Title".to_string())));
+    }
+
+    #[test]
+    fn test_mount_context_with_widget_by_id_not_found() {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let app_ctx: AppContext<()> = AppContext::new(tx);
+
+        let root = MountTestWidget::new("Container").boxed();
+
+        let mut tree = WidgetTree::new(root);
+        let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+        let result = ctx.with_widget_by_id("nonexistent", |_| ());
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_mount_context_with_widget_by_type() {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let app_ctx: AppContext<()> = AppContext::new(tx);
+
+        let root = MountTestWidget::new("Container")
+            .with_children(vec![
+                MountTestWidget::new("Button").with_id("btn").boxed(),
+                MountTestWidget::new("Label").with_id("lbl").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+        let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+        // Query by type - should find Button first
+        let result = ctx.with_widget_by_type("Button", |widget| {
+            widget.id().map(|s| s.to_string())
+        });
+
+        assert_eq!(result, Some(Some("btn".to_string())));
+    }
+
+    #[test]
+    fn test_mount_context_with_widget_by_type_not_found() {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let app_ctx: AppContext<()> = AppContext::new(tx);
+
+        let root = MountTestWidget::new("Container").boxed();
+
+        let mut tree = WidgetTree::new(root);
+        let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+        let result = ctx.with_widget_by_type("NonexistentType", |_| ());
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_mount_context_nested_query() {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let app_ctx: AppContext<()> = AppContext::new(tx);
+
+        // Deep nesting: Container > Container > Container > Label
+        let root = MountTestWidget::new("Container")
+            .with_children(vec![
+                MountTestWidget::new("Container")
+                    .with_children(vec![
+                        MountTestWidget::new("Container")
+                            .with_children(vec![
+                                MountTestWidget::new("Label").with_id("deep").boxed(),
+                            ])
+                            .boxed(),
+                    ])
+                    .boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+        let mut ctx = MountContext::new(app_ctx, &mut tree);
+
+        // Should find deeply nested widget
+        let result = ctx.with_widget_by_id("deep", |widget| {
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(result, Some("Label".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_mount_context_post_delegates_to_app_context() {
+        // MountTestWidget uses () as message type, so we need a different test widget for i32
+        struct IntWidget;
+        impl Widget<i32> for IntWidget {
+            fn render(&self, _canvas: &mut Canvas, _region: Region) {}
+            fn desired_size(&self) -> Size { Size { width: 1, height: 1 } }
+        }
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let app_ctx: AppContext<i32> = AppContext::new(tx);
+
+        let root: Box<dyn Widget<i32>> = Box::new(IntWidget);
+        let mut tree = WidgetTree::new(root);
+        let ctx = MountContext::new(app_ctx, &mut tree);
+
+        // post() should delegate to AppContext
+        ctx.post(123);
+
+        let envelope = rx.recv().await.unwrap();
+        assert_eq!(envelope.message, 123);
+    }
+
+    #[test]
+    fn test_mount_context_app_context_accessor() {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let app_ctx: AppContext<()> = AppContext::new(tx)
+            .with_sender_info(Some("widget-id"), "WidgetType");
+
+        let root = MountTestWidget::new("Container").boxed();
+
+        let mut tree = WidgetTree::new(root);
+        let ctx = MountContext::new(app_ctx, &mut tree);
+
+        // Can access the underlying AppContext
+        assert_eq!(ctx.app_context().sender_id(), Some("widget-id"));
+        assert_eq!(ctx.app_context().sender_type(), "WidgetType");
+    }
 }

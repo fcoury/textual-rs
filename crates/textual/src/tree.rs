@@ -337,7 +337,7 @@ where
 mod tests {
     use super::*;
 
-    // A simple test widget
+    // A simple test widget for focus tests
     struct TestWidget {
         focusable: bool,
         children: Vec<Box<dyn Widget<()>>>,
@@ -419,5 +419,338 @@ mod tests {
         // Focus on second focusable (index 1)
         tree.update_focus(1);
         assert_eq!(tree.focus_path().indices(), &[1]);
+    }
+
+    // ========================================================================
+    // Query API Tests
+    // ========================================================================
+
+    /// A test widget with ID and type name support for query tests
+    struct QueryTestWidget {
+        id: Option<String>,
+        type_name: &'static str,
+        children: Vec<Box<dyn Widget<()>>>,
+        border_title: Option<String>,
+    }
+
+    impl QueryTestWidget {
+        fn new(type_name: &'static str) -> Self {
+            Self {
+                id: None,
+                type_name,
+                children: Vec::new(),
+                border_title: None,
+            }
+        }
+
+        fn with_id(mut self, id: &str) -> Self {
+            self.id = Some(id.to_string());
+            self
+        }
+
+        fn with_children(mut self, children: Vec<Box<dyn Widget<()>>>) -> Self {
+            self.children = children;
+            self
+        }
+
+        fn boxed(self) -> Box<dyn Widget<()>> {
+            Box::new(self)
+        }
+    }
+
+    impl Widget<()> for QueryTestWidget {
+        fn render(&self, _canvas: &mut crate::Canvas, _region: crate::Region) {}
+
+        fn desired_size(&self) -> crate::Size {
+            crate::Size { width: 1, height: 1 }
+        }
+
+        fn id(&self) -> Option<&str> {
+            self.id.as_deref()
+        }
+
+        fn type_name(&self) -> &'static str {
+            self.type_name
+        }
+
+        fn child_count(&self) -> usize {
+            self.children.len()
+        }
+
+        fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<()> + '_)> {
+            if index < self.children.len() {
+                Some(self.children[index].as_mut())
+            } else {
+                None
+            }
+        }
+
+        fn set_border_title(&mut self, title: &str) {
+            self.border_title = Some(title.to_string());
+        }
+
+        fn border_title(&self) -> Option<&str> {
+            self.border_title.as_deref()
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // with_widget_by_id tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_with_widget_by_id_finds_root() {
+        let root = QueryTestWidget::new("Container")
+            .with_id("root")
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_id("root", |widget| {
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(found, Some("Container".to_string()));
+    }
+
+    #[test]
+    fn test_with_widget_by_id_finds_child() {
+        let root = QueryTestWidget::new("Container")
+            .with_id("root")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("my-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_id("my-label", |widget| {
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(found, Some("Label".to_string()));
+    }
+
+    #[test]
+    fn test_with_widget_by_id_finds_deeply_nested() {
+        // Container > Container > Container > Label(id: "deep")
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Container")
+                    .with_children(vec![
+                        QueryTestWidget::new("Container")
+                            .with_children(vec![
+                                QueryTestWidget::new("Label").with_id("deep").boxed(),
+                            ])
+                            .boxed(),
+                    ])
+                    .boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_id("deep", |widget| {
+            widget.type_name().to_string()
+        });
+
+        assert_eq!(found, Some("Label".to_string()));
+    }
+
+    #[test]
+    fn test_with_widget_by_id_returns_none_for_missing() {
+        let root = QueryTestWidget::new("Container")
+            .with_id("root")
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_id("nonexistent", |_| ());
+
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn test_with_widget_by_id_can_modify_widget() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("my-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Modify the widget
+        tree.with_widget_by_id("my-label", |widget| {
+            widget.set_border_title("New Title");
+        });
+
+        // Verify the modification persisted
+        let title = tree.with_widget_by_id("my-label", |widget| {
+            widget.border_title().map(|s| s.to_string())
+        });
+
+        assert_eq!(title, Some(Some("New Title".to_string())));
+    }
+
+    #[test]
+    fn test_with_widget_by_id_finds_first_match() {
+        // Two widgets with different IDs at same level
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("first").boxed(),
+                QueryTestWidget::new("Button").with_id("second").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let first = tree.with_widget_by_id("first", |w| w.type_name().to_string());
+        let second = tree.with_widget_by_id("second", |w| w.type_name().to_string());
+
+        assert_eq!(first, Some("Label".to_string()));
+        assert_eq!(second, Some("Button".to_string()));
+    }
+
+    // ------------------------------------------------------------------------
+    // with_widget_by_type tests
+    // ------------------------------------------------------------------------
+
+    #[test]
+    fn test_with_widget_by_type_finds_root() {
+        let root = QueryTestWidget::new("Container")
+            .with_id("root")
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_type("Container", |widget| {
+            widget.id().map(|s| s.to_string())
+        });
+
+        assert_eq!(found, Some(Some("root".to_string())));
+    }
+
+    #[test]
+    fn test_with_widget_by_type_finds_child() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("my-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_type("Label", |widget| {
+            widget.id().map(|s| s.to_string())
+        });
+
+        assert_eq!(found, Some(Some("my-label".to_string())));
+    }
+
+    #[test]
+    fn test_with_widget_by_type_finds_first_of_type() {
+        // Multiple Labels - should find the first one
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("first-label").boxed(),
+                QueryTestWidget::new("Label").with_id("second-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_type("Label", |widget| {
+            widget.id().map(|s| s.to_string())
+        });
+
+        // Should find the first Label
+        assert_eq!(found, Some(Some("first-label".to_string())));
+    }
+
+    #[test]
+    fn test_with_widget_by_type_returns_none_for_missing() {
+        let root = QueryTestWidget::new("Container").boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_type("NonexistentWidget", |_| ());
+
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn test_with_widget_by_type_can_modify_widget() {
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Label").with_id("my-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        // Modify the first Label
+        tree.with_widget_by_type("Label", |widget| {
+            widget.set_border_title("Type Query Title");
+        });
+
+        // Verify the modification persisted
+        let title = tree.with_widget_by_type("Label", |widget| {
+            widget.border_title().map(|s| s.to_string())
+        });
+
+        assert_eq!(title, Some(Some("Type Query Title".to_string())));
+    }
+
+    #[test]
+    fn test_with_widget_by_type_finds_deeply_nested() {
+        // Container > Container > Button
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Container")
+                    .with_children(vec![
+                        QueryTestWidget::new("Button").with_id("deep-button").boxed(),
+                    ])
+                    .boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_type("Button", |widget| {
+            widget.id().map(|s| s.to_string())
+        });
+
+        assert_eq!(found, Some(Some("deep-button".to_string())));
+    }
+
+    #[test]
+    fn test_with_widget_by_type_depth_first_order() {
+        // Tree structure:
+        // Container
+        //   ├── Container
+        //   │   └── Label(id: "nested-label")
+        //   └── Label(id: "sibling-label")
+        //
+        // Depth-first should find "nested-label" first
+        let root = QueryTestWidget::new("Container")
+            .with_children(vec![
+                QueryTestWidget::new("Container")
+                    .with_children(vec![
+                        QueryTestWidget::new("Label").with_id("nested-label").boxed(),
+                    ])
+                    .boxed(),
+                QueryTestWidget::new("Label").with_id("sibling-label").boxed(),
+            ])
+            .boxed();
+
+        let mut tree = WidgetTree::new(root);
+
+        let found = tree.with_widget_by_type("Label", |widget| {
+            widget.id().map(|s| s.to_string())
+        });
+
+        // Depth-first: nested-label should be found first
+        assert_eq!(found, Some(Some("nested-label".to_string())));
     }
 }

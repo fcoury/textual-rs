@@ -462,6 +462,24 @@ Container {
         }
     }
 
+    fn border_title(&self) -> Option<&str> {
+        self.border_title.as_deref()
+    }
+
+    fn border_subtitle(&self) -> Option<&str> {
+        self.border_subtitle.as_deref()
+    }
+
+    fn set_border_title(&mut self, title: &str) {
+        self.border_title = Some(title.to_string());
+        self.dirty = true;
+    }
+
+    fn set_border_subtitle(&mut self, subtitle: &str) {
+        self.border_subtitle = Some(subtitle.to_string());
+        self.dirty = true;
+    }
+
     fn pre_layout(&mut self, _layout: &mut dyn Layout) {
         // Default container doesn't configure layout
         // Override in ItemGrid to set min_column_width, etc.
