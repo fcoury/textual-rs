@@ -117,6 +117,9 @@ impl Style {
 pub struct Segment {
     /// The text content.
     text: String,
+    /// Cached terminal cell width (calculated once at creation).
+    /// This avoids O(N) unicode width calculations on every access.
+    cell_length: usize,
     /// Optional styling for this segment.
     style: Option<Style>,
     /// Metadata for extensions (e.g., @click actions from Rich markup).
@@ -126,8 +129,11 @@ pub struct Segment {
 impl Segment {
     /// Creates a new segment with the given text and no style.
     pub fn new<S: Into<String>>(text: S) -> Self {
+        let text = text.into();
+        let cell_length = text.width();
         Self {
-            text: text.into(),
+            text,
+            cell_length,
             style: None,
             meta: HashMap::new(),
         }
@@ -135,8 +141,11 @@ impl Segment {
 
     /// Creates a new segment with the given text and style.
     pub fn styled<S: Into<String>>(text: S, style: Style) -> Self {
+        let text = text.into();
+        let cell_length = text.width();
         Self {
-            text: text.into(),
+            text,
+            cell_length,
             style: Some(style),
             meta: HashMap::new(),
         }
@@ -146,6 +155,7 @@ impl Segment {
     pub fn blank(width: usize, style: Option<Style>) -> Self {
         Self {
             text: " ".repeat(width),
+            cell_length: width, // Spaces are always 1 cell wide
             style,
             meta: HashMap::new(),
         }
@@ -197,10 +207,11 @@ impl Segment {
 
     /// Returns the terminal cell width of this segment.
     ///
-    /// Uses Unicode width calculation to handle wide characters (CJK, emoji, etc.)
-    /// correctly. Each terminal cell is one unit.
+    /// This returns a cached value calculated at segment creation time,
+    /// making it O(1) instead of O(N) for repeated calls.
+    #[inline]
     pub fn cell_length(&self) -> usize {
-        self.text.width()
+        self.cell_length
     }
 
     /// Returns true if the segment is empty (no text).
@@ -229,6 +240,7 @@ impl Segment {
             return (
                 Segment {
                     text: String::new(),
+                    cell_length: 0,
                     style: self.style.clone(),
                     meta: self.meta.clone(),
                 },
@@ -236,11 +248,12 @@ impl Segment {
             );
         }
 
-        if cut >= self.cell_length() {
+        if cut >= self.cell_length {
             return (
                 self.clone(),
                 Segment {
                     text: String::new(),
+                    cell_length: 0,
                     style: self.style.clone(),
                     meta: self.meta.clone(),
                 },
@@ -265,11 +278,13 @@ impl Segment {
         (
             Segment {
                 text: left_text.to_string(),
+                cell_length: cell_pos,
                 style: self.style.clone(),
                 meta: self.meta.clone(),
             },
             Segment {
                 text: right_text.to_string(),
+                cell_length: self.cell_length - cell_pos,
                 style: self.style.clone(),
                 meta: self.meta.clone(),
             },
@@ -288,6 +303,7 @@ impl Segment {
 
         Segment {
             text: self.text.clone(),
+            cell_length: self.cell_length,
             style: Some(new_style),
             meta: self.meta.clone(),
         }
@@ -297,6 +313,7 @@ impl Segment {
     pub fn set_style(&self, style: Option<Style>) -> Segment {
         Segment {
             text: self.text.clone(),
+            cell_length: self.cell_length,
             style,
             meta: self.meta.clone(),
         }
@@ -329,6 +346,7 @@ impl Segment {
 
         Segment {
             text: self.text.clone(),
+            cell_length: self.cell_length,
             style: new_style,
             meta: self.meta.clone(),
         }
@@ -378,6 +396,8 @@ impl Segment {
 
         Segment {
             text: new_text,
+            // Preserve cell_length: space and typical hatch chars are both width 1
+            cell_length: self.cell_length,
             style: new_style,
             meta: self.meta.clone(),
         }

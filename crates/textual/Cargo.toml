@@ -27,3 +27,16 @@ tokio = { version = "1.0", features = ["test-util"] }
 insta = "1.40"
 portable-pty = "0.8"
 vt100 = "0.15"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "segment_benchmarks"
+harness = false
+
+[[bench]]
+name = "strip_benchmarks"
+harness = false
+
+[[bench]]
+name = "canvas_benchmarks"
+harness = false
