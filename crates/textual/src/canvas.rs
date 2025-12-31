@@ -412,6 +412,87 @@ impl Canvas {
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    /// Serialize canvas to ANSI-colored text for snapshot testing.
+    ///
+    /// Unlike `to_snapshot()` which returns plain text, this method includes
+    /// ANSI escape codes for foreground colors, background colors, and text
+    /// attributes (bold, italic, underline, etc.).
+    ///
+    /// The output is human-readable when viewed in a terminal that supports
+    /// ANSI escape codes, and can be used for color regression testing.
+    pub fn to_ansi_snapshot(&self) -> String {
+        let mut result = String::new();
+
+        for y in 0..self.size.height as i32 {
+            let mut last_fg: Option<Color> = None;
+            let mut last_bg: Option<Color> = None;
+            let mut last_attrs = TextAttributes::default();
+
+            for x in 0..self.size.width as i32 {
+                let index = (y as usize) * (self.size.width as usize) + (x as usize);
+                let cell = &self.cells[index];
+
+                // Emit attribute changes (reset + re-apply all)
+                if cell.attrs != last_attrs {
+                    result.push_str("\x1b[0m"); // Reset all attributes
+                    if cell.attrs.bold {
+                        result.push_str("\x1b[1m");
+                    }
+                    if cell.attrs.dim {
+                        result.push_str("\x1b[2m");
+                    }
+                    if cell.attrs.italic {
+                        result.push_str("\x1b[3m");
+                    }
+                    if cell.attrs.underline {
+                        result.push_str("\x1b[4m");
+                    }
+                    if cell.attrs.strike {
+                        result.push_str("\x1b[9m");
+                    }
+                    if cell.attrs.reverse {
+                        result.push_str("\x1b[7m");
+                    }
+                    last_attrs = cell.attrs;
+                    // Force color re-emission after reset
+                    last_fg = None;
+                    last_bg = None;
+                }
+
+                // Emit foreground color changes
+                if cell.fg != last_fg {
+                    if let Some(Color::Rgb { r, g, b }) = cell.fg {
+                        result.push_str(&format!("\x1b[38;2;{};{};{}m", r, g, b));
+                    } else if cell.fg.is_none() && last_fg.is_some() {
+                        result.push_str("\x1b[39m"); // Reset to default fg
+                    }
+                    last_fg = cell.fg;
+                }
+
+                // Emit background color changes
+                if cell.bg != last_bg {
+                    if let Some(Color::Rgb { r, g, b }) = cell.bg {
+                        result.push_str(&format!("\x1b[48;2;{};{};{}m", r, g, b));
+                    } else if cell.bg.is_none() && last_bg.is_some() {
+                        result.push_str("\x1b[49m"); // Reset to default bg
+                    }
+                    last_bg = cell.bg;
+                }
+
+                result.push(cell.symbol);
+            }
+
+            // Reset at end of line and trim trailing spaces
+            // (but we keep the ANSI codes for regression testing)
+            result.push_str("\x1b[0m");
+            if y < self.size.height as i32 - 1 {
+                result.push('\n');
+            }
+        }
+
+        result
+    }
 }
 
 fn to_crossterm_color(c: RgbaColor) -> Color {

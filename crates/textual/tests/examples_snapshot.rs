@@ -72,6 +72,13 @@ fn snapshot_border_example() {
     assert_snapshot!(canvas.to_snapshot());
 }
 
+#[test]
+fn snapshot_border_example_ansi() {
+    let app = border_example::BorderApp;
+    let canvas = render_to_canvas(&app, border_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
 // ============================================================================
 // Align Example
 // ============================================================================
@@ -260,6 +267,13 @@ fn snapshot_background_example() {
     let app = background_example::BackgroundApp;
     let canvas = render_to_canvas(&app, background_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
+}
+
+#[test]
+fn snapshot_background_example_ansi() {
+    let app = background_example::BackgroundApp;
+    let canvas = render_to_canvas(&app, background_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
 }
 
 // ============================================================================
@@ -763,6 +777,13 @@ fn snapshot_border_title_colors_example() {
     let app = border_title_colors_example::BorderTitleColorsApp;
     let canvas = render_to_canvas(&app, border_title_colors_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
+}
+
+#[test]
+fn snapshot_border_title_colors_example_ansi() {
+    let app = border_title_colors_example::BorderTitleColorsApp;
+    let canvas = render_to_canvas(&app, border_title_colors_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
 }
 
 // ============================================================================
@@ -1414,6 +1435,13 @@ fn snapshot_color_example() {
     assert_snapshot!(canvas.to_snapshot());
 }
 
+#[test]
+fn snapshot_color_example_ansi() {
+    let app = color_example::ColorApp;
+    let canvas = render_to_canvas(&app, color_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
 // ============================================================================
 // Color Auto Example
 // ============================================================================
@@ -1945,6 +1973,13 @@ fn snapshot_link_background_example() {
     let app = link_background_example::LinkBackgroundApp;
     let canvas = render_to_canvas(&app, link_background_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
+}
+
+#[test]
+fn snapshot_link_background_example_ansi() {
+    let app = link_background_example::LinkBackgroundApp;
+    let canvas = render_to_canvas(&app, link_background_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
 }
 
 // ============================================================================
