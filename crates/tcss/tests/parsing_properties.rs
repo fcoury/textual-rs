@@ -992,3 +992,71 @@ Vertical {
     assert!(style.background.is_some(), "background should be set");
     assert!(style.background_tint.is_some(), "background_tint should be set for #tint1");
 }
+
+
+// Keyline tests
+
+#[test]
+fn test_property_keyline_heavy_green() {
+    use tcss::types::keyline::KeylineStyle;
+    
+    let decl = parse_first_declaration("Grid { keyline: heavy green; }");
+    if let Declaration::Keyline(k) = decl {
+        assert_eq!(k.style, KeylineStyle::Heavy);
+        assert_eq!(k.color, RgbaColor::rgb(0, 128, 0));
+    } else {
+        panic!("expected Keyline declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_keyline_thin_red() {
+    use tcss::types::keyline::KeylineStyle;
+    
+    let decl = parse_first_declaration("Grid { keyline: thin red; }");
+    if let Declaration::Keyline(k) = decl {
+        assert_eq!(k.style, KeylineStyle::Thin);
+        assert_eq!(k.color, RgbaColor::rgb(255, 0, 0));
+    } else {
+        panic!("expected Keyline declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_keyline_double_hex() {
+    use tcss::types::keyline::KeylineStyle;
+    
+    let decl = parse_first_declaration("Grid { keyline: double #00ff00; }");
+    if let Declaration::Keyline(k) = decl {
+        assert_eq!(k.style, KeylineStyle::Double);
+        assert_eq!(k.color, RgbaColor::rgb(0, 255, 0));
+    } else {
+        panic!("expected Keyline declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_keyline_none() {
+    use tcss::types::keyline::KeylineStyle;
+    
+    let decl = parse_first_declaration("Grid { keyline: none; }");
+    if let Declaration::Keyline(k) = decl {
+        assert_eq!(k.style, KeylineStyle::None);
+    } else {
+        panic!("expected Keyline declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_keyline_rgb() {
+    use tcss::types::keyline::KeylineStyle;
+    
+    let decl = parse_first_declaration("Grid { keyline: heavy rgb(100, 150, 200); }");
+    if let Declaration::Keyline(k) = decl {
+        assert_eq!(k.style, KeylineStyle::Heavy);
+        assert_eq!(k.color, RgbaColor::rgb(100, 150, 200));
+    } else {
+        panic!("expected Keyline declaration, got {:?}", decl);
+    }
+}
+

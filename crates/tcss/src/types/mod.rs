@@ -32,6 +32,7 @@ pub mod color;
 pub mod geometry;
 pub mod grid;
 pub mod hatch;
+pub mod keyline;
 pub mod layout;
 pub mod link;
 pub mod scrollbar;
@@ -43,6 +44,7 @@ pub use color::RgbaColor;
 pub use geometry::{Scalar, Spacing, Unit};
 pub use grid::{GridPlacement, GridStyle};
 pub use hatch::{Hatch, HatchPattern};
+pub use keyline::{Keyline, KeylineStyle};
 pub use layout::{BoxSizing, Display, Dock, Layout, Overflow, Visibility};
 pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
@@ -132,6 +134,9 @@ pub struct ComputedStyle {
 
     // Hatch pattern fill
     pub hatch: Option<Hatch>,
+
+    // Keyline (box-drawing borders around widgets)
+    pub keyline: Keyline,
 }
 
 impl Default for ComputedStyle {
@@ -179,6 +184,7 @@ impl Default for ComputedStyle {
             scrollbar: ScrollbarStyle::default(),
             link: LinkStyle::default(),
             hatch: None,
+            keyline: Keyline::default(),
         }
     }
 }

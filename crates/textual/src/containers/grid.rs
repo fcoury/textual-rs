@@ -25,9 +25,10 @@
 //! }
 //! ```
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, WidgetMeta, WidgetStates, types::keyline::KeylineStyle};
 
-use crate::layouts::{self, Layout};
+use crate::keyline_canvas::KeylineCanvas;
+use crate::layouts::{self, GridLayout, Layout};
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
 
 /// A grid container that arranges children in a 2D grid.
@@ -75,9 +76,117 @@ impl<M> Grid<M> {
             .map(|(i, c)| (i, c.get_style(), c.desired_size()))
             .collect();
 
+        // When keylines are enabled, reduce layout area by (2, 2) to make room for border
+        // This matches Python Textual's behavior: size -= (2, 2); offset = (1, 1)
+        let (layout_region, keyline_offset) = if self.style.keyline.style != KeylineStyle::None {
+            let reduced_region = Region {
+                x: region.x,
+                y: region.y,
+                width: (region.width - 2).max(0),
+                height: (region.height - 2).max(0),
+            };
+            (reduced_region, (1, 1))
+        } else {
+            (region, (0, 0))
+        };
+
         // Force grid layout regardless of CSS
         let mut layout = layouts::GridLayout::default();
-        layout.arrange(&self.style, &children_with_styles, region, viewport)
+        let mut placements = layout.arrange(&self.style, &children_with_styles, layout_region, viewport);
+
+        // Offset all placements when keylines are enabled
+        if keyline_offset != (0, 0) {
+            for placement in &mut placements {
+                placement.region.x += keyline_offset.0;
+                placement.region.y += keyline_offset.1;
+            }
+        }
+
+        placements
+    }
+
+    /// Render keylines for the grid layout.
+    fn render_keylines(&self, canvas: &mut Canvas, region: Region) {
+        // Collect children info for track computation
+        let children_with_styles: Vec<_> = self
+            .children
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.participates_in_layout())
+            .map(|(i, c)| (i, c.get_style(), c.desired_size()))
+            .collect();
+
+        if children_with_styles.is_empty() {
+            return;
+        }
+
+        // Compute tracks using reduced region (same as compute_child_placements)
+        // This matches Python's approach where layout is computed in reduced space
+        let layout_region = Region {
+            x: region.x,
+            y: region.y,
+            width: (region.width - 2).max(0),
+            height: (region.height - 2).max(0),
+        };
+
+        // Get track info from GridLayout (includes cell occupancy for span-aware rendering)
+        let layout = GridLayout::default();
+        let track_info = layout.compute_track_info(&self.style, &children_with_styles, layout_region);
+
+        if track_info.col_positions.len() < 2 || track_info.row_positions.len() < 2 {
+            return;
+        }
+
+        // Create keyline canvas using full region (keylines draw at edges)
+        let line_type = self.style.keyline.style.line_type();
+        let mut keyline_canvas = KeylineCanvas::new(
+            region.width as usize,
+            region.height as usize,
+            line_type,
+            self.style.keyline.color.clone(),
+        );
+
+        // Convert track positions for keyline rendering:
+        // - Outer borders are at edges: 0 and (region_size - 1)
+        // - Interior lines are at gutter positions (track start in reduced region maps
+        //   to gutter position in full region because outer border takes position 0)
+        let col_positions: Vec<usize> = track_info
+            .col_positions
+            .iter()
+            .enumerate()
+            .map(|(i, &x)| {
+                if i == 0 {
+                    0 // Left border at edge
+                } else if i == track_info.col_positions.len() - 1 {
+                    (region.width - 1).max(0) as usize // Right border at edge
+                } else {
+                    // Interior keylines: track position in reduced space = gutter position
+                    // Add 1 to account for outer border (but gutter is at end of previous cell)
+                    // track_pos is start of next column, so track_pos in full space = track_pos + 1
+                    // But keyline should be at gutter (end of prev col) = track_pos - 1 + 1 = track_pos
+                    x.max(0) as usize
+                }
+            })
+            .collect();
+        let row_positions: Vec<usize> = track_info
+            .row_positions
+            .iter()
+            .enumerate()
+            .map(|(i, &y)| {
+                if i == 0 {
+                    0 // Top border at edge
+                } else if i == track_info.row_positions.len() - 1 {
+                    (region.height - 1).max(0) as usize // Bottom border at edge
+                } else {
+                    // Interior keylines at gutter positions
+                    y.max(0) as usize
+                }
+            })
+            .collect();
+
+        // Use span-aware grid rendering (respects column-span/row-span)
+        keyline_canvas.add_grid_with_occupancy(&col_positions, &row_positions, &track_info.cell_occupancy);
+        keyline_canvas.render(canvas, region);
     }
 }
 
@@ -107,6 +216,12 @@ Grid {
         for placement in self.compute_child_placements(inner_region, viewport) {
             self.children[placement.child_index].render(canvas, placement.region);
         }
+
+        // 3. Render keylines on top of children (if enabled)
+        if self.style.keyline.style != KeylineStyle::None {
+            self.render_keylines(canvas, inner_region);
+        }
+
         canvas.pop_clip();
     }
 

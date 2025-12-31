@@ -20,7 +20,7 @@ mod horizontal;
 pub mod size_resolver;
 mod vertical;
 
-pub use grid::GridLayout;
+pub use grid::{GridLayout, GridTrackInfo};
 pub use horizontal::HorizontalLayout;
 pub use size_resolver::{
     resolve_height, resolve_height_fill, resolve_height_fixed, resolve_height_with_intrinsic,

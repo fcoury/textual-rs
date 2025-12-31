@@ -483,3 +483,42 @@ pub fn parse_hatch(input: &str) -> IResult<&str, crate::types::Hatch> {
 
     Ok((input, Hatch::new(pattern, color).with_opacity(opacity)))
 }
+
+/// Parse a keyline value.
+///
+/// Keyline syntax: `<style> <color>`
+/// - style: none, thin, heavy, double
+/// - color: any valid CSS color
+///
+/// # Examples
+///
+/// - `keyline: heavy green` → heavy line style in green
+/// - `keyline: thin #ff0000` → thin line style in red
+/// - `keyline: double rgb(0, 128, 255)` → double line style in blue
+pub fn parse_keyline(input: &str) -> IResult<&str, crate::types::Keyline> {
+    use crate::types::keyline::{Keyline, KeylineStyle};
+
+    let input = input.trim_start();
+
+    // Parse the style (required)
+    let (input, style_str) = parse_ident(input)?;
+    let style = KeylineStyle::parse(style_str).ok_or_else(|| {
+        nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag))
+    })?;
+
+    // If style is "none", color is optional (defaults to transparent)
+    if style == KeylineStyle::None {
+        let input = input.trim_start();
+        if input.is_empty() || input.starts_with(';') || input.starts_with('}') {
+            return Ok((input, Keyline::new(style, RgbaColor::transparent())));
+        }
+    }
+
+    // Consume whitespace
+    let input = input.trim_start();
+
+    // Parse the color (required for non-none styles)
+    let (input, color) = parse_color(input)?;
+
+    Ok((input, Keyline::new(style, color)))
+}

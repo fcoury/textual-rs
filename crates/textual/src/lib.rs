@@ -1,6 +1,7 @@
 pub mod border_box;
 pub mod border_chars;
 pub mod border_render;
+pub mod box_drawing;
 pub mod canvas;
 pub mod containers;
 pub mod content;
@@ -8,6 +9,7 @@ pub mod context;
 pub mod error;
 pub mod fraction;
 pub mod layouts;
+pub mod keyline_canvas;
 mod log_init;
 mod macros;
 pub mod message;

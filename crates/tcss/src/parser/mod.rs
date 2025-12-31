@@ -236,6 +236,9 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         // Hatch pattern fill
         "hatch" => map(values::parse_hatch, Declaration::Hatch)(input)?,
 
+        // Keyline (box-drawing borders around widgets)
+        "keyline" => map(values::parse_keyline, Declaration::Keyline)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;

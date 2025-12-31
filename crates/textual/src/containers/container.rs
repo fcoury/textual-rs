@@ -3,11 +3,13 @@
 //! Container is the base for all layout containers. It dispatches to the
 //! appropriate layout algorithm based on the `layout` CSS property.
 
+use tcss::types::keyline::KeylineStyle;
 use tcss::types::Layout as LayoutDirection;
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, Size};
 use crate::content::Content;
+use crate::keyline_canvas::KeylineCanvas;
 use crate::layouts::{self, Layout};
 use crate::render_cache::RenderCache;
 use crate::segment::Style;
@@ -140,6 +142,117 @@ impl<M> Container<M> {
 
         // Dispatch to layout based on effective layout, using the propagated viewport
         layouts::arrange_children_with_viewport(&effective_style, &children_with_styles, region, viewport)
+    }
+
+    /// Render keylines for the container.
+    ///
+    /// For horizontal layout: draws outer box + vertical dividers between children
+    /// For vertical layout: draws outer box + horizontal dividers between children
+    fn render_keylines(&self, canvas: &mut Canvas, region: Region, placements: &[layouts::WidgetPlacement]) {
+        if placements.is_empty() {
+            return;
+        }
+
+        let line_type = self.style.keyline.style.line_type();
+        let mut keyline_canvas = KeylineCanvas::new(
+            region.width as usize,
+            region.height as usize,
+            line_type,
+            self.style.keyline.color.clone(),
+        );
+
+        match self.effective_layout() {
+            LayoutDirection::Horizontal => {
+                // Horizontal: draw outer box + vertical dividers at child boundaries
+                let mut col_positions: Vec<usize> = Vec::new();
+
+                // First column position is 0
+                col_positions.push(0);
+
+                // Add divider positions at the END of each child (which is the START of the next)
+                for placement in placements {
+                    let right_edge = (placement.region.x + placement.region.width - region.x) as usize;
+                    if !col_positions.contains(&right_edge) && right_edge < region.width as usize {
+                        col_positions.push(right_edge);
+                    }
+                }
+
+                // Add the right edge of the container
+                let last_pos = (region.width as usize).saturating_sub(1);
+                if !col_positions.contains(&last_pos) {
+                    col_positions.push(last_pos);
+                }
+
+                col_positions.sort();
+                col_positions.dedup();
+
+                // Single row spanning the full height
+                let row_positions: Vec<usize> = vec![0, (region.height as usize).saturating_sub(1)];
+
+                keyline_canvas.add_grid(&col_positions, &row_positions);
+            }
+            LayoutDirection::Vertical => {
+                // Vertical: draw outer box + horizontal dividers at child boundaries
+                let mut row_positions: Vec<usize> = Vec::new();
+
+                // First row position is 0
+                row_positions.push(0);
+
+                // Add divider positions at the END of each child (which is the START of the next)
+                for placement in placements {
+                    let bottom_edge = (placement.region.y + placement.region.height - region.y) as usize;
+                    if !row_positions.contains(&bottom_edge) && bottom_edge < region.height as usize {
+                        row_positions.push(bottom_edge);
+                    }
+                }
+
+                // Add the bottom edge of the container
+                let last_pos = (region.height as usize).saturating_sub(1);
+                if !row_positions.contains(&last_pos) {
+                    row_positions.push(last_pos);
+                }
+
+                row_positions.sort();
+                row_positions.dedup();
+
+                // Single column spanning the full width
+                let col_positions: Vec<usize> = vec![0, (region.width as usize).saturating_sub(1)];
+
+                keyline_canvas.add_grid(&col_positions, &row_positions);
+            }
+            LayoutDirection::Grid => {
+                // Grid layout - use GridLayout to get track info
+                // This shouldn't normally happen since Grid has its own widget,
+                // but handle it for completeness
+                let children_with_styles: Vec<_> = self
+                    .children
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, c)| c.participates_in_layout())
+                    .map(|(i, c)| (i, c.get_style(), c.desired_size()))
+                    .collect();
+
+                let layout = layouts::GridLayout::default();
+                let track_info = layout.compute_track_info(&self.style, &children_with_styles, region);
+
+                if track_info.col_positions.len() >= 2 && track_info.row_positions.len() >= 2 {
+                    let col_positions: Vec<usize> = track_info
+                        .col_positions
+                        .iter()
+                        .map(|&x| x.max(0) as usize)
+                        .collect();
+                    let row_positions: Vec<usize> = track_info
+                        .row_positions
+                        .iter()
+                        .map(|&y| y.max(0) as usize)
+                        .collect();
+
+                    keyline_canvas.add_grid(&col_positions, &row_positions);
+                }
+            }
+        }
+
+        keyline_canvas.render(canvas, region);
     }
 
     /// Calculate intrinsic size based on children and layout mode.
@@ -356,10 +469,18 @@ Container {
 
         // 5. Render children in inner region using the canvas viewport
         let viewport = canvas.viewport();
+        let placements = self.compute_child_placements(inner_region, viewport);
+
         canvas.push_clip(inner_region);
-        for placement in self.compute_child_placements(inner_region, viewport) {
+        for placement in &placements {
             self.children[placement.child_index].render(canvas, placement.region);
         }
+
+        // 6. Render keylines on top of children (if enabled)
+        if self.style.keyline.style != KeylineStyle::None {
+            self.render_keylines(canvas, inner_region, &placements);
+        }
+
         canvas.pop_clip();
     }
 

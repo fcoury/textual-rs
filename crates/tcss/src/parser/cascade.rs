@@ -452,6 +452,13 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.hatch = Some(resolved_hatch);
         }
 
+        // Keyline (box-drawing borders around widgets)
+        Declaration::Keyline(k) => {
+            let mut resolved_keyline = k.clone();
+            resolved_keyline.color = resolve_theme_color(&k.color, theme);
+            style.keyline = resolved_keyline;
+        }
+
         Declaration::Unknown(_) => {}
     }
 }

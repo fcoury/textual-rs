@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
+use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Keyline, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -333,6 +333,11 @@ pub enum Declaration {
     /// The `hatch` property for filling an area with a pattern.
     /// Syntax: `hatch: <pattern> <color> [opacity]`
     Hatch(Hatch),
+
+    // Keyline (box-drawing borders around widgets)
+    /// The `keyline` property for drawing box borders around widgets in a container.
+    /// Syntax: `keyline: <style> <color>` where style is none, thin, heavy, or double.
+    Keyline(Keyline),
 
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),

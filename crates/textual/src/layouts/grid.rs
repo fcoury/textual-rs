@@ -18,11 +18,11 @@ use super::{Layout, Viewport, WidgetPlacement};
 /// Used to efficiently calculate spanning regions without re-computing
 /// offsets for each cell. Matches Python Textual's `_resolve.py` output.
 #[derive(Debug, Clone, Copy)]
-struct ResolvedTrack {
+pub(crate) struct ResolvedTrack {
     /// Offset from the start of the grid region (in cells).
-    offset: i32,
+    pub(crate) offset: i32,
     /// Size of this track (in cells).
-    size: i32,
+    pub(crate) size: i32,
 }
 
 /// Tracks which grid cells are occupied by widgets.
@@ -394,6 +394,147 @@ impl GridLayout {
         }
 
         (col_sizes, row_sizes)
+    }
+
+    /// Compute track boundaries for keyline rendering.
+    ///
+    /// Returns the column and row positions where keylines should be drawn,
+    /// along with cell occupancy information for span-aware rendering.
+    pub fn compute_track_info(
+        &self,
+        parent_style: &ComputedStyle,
+        children: &[(usize, ComputedStyle, Size)],
+        available: Region,
+    ) -> GridTrackInfo {
+        if children.is_empty() {
+            return GridTrackInfo::default();
+        }
+
+        let grid = &parent_style.grid;
+        let cols = self.column_count(grid, available.width);
+        let rows = self.row_count(grid, cols, children.len());
+
+        let gutter_v = Self::resolve_scalar(&grid.gutter.0, available.height);
+        let gutter_h = Self::resolve_scalar(&grid.gutter.1, available.width);
+
+        let is_auto_width = parent_style.width.as_ref().map_or(false, |w| w.unit == Unit::Auto);
+        let is_auto_height = parent_style.height.as_ref().map_or(false, |h| h.unit == Unit::Auto);
+
+        let use_auto_cols = grid.column_widths.is_empty() && is_auto_width;
+        let use_auto_rows = grid.row_heights.is_empty() && is_auto_height;
+
+        // Compute cell assignments (used for both content sizing and occupancy)
+        let assignments = Self::compute_cell_assignments(children, rows, cols);
+
+        let (col_content_sizes, row_content_sizes) = if use_auto_cols || use_auto_rows {
+            Self::compute_content_sizes(children, &assignments, rows, cols)
+        } else {
+            (vec![], vec![])
+        };
+
+        let columns = if use_auto_cols {
+            Self::resolve_tracks_with_content(
+                &grid.column_widths,
+                cols,
+                available.width,
+                gutter_h,
+                &col_content_sizes,
+            )
+        } else {
+            Self::resolve_tracks(&grid.column_widths, cols, available.width, gutter_h)
+        };
+
+        let row_tracks = if use_auto_rows {
+            Self::resolve_tracks_with_content(
+                &grid.row_heights,
+                rows,
+                available.height,
+                gutter_v,
+                &row_content_sizes,
+            )
+        } else {
+            Self::resolve_tracks(&grid.row_heights, rows, available.height, gutter_v)
+        };
+
+        // Build cell occupancy grid: which child index occupies each cell
+        // This is used for span-aware keyline rendering
+        let mut cell_occupancy: Vec<Vec<Option<usize>>> = vec![vec![None; cols]; rows];
+        for (child_idx, (row, col, row_span, col_span)) in assignments.iter().enumerate() {
+            if *row_span == 0 || *col_span == 0 {
+                continue; // Didn't fit in grid
+            }
+            // Get the actual child_index from the children tuple
+            let actual_child_index = children.get(child_idx).map(|(idx, _, _)| *idx).unwrap_or(child_idx);
+            for r in *row..(*row + *row_span).min(rows) {
+                for c in *col..(*col + *col_span).min(cols) {
+                    cell_occupancy[r][c] = Some(actual_child_index);
+                }
+            }
+        }
+
+        GridTrackInfo::from_tracks(&columns, &row_tracks, available.width, available.height, cell_occupancy)
+    }
+}
+
+/// Track boundaries for keyline rendering.
+///
+/// Contains the x/y positions where grid lines should be drawn,
+/// and cell occupancy for span-aware keyline rendering.
+#[derive(Debug, Clone, Default)]
+pub struct GridTrackInfo {
+    /// X positions of column boundaries (left edge of each column + right edge of last)
+    pub col_positions: Vec<i32>,
+    /// Y positions of row boundaries (top edge of each row + bottom edge of last)
+    pub row_positions: Vec<i32>,
+    /// Which widget index occupies each cell: `cell_occupancy[row][col] = Some(child_index)` or None
+    /// Used to determine where keylines should be drawn (only between different widgets)
+    pub cell_occupancy: Vec<Vec<Option<usize>>>,
+}
+
+impl GridTrackInfo {
+    /// Compute track boundaries from resolved tracks.
+    pub(crate) fn from_tracks(
+        columns: &[ResolvedTrack],
+        rows: &[ResolvedTrack],
+        region_width: i32,
+        region_height: i32,
+        cell_occupancy: Vec<Vec<Option<usize>>>,
+    ) -> Self {
+        let mut col_positions = Vec::with_capacity(columns.len() + 1);
+        for col in columns {
+            col_positions.push(col.offset);
+        }
+        // Add right edge (clamped to last valid position)
+        if let Some(last) = columns.last() {
+            let right_edge = (last.offset + last.size).min(region_width);
+            // Ensure we're within bounds (at most region_width - 1)
+            col_positions.push(if right_edge >= region_width {
+                region_width.saturating_sub(1)
+            } else {
+                right_edge
+            });
+        }
+
+        let mut row_positions = Vec::with_capacity(rows.len() + 1);
+        for row in rows {
+            row_positions.push(row.offset);
+        }
+        // Add bottom edge (clamped to last valid position)
+        if let Some(last) = rows.last() {
+            let bottom_edge = (last.offset + last.size).min(region_height);
+            // Ensure we're within bounds (at most region_height - 1)
+            row_positions.push(if bottom_edge >= region_height {
+                region_height.saturating_sub(1)
+            } else {
+                bottom_edge
+            });
+        }
+
+        Self {
+            col_positions,
+            row_positions,
+            cell_occupancy,
+        }
     }
 }
 
