@@ -23,10 +23,9 @@ pub enum RulerOrientation {
 
 /// A visual measurement widget for debugging layout.
 ///
-/// Ruler displays tick marks along its axis:
-/// - Minor ticks (`·`) at each position
-/// - Major ticks (`•`) every 5 positions
-/// - Number markers at positions 0, 10, 20, etc.
+/// Ruler displays tick marks along its axis matching Python Textual's pattern:
+/// - Minor ticks (`·`) for most positions
+/// - Major ticks (`•`) every 5th position (5, 10, 15...)
 ///
 /// # Default CSS
 ///
@@ -119,14 +118,15 @@ impl<M> Ruler<M> {
     }
 
     /// Get the character for a given position.
-    /// Uses thick block character for major ticks (every 5), thin for minor.
+    /// Uses bullet (•) for every 5th position, middle dot (·) for others.
+    /// Matches Python Textual's ruler pattern: "·\n·\n·\n·\n•\n" repeated.
     fn char_at(&self, pos: usize) -> char {
-        if pos % 5 == 0 {
-            // Major tick - thicker mark
-            '┃'
+        if (pos + 1) % 5 == 0 {
+            // Major tick at positions 5, 10, 15... (1-indexed)
+            '•' // U+2022 BULLET
         } else {
-            // Minor tick - thinner mark
-            '│'
+            // Minor tick
+            '·' // U+00B7 MIDDLE DOT
         }
     }
 
