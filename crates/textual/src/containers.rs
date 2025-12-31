@@ -1,9 +1,11 @@
 pub mod container;
 pub mod grid;
 pub mod horizontal;
+pub mod horizontal_scroll;
 pub mod item_grid;
 pub mod scrollable;
 pub mod vertical;
+pub mod vertical_scroll;
 
 use crate::KeyCode;
 use crate::MouseEvent;

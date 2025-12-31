@@ -78,7 +78,7 @@ fn test_horizontal_layout_distributes_fr_widths() {
     let parent_style = ComputedStyle::default();
 
     let mut layout = HorizontalLayout;
-    let placements = layout.arrange(&parent_style, &children, available);
+    let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 3);
 
@@ -118,7 +118,7 @@ fn test_horizontal_layout_height_100_percent() {
     let parent_style = ComputedStyle::default();
 
     let mut layout = HorizontalLayout;
-    let placements = layout.arrange(&parent_style, &children, available);
+    let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 1);
 

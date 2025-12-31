@@ -32,7 +32,9 @@ use tokio::sync::mpsc;
 pub use canvas::{Canvas, Region, Size};
 pub use containers::{
     Center, Middle, container::Container, grid::Grid, horizontal::Horizontal,
-    item_grid::ItemGrid, scrollable::ScrollableContainer, vertical::Vertical,
+    horizontal_scroll::HorizontalScroll, item_grid::ItemGrid,
+    scrollable::ScrollableContainer, vertical::Vertical,
+    vertical_scroll::VerticalScroll,
 };
 pub use context::{AppContext, IntervalHandle, MountContext};
 pub use tree::DOMQuery;
@@ -53,8 +55,8 @@ pub use tcss::{parser::parse_stylesheet, types::Theme};
 pub use textual_macros::{ui, widget};
 pub use widget::{
     Compose, Widget, placeholder::Placeholder, placeholder::PlaceholderVariant,
-    screen::Breakpoint, screen::Screen, scrollbar::ScrollBar,
-    scrollbar_corner::ScrollBarCorner, switch::Switch,
+    ruler::Ruler, ruler::RulerOrientation, screen::Breakpoint, screen::Screen,
+    scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch,
 };
 
 /// Helper for building widget vectors from iterators.

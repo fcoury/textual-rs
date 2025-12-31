@@ -97,7 +97,11 @@ impl<M> ItemGrid<M> {
     }
 
     /// Compute child placements using GridLayout with pre_layout configuration.
-    fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
+    fn compute_child_placements(
+        &self,
+        region: Region,
+        viewport: layouts::Viewport,
+    ) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles and desired sizes
         let children_with_styles: Vec<_> = self
             .children
@@ -114,7 +118,7 @@ impl<M> ItemGrid<M> {
         layout.stretch_height = self.stretch_height;
         layout.regular = self.regular;
 
-        layout.arrange(&self.style, &children_with_styles, region)
+        layout.arrange(&self.style, &children_with_styles, region, viewport)
     }
 }
 
@@ -127,9 +131,10 @@ impl<M> Widget<M> for ItemGrid<M> {
         // 1. Render background/border and get inner region
         let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
 
-        // 2. Render children in inner region
+        // 2. Render children in inner region using the canvas viewport
+        let viewport = canvas.viewport();
         canvas.push_clip(inner_region);
-        for placement in self.compute_child_placements(inner_region) {
+        for placement in self.compute_child_placements(inner_region, viewport) {
             self.children[placement.child_index].render(canvas, placement.region);
         }
         canvas.pop_clip();
@@ -206,7 +211,9 @@ impl<M> Widget<M> for ItemGrid<M> {
             return None;
         }
 
-        let placements = self.compute_child_placements(region);
+        // For mouse handling, approximate viewport as region
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
 
         for placement in placements {
             if placement.region.contains_point(mx, my) {

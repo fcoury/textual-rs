@@ -11,7 +11,7 @@ use crate::fraction::Fraction;
 use tcss::types::{ComputedStyle, GridStyle, Scalar, Unit};
 
 use super::size_resolver::{resolve_height_with_intrinsic, resolve_width_with_intrinsic};
-use super::{Layout, WidgetPlacement};
+use super::{Layout, Viewport, WidgetPlacement};
 
 /// Pre-computed track (column or row) with offset and size.
 ///
@@ -403,6 +403,7 @@ impl Layout for GridLayout {
         parent_style: &ComputedStyle,
         children: &[(usize, ComputedStyle, Size)],
         available: Region,
+        _viewport: Viewport,
     ) -> Vec<WidgetPlacement> {
         if children.is_empty() {
             return Vec::new();

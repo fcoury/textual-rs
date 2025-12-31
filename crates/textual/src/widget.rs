@@ -1,6 +1,7 @@
 pub mod app_widget;
 pub mod label;
 pub mod placeholder;
+pub mod ruler;
 pub mod screen;
 pub mod scrollbar;
 pub mod scrollbar_corner;

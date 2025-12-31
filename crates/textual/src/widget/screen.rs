@@ -113,7 +113,11 @@ impl<M> Screen<M> {
     }
 
     /// Compute child placements using the appropriate layout algorithm.
-    fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
+    fn compute_child_placements(
+        &self,
+        region: Region,
+        viewport: layouts::Viewport,
+    ) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles and desired sizes
         let children_with_styles: Vec<_> = self
             .children
@@ -123,8 +127,8 @@ impl<M> Screen<M> {
             .map(|(i, c)| (i, c.get_style(), c.desired_size()))
             .collect();
 
-        // Dispatch to layout based on CSS
-        layouts::arrange_children(&self.style, &children_with_styles, region)
+        // Dispatch to layout based on CSS, using the screen viewport
+        layouts::arrange_children_with_viewport(&self.style, &children_with_styles, region, viewport)
     }
 }
 
@@ -149,7 +153,10 @@ Screen {
         let inner_region =
             crate::containers::render_container_chrome(canvas, region, &self.style);
 
-        for placement in self.compute_child_placements(inner_region) {
+        // Use the canvas viewport (screen dimensions) for CSS vw/vh units
+        let viewport = canvas.viewport();
+
+        for placement in self.compute_child_placements(inner_region, viewport) {
             if let Some(child) = self.children.get(placement.child_index) {
                 child.render(canvas, placement.region);
             }
@@ -247,7 +254,10 @@ Screen {
         }
 
         // Compute placements and dispatch mouse events
-        let placements = self.compute_child_placements(region);
+        // For mouse handling, we approximate viewport as region
+        // (the actual viewport is only available during render)
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
 
         for placement in placements {
             if placement.region.contains_point(mx, my) {

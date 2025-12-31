@@ -198,7 +198,7 @@ fn test_vertical_margin_collapsing_between_siblings() {
     child2_style.margin.top = Scalar::cells(5.0);
 
     let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3))];
-    let placements = layout.arrange(&parent_style, &children, available);
+    let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 2);
 
@@ -236,7 +236,7 @@ fn test_vertical_margin_collapsing_equal_margins() {
     child2_style.margin.top = Scalar::cells(4.0);
 
     let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3))];
-    let placements = layout.arrange(&parent_style, &children, available);
+    let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     // Child 2 at y = 0 + 10 + max(4,4) = 14
     assert_eq!(
@@ -260,7 +260,7 @@ fn test_vertical_margin_collapsing_first_child_keeps_top_margin() {
     child_style.margin.top = Scalar::cells(5.0);
 
     let children = vec![(0, child_style, LayoutSize::new(10, 3))];
-    let placements = layout.arrange(&parent_style, &children, available);
+    let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     // First child should start at y = 0 + 5 = 5
     assert_eq!(
@@ -295,7 +295,7 @@ fn test_vertical_margin_collapsing_three_children() {
     child3_style.margin.top = Scalar::cells(3.0);
 
     let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3)), (2, child3_style, LayoutSize::new(10, 3))];
-    let placements = layout.arrange(&parent_style, &children, available);
+    let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 3);
 

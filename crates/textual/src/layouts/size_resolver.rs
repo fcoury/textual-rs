@@ -43,7 +43,7 @@ pub fn resolve_width(child_style: &ComputedStyle, available_width: i32, fill_by_
     if let Some(width) = &child_style.width {
         match width.unit {
             Unit::Cells => return width.value as i32,
-            Unit::Percent => return ((width.value / 100.0) * available_width as f64) as i32,
+            Unit::Percent => return ((width.value / 100.0) * available_width as f64).round() as i32,
             Unit::Auto => return available_width, // Auto always fills available
             _ => return width.value as i32,
         }
@@ -72,7 +72,7 @@ pub fn resolve_height(child_style: &ComputedStyle, available_height: i32, fill_b
     if let Some(height) = &child_style.height {
         match height.unit {
             Unit::Cells => return height.value as i32,
-            Unit::Percent => return ((height.value / 100.0) * available_height as f64) as i32,
+            Unit::Percent => return ((height.value / 100.0) * available_height as f64).round() as i32,
             Unit::Auto => {
                 // Auto behavior: fill if horizontal layout (fill_by_default), fixed if vertical
                 if fill_by_default {
@@ -131,7 +131,7 @@ pub fn resolve_width_with_intrinsic(
     if let Some(width) = &child_style.width {
         match width.unit {
             Unit::Cells => width.value as i32,
-            Unit::Percent => ((width.value / 100.0) * available_width as f64) as i32,
+            Unit::Percent => ((width.value / 100.0) * available_width as f64).round() as i32,
             Unit::Auto => intrinsic_width as i32, // Use intrinsic, not fill!
             Unit::Fraction => available_width,    // fr units fill available space
             _ => width.value as i32,
@@ -154,16 +154,48 @@ pub fn resolve_height_with_intrinsic(
     intrinsic_height: u16,
     available_height: i32,
 ) -> i32 {
+    // Call full version with available_height for both h and vh units (approximation)
+    resolve_height_full(
+        child_style,
+        intrinsic_height,
+        available_height,
+        available_height, // available_width - use height as fallback for w unit
+        available_height, // viewport_width
+        available_height, // viewport_height
+    )
+}
+
+/// Resolve height with full context for all CSS units.
+///
+/// Handles all height units including:
+/// - `Unit::Cells`: Fixed cell count
+/// - `Unit::Percent`: Percentage of parent height
+/// - `Unit::Width` (w): Percentage of parent width
+/// - `Unit::Height` (h): Percentage of parent height (same as %)
+/// - `Unit::ViewWidth` (vw): Percentage of viewport width
+/// - `Unit::ViewHeight` (vh): Percentage of viewport height
+/// - `Unit::Fraction` (fr): Fills available space
+/// - `Unit::Auto`: Uses intrinsic height
+pub fn resolve_height_full(
+    child_style: &ComputedStyle,
+    intrinsic_height: u16,
+    available_height: i32,
+    available_width: i32,
+    viewport_width: i32,
+    viewport_height: i32,
+) -> i32 {
     if let Some(height) = &child_style.height {
         match height.unit {
             Unit::Cells => height.value as i32,
-            Unit::Percent => ((height.value / 100.0) * available_height as f64) as i32,
-            Unit::Auto => intrinsic_height as i32, // Use intrinsic!
-            Unit::Fraction => available_height,   // fr units fill available space
-            _ => height.value as i32,
+            Unit::Percent => ((height.value / 100.0) * available_height as f64).round() as i32,
+            Unit::Width => ((height.value / 100.0) * available_width as f64).round() as i32,
+            Unit::Height => ((height.value / 100.0) * available_height as f64).round() as i32,
+            Unit::ViewWidth => ((height.value / 100.0) * viewport_width as f64).round() as i32,
+            Unit::ViewHeight => ((height.value / 100.0) * viewport_height as f64).round() as i32,
+            Unit::Auto => intrinsic_height as i32,
+            Unit::Fraction => available_height,
         }
     } else {
-        // No height specified: fill available (default behavior for grids)
         available_height
     }
 }

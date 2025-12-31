@@ -229,6 +229,16 @@ impl Placeholder {
 }
 
 impl<M> Widget<M> for Placeholder {
+    fn default_css(&self) -> &'static str {
+        r#"
+Placeholder {
+    width: 1fr;
+    height: auto;
+    min-height: 2;
+}
+"#
+    }
+
     fn render(&self, canvas: &mut Canvas, region: Region) {
         if region.width <= 0 || region.height <= 0 {
             return;

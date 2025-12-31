@@ -345,11 +345,14 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         canvas.push_clip(content_region);
 
         // Calculate content position with scroll offset
+        // IMPORTANT: Use VIEWPORT dimensions for layout calculations (so %, h, vh, vw units work correctly)
+        // The content can overflow and scroll, but percentage calculations should be viewport-relative
+        // This matches Python Textual behavior
         let content_render_region = Region {
             x: content_region.x - offset_x,
             y: content_region.y - offset_y,
-            width: content_size.width as i32,
-            height: content_size.height as i32,
+            width: content_region.width,  // Use viewport width for layout
+            height: content_region.height, // Use viewport height for layout
         };
 
         log::trace!(
@@ -623,13 +626,15 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 
 impl<M> ScrollableContainer<M> {
     /// Calculate content region adjusted for scroll offset (for mouse routing).
+    /// Must match the region used in render() for proper hit detection.
     fn scrolled_content_region(&self, content_region: Region) -> Region {
         let scroll = self.scroll.borrow();
         Region {
             x: content_region.x - scroll.offset_x,
             y: content_region.y - scroll.offset_y,
-            width: scroll.virtual_width,
-            height: scroll.virtual_height,
+            // Use viewport dimensions to match render region
+            width: content_region.width,
+            height: content_region.height,
         }
     }
 

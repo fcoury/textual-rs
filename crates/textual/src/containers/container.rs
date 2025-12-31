@@ -116,7 +116,11 @@ impl<M> Container<M> {
     }
 
     /// Compute child placements using the appropriate layout algorithm.
-    fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
+    fn compute_child_placements(
+        &self,
+        region: Region,
+        viewport: layouts::Viewport,
+    ) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles and desired sizes
         let children_with_styles: Vec<_> = self
             .children
@@ -130,8 +134,8 @@ impl<M> Container<M> {
         let mut effective_style = self.style.clone();
         effective_style.layout = self.effective_layout();
 
-        // Dispatch to layout based on effective layout
-        layouts::arrange_children(&effective_style, &children_with_styles, region)
+        // Dispatch to layout based on effective layout, using the propagated viewport
+        layouts::arrange_children_with_viewport(&effective_style, &children_with_styles, region, viewport)
     }
 
     /// Calculate intrinsic size based on children and layout mode.
@@ -346,9 +350,10 @@ Container {
             inner_height as i32,
         );
 
-        // 5. Render children in inner region
+        // 5. Render children in inner region using the canvas viewport
+        let viewport = canvas.viewport();
         canvas.push_clip(inner_region);
-        for placement in self.compute_child_placements(inner_region) {
+        for placement in self.compute_child_placements(inner_region, viewport) {
             self.children[placement.child_index].render(canvas, placement.region);
         }
         canvas.pop_clip();
@@ -460,7 +465,9 @@ Container {
         }
 
         // Compute placements and dispatch mouse events
-        let placements = self.compute_child_placements(region);
+        // For mouse handling, approximate viewport as region (only available during render)
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
 
         for placement in placements {
             if placement.region.contains_point(mx, my) {

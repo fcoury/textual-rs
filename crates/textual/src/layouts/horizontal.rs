@@ -6,7 +6,7 @@ use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
 use super::size_resolver::{apply_box_sizing_height, apply_box_sizing_width};
-use super::{Layout, WidgetPlacement};
+use super::{Layout, Viewport, WidgetPlacement};
 
 /// Horizontal layout - stacks children left-to-right.
 ///
@@ -22,6 +22,7 @@ impl Layout for HorizontalLayout {
         _parent_style: &ComputedStyle,
         children: &[(usize, ComputedStyle, Size)],
         available: Region,
+        _viewport: Viewport,
     ) -> Vec<WidgetPlacement> {
         let mut placements = Vec::with_capacity(children.len());
 

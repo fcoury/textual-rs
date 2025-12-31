@@ -5,6 +5,7 @@ use crossterm::{
 use std::io::Write;
 use tcss::types::RgbaColor;
 
+use crate::layouts::Viewport;
 use crate::strip::Strip;
 
 /// Text styling attributes (bold, italic, etc.)
@@ -164,6 +165,17 @@ impl Canvas {
             width: self.size.width as i32,
             height: self.size.height as i32,
         })
+    }
+
+    /// Returns the viewport dimensions (screen size).
+    ///
+    /// This is used for CSS `vw` and `vh` unit resolution. The viewport
+    /// represents the full terminal size, not the current container's region.
+    pub fn viewport(&self) -> Viewport {
+        Viewport {
+            width: self.size.width as i32,
+            height: self.size.height as i32,
+        }
     }
 
     // === Drawing ===

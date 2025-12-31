@@ -41,6 +41,22 @@ pub struct WidgetPlacement {
     pub region: Region,
 }
 
+/// Viewport dimensions for CSS vw/vh unit resolution.
+#[derive(Debug, Clone, Copy)]
+pub struct Viewport {
+    pub width: i32,
+    pub height: i32,
+}
+
+impl From<Region> for Viewport {
+    fn from(region: Region) -> Self {
+        Self {
+            width: region.width,
+            height: region.height,
+        }
+    }
+}
+
 /// Layout algorithm trait.
 ///
 /// Layouts compute the regions where each child widget should be rendered,
@@ -54,11 +70,13 @@ pub trait Layout {
     /// * `parent_style` - The computed style of the parent container
     /// * `children` - Vector of (child_index, child_style, desired_size) for visible children
     /// * `available` - The region available for layout
+    /// * `viewport` - The viewport dimensions for vw/vh unit resolution
     fn arrange(
         &mut self,
         parent_style: &ComputedStyle,
         children: &[(usize, ComputedStyle, Size)],
         available: Region,
+        viewport: Viewport,
     ) -> Vec<WidgetPlacement>;
 
     /// Downcast to GridLayout for pre_layout configuration.
@@ -89,6 +107,27 @@ pub fn arrange_children(
     children: &[(usize, ComputedStyle, Size)],
     available: Region,
 ) -> Vec<WidgetPlacement> {
+    // Use available region as viewport (fallback for containers that don't know viewport)
+    arrange_children_with_viewport(parent_style, children, available, available.into())
+}
+
+/// Dispatch to the appropriate layout algorithm with explicit viewport dimensions.
+///
+/// This variant allows specifying the viewport dimensions separately from the available
+/// region. This is important for correct `vw`/`vh` unit resolution when the available
+/// region differs from the viewport (e.g., due to docked widgets on the default layer).
+///
+/// # Arguments
+/// * `parent_style` - The computed style of the parent container
+/// * `children` - Vector of (child_index, child_style, desired_size) for visible children
+/// * `available` - The region available for layout
+/// * `viewport` - The viewport dimensions for vw/vh unit resolution
+pub fn arrange_children_with_viewport(
+    parent_style: &ComputedStyle,
+    children: &[(usize, ComputedStyle, Size)],
+    available: Region,
+    viewport: Viewport,
+) -> Vec<WidgetPlacement> {
     // Separate docked widgets from layout widgets
     let (docked, layout_children): (Vec<_>, Vec<_>) =
         children.iter().partition(|(_, style, _)| style.dock.is_some());
@@ -117,15 +156,15 @@ pub fn arrange_children(
     let mut layout_placements = match parent_style.layout {
         LayoutKind::Grid => {
             let mut layout = GridLayout::default();
-            layout.arrange(parent_style, &layout_children_vec, content_region)
+            layout.arrange(parent_style, &layout_children_vec, content_region, viewport)
         }
         LayoutKind::Vertical => {
             let mut layout = VerticalLayout;
-            layout.arrange(parent_style, &layout_children_vec, content_region)
+            layout.arrange(parent_style, &layout_children_vec, content_region, viewport)
         }
         LayoutKind::Horizontal => {
             let mut layout = HorizontalLayout;
-            layout.arrange(parent_style, &layout_children_vec, content_region)
+            layout.arrange(parent_style, &layout_children_vec, content_region, viewport)
         }
     };
 
@@ -242,6 +281,9 @@ pub fn arrange_children_with_pre_layout<F>(
 where
     F: FnOnce(&mut dyn Layout),
 {
+    // Use available region as viewport (fallback)
+    let viewport: Viewport = available.into();
+
     // Separate docked widgets from layout widgets
     let (docked, layout_children): (Vec<_>, Vec<_>) =
         children.iter().partition(|(_, style, _)| style.dock.is_some());
@@ -271,17 +313,17 @@ where
         LayoutKind::Grid => {
             let mut layout = GridLayout::default();
             pre_layout(&mut layout);
-            layout.arrange(parent_style, &layout_children_vec, content_region)
+            layout.arrange(parent_style, &layout_children_vec, content_region, viewport)
         }
         LayoutKind::Vertical => {
             let mut layout = VerticalLayout;
             pre_layout(&mut layout);
-            layout.arrange(parent_style, &layout_children_vec, content_region)
+            layout.arrange(parent_style, &layout_children_vec, content_region, viewport)
         }
         LayoutKind::Horizontal => {
             let mut layout = HorizontalLayout;
             pre_layout(&mut layout);
-            layout.arrange(parent_style, &layout_children_vec, content_region)
+            layout.arrange(parent_style, &layout_children_vec, content_region, viewport)
         }
     };
 

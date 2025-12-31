@@ -61,7 +61,11 @@ impl<M> Grid<M> {
     }
 
     /// Compute child placements using GridLayout.
-    fn compute_child_placements(&self, region: Region) -> Vec<layouts::WidgetPlacement> {
+    fn compute_child_placements(
+        &self,
+        region: Region,
+        viewport: layouts::Viewport,
+    ) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles and desired sizes
         let children_with_styles: Vec<_> = self
             .children
@@ -73,7 +77,7 @@ impl<M> Grid<M> {
 
         // Force grid layout regardless of CSS
         let mut layout = layouts::GridLayout::default();
-        layout.arrange(&self.style, &children_with_styles, region)
+        layout.arrange(&self.style, &children_with_styles, region, viewport)
     }
 }
 
@@ -97,9 +101,10 @@ Grid {
         // 1. Render background/border and get inner region
         let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
 
-        // 2. Render children in inner region
+        // 2. Render children in inner region using the canvas viewport
+        let viewport = canvas.viewport();
         canvas.push_clip(inner_region);
-        for placement in self.compute_child_placements(inner_region) {
+        for placement in self.compute_child_placements(inner_region, viewport) {
             self.children[placement.child_index].render(canvas, placement.region);
         }
         canvas.pop_clip();
@@ -196,7 +201,9 @@ Grid {
         }
 
         // Compute placements first (borrows self immutably)
-        let placements = self.compute_child_placements(region);
+        // For mouse handling, approximate viewport as region
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
 
         // Then iterate and dispatch mouse events (borrows self mutably)
         for placement in placements {
