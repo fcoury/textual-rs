@@ -1034,6 +1034,7 @@ dependencies = [
  "phf",
  "portable-pty",
  "rich",
+ "smallvec",
  "tcss",
  "textual-macros",
  "thiserror",

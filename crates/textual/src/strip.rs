@@ -12,17 +12,28 @@
 //! ```
 
 use crate::segment::{Segment, Style};
+use smallvec::{smallvec, SmallVec};
 use tcss::types::text::AlignHorizontal;
 use tcss::types::RgbaColor;
+
+/// Inline storage for 2 segments covers most common text patterns:
+/// - Single styled text (1 segment)
+/// - "Label: " + "value" (2 segments)
+/// Keeping this small reduces struct size and benefits single-segment operations.
+pub type SegmentVec = SmallVec<[Segment; 2]>;
 
 /// An immutable horizontal line of segments.
 ///
 /// Strips are the rendering primitive for a single line of output.
 /// They track their cell length for efficient layout operations.
+///
+/// Uses SmallVec internally to avoid heap allocation for lines with
+/// 1-2 segments (covers most typical text rendering).
 #[derive(Clone, Debug, Default)]
 pub struct Strip {
     /// The segments that make up this line.
-    segments: Vec<Segment>,
+    /// SmallVec<[Segment; 2]> stores up to 2 segments inline without heap allocation.
+    segments: SegmentVec,
     /// Cached total cell width.
     cell_length: usize,
 }
@@ -31,13 +42,32 @@ impl Strip {
     /// Creates an empty strip.
     pub fn new() -> Self {
         Self {
-            segments: Vec::new(),
+            segments: SegmentVec::new(),
             cell_length: 0,
         }
     }
 
-    /// Creates a strip from a vector of segments.
+    /// Creates a strip from a Vec of segments.
+    ///
+    /// This is the fast path for Vec input - directly converts to SmallVec.
     pub fn from_segments(segments: Vec<Segment>) -> Self {
+        let cell_length = segments.iter().map(|s| s.cell_length()).sum();
+        Self {
+            segments: SegmentVec::from_vec(segments),
+            cell_length,
+        }
+    }
+
+    /// Creates a strip from any iterable of segments.
+    ///
+    /// Use this when you have an array or iterator of segments.
+    pub fn from_iter(segments: impl IntoIterator<Item = Segment>) -> Self {
+        let segments: SegmentVec = segments.into_iter().collect();
+        Self::from_smallvec(segments)
+    }
+
+    /// Internal constructor from pre-built SegmentVec.
+    fn from_smallvec(segments: SegmentVec) -> Self {
         let cell_length = segments.iter().map(|s| s.cell_length()).sum();
         Self {
             segments,
@@ -49,7 +79,7 @@ impl Strip {
     pub fn from_segment(segment: Segment) -> Self {
         let cell_length = segment.cell_length();
         Self {
-            segments: vec![segment],
+            segments: smallvec![segment],
             cell_length,
         }
     }
@@ -91,7 +121,7 @@ impl Strip {
         }
 
         let end = end.min(self.cell_length);
-        let mut result_segments = Vec::new();
+        let mut result_segments = SegmentVec::new();
         let mut current_pos = 0;
 
         for segment in &self.segments {
@@ -140,7 +170,7 @@ impl Strip {
             current_pos = seg_end;
         }
 
-        Strip::from_segments(result_segments)
+        Strip::from_smallvec(result_segments)
     }
 
     /// Splits the strip at the given cell positions.
@@ -185,7 +215,7 @@ impl Strip {
             return self.clone();
         }
 
-        let mut result = Vec::new();
+        let mut result = SegmentVec::new();
         let mut current_text = String::new();
         let mut current_style: Option<Style> = None;
         let mut has_current = false;
@@ -219,16 +249,16 @@ impl Strip {
             }
         }
 
-        Strip::from_segments(result)
+        Strip::from_smallvec(result)
     }
 
     /// Concatenates multiple strips into one.
     pub fn join(strips: impl IntoIterator<Item = Strip>) -> Strip {
-        let mut segments = Vec::new();
+        let mut segments = SegmentVec::new();
         for strip in strips {
             segments.extend(strip.segments);
         }
-        Strip::from_segments(segments)
+        Strip::from_smallvec(segments)
     }
 
     /// Adjusts the strip to exactly the given length.
@@ -243,7 +273,7 @@ impl Strip {
                 let padding = Segment::blank(length - self.cell_length, pad_style);
                 let mut segments = self.segments.clone();
                 segments.push(padding);
-                Strip::from_segments(segments)
+                Strip::from_smallvec(segments)
             }
         }
     }
@@ -265,29 +295,29 @@ impl Strip {
                 let padding = Segment::blank(gap, pad_style);
                 let mut segments = self.segments.clone();
                 segments.push(padding);
-                Strip::from_segments(segments)
+                Strip::from_smallvec(segments)
             }
             AlignHorizontal::Right => {
                 // Padding at start, content at end
                 let padding = Segment::blank(gap, pad_style);
-                let mut segments = vec![padding];
-                segments.extend(self.segments.clone());
-                Strip::from_segments(segments)
+                let mut segments: SegmentVec = smallvec![padding];
+                segments.extend(self.segments.iter().cloned());
+                Strip::from_smallvec(segments)
             }
             AlignHorizontal::Center => {
                 // Split padding between start and end
                 let left_pad = gap / 2;
                 let right_pad = gap - left_pad;
 
-                let mut segments = Vec::new();
+                let mut segments = SegmentVec::new();
                 if left_pad > 0 {
                     segments.push(Segment::blank(left_pad, pad_style.clone()));
                 }
-                segments.extend(self.segments.clone());
+                segments.extend(self.segments.iter().cloned());
                 if right_pad > 0 {
                     segments.push(Segment::blank(right_pad, pad_style));
                 }
-                Strip::from_segments(segments)
+                Strip::from_smallvec(segments)
             }
         }
     }
@@ -306,13 +336,13 @@ impl Strip {
             return self.clone();
         }
 
-        let tinted_segments: Vec<Segment> = self
+        let tinted_segments: SegmentVec = self
             .segments
             .iter()
             .map(|seg| seg.apply_tint(tint))
             .collect();
 
-        Strip::from_segments(tinted_segments)
+        Strip::from_smallvec(tinted_segments)
     }
 
     /// Apply a hatch pattern to this strip.
@@ -320,13 +350,13 @@ impl Strip {
     /// Replaces space characters with the hatch character and applies
     /// the hatch color as the foreground. Non-space characters are unchanged.
     pub fn apply_hatch(&self, hatch_char: char, hatch_color: &RgbaColor, opacity: f32) -> Strip {
-        let hatched_segments: Vec<Segment> = self
+        let hatched_segments: SegmentVec = self
             .segments
             .iter()
             .map(|seg| seg.apply_hatch(hatch_char, hatch_color, opacity))
             .collect();
 
-        Strip::from_segments(hatched_segments)
+        Strip::from_smallvec(hatched_segments)
     }
 }
 

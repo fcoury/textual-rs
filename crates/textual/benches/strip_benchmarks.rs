@@ -5,8 +5,8 @@ use textual::strip::Strip;
 fn bench_strip_from_segments(c: &mut Criterion) {
     let mut group = c.benchmark_group("strip_from_segments");
 
-    // This is the key benchmark for optimization 2.1 (SmallVec)
-    // Most strips contain only 1-3 segments
+    // This benchmark tests creating strips from pre-existing Vec
+    // (includes Vec clone cost)
     for count in [1, 2, 3, 4, 5, 10, 50] {
         let segments: Vec<_> = (0..count)
             .map(|i| Segment::new(format!("segment_{}", i)))
@@ -19,6 +19,57 @@ fn bench_strip_from_segments(c: &mut Criterion) {
             |b, segs| b.iter(|| Strip::from_segments(black_box(segs.clone()))),
         );
     }
+    group.finish();
+}
+
+fn bench_strip_inline_creation(c: &mut Criterion) {
+    // This benchmark shows the real benefit of SmallVec:
+    // Creating strips from a small fixed number of segments
+    // without pre-allocating a Vec (typical real-world usage)
+    let mut group = c.benchmark_group("strip_inline_creation");
+
+    // 1 segment (most common case)
+    group.bench_function("inline_1_segment", |b| {
+        b.iter(|| {
+            Strip::from_iter([
+                Segment::new("Hello"),
+            ])
+        })
+    });
+
+    // 2 segments (e.g., "Label: " + "value")
+    group.bench_function("inline_2_segments", |b| {
+        b.iter(|| {
+            Strip::from_iter([
+                Segment::new("Label: "),
+                Segment::new("value"),
+            ])
+        })
+    });
+
+    // 3 segments
+    group.bench_function("inline_3_segments", |b| {
+        b.iter(|| {
+            Strip::from_iter([
+                Segment::new("Name: "),
+                Segment::new("John"),
+                Segment::new(" Doe"),
+            ])
+        })
+    });
+
+    // 4 segments (max inline storage)
+    group.bench_function("inline_4_segments", |b| {
+        b.iter(|| {
+            Strip::from_iter([
+                Segment::new("a"),
+                Segment::new("b"),
+                Segment::new("c"),
+                Segment::new("d"),
+            ])
+        })
+    });
+
     group.finish();
 }
 
@@ -215,6 +266,7 @@ fn bench_strip_text_align(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_strip_from_segments,
+    bench_strip_inline_creation,
     bench_strip_from_segment,
     bench_strip_blank,
     bench_strip_crop,
