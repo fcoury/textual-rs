@@ -1343,6 +1343,14 @@ fn snapshot_height_comparison_example() {
     assert_snapshot!(canvas.to_snapshot());
 }
 
+#[test]
+fn snapshot_height_comparison_example_ansi() {
+    let app = height_comparison_example::HeightComparisonApp;
+    // Test with ANSI colors to catch Placeholder color regressions
+    let canvas = render_to_canvas(&app, height_comparison_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
 // ============================================================================
 // Layout Example
 // ============================================================================
