@@ -92,6 +92,7 @@ pub struct Placeholder {
     style: ComputedStyle,
     dirty: bool,
     id: Option<String>,
+    classes: Vec<String>,
     variant: PlaceholderVariant,
 }
 
@@ -105,6 +106,7 @@ impl Placeholder {
             style: ComputedStyle::default(),
             dirty: true,
             id: None,
+            classes: Vec::new(),
             variant: PlaceholderVariant::default(),
         }
     }
@@ -117,6 +119,16 @@ impl Placeholder {
     /// Set the widget ID for CSS targeting and message tracking.
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
+        self
+    }
+
+    /// Set CSS classes (space-separated).
+    pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
+        self.classes = classes
+            .into()
+            .split_whitespace()
+            .map(String::from)
+            .collect();
         self
     }
 
@@ -375,7 +387,7 @@ Placeholder {
         WidgetMeta {
             type_name: "Placeholder".to_string(),
             id: self.id.clone(),
-            classes: Vec::new(),
+            classes: self.classes.clone(),
             states: WidgetStates::empty(),
         }
     }
@@ -426,5 +438,32 @@ Placeholder {
         }
 
         None
+    }
+
+    fn add_class(&mut self, class: &str) {
+        if !self.classes.iter().any(|c| c == class) {
+            self.classes.push(class.to_string());
+            self.dirty = true;
+        }
+    }
+
+    fn remove_class(&mut self, class: &str) {
+        if let Some(pos) = self.classes.iter().position(|c| c == class) {
+            self.classes.remove(pos);
+            self.dirty = true;
+        }
+    }
+
+    fn has_class(&self, class: &str) -> bool {
+        self.classes.iter().any(|c| c == class)
+    }
+
+    fn set_classes(&mut self, classes: &str) {
+        self.classes = classes.split_whitespace().map(String::from).collect();
+        self.dirty = true;
+    }
+
+    fn classes(&self) -> Vec<String> {
+        self.classes.clone()
     }
 }
