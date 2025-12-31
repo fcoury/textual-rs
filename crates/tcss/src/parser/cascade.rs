@@ -486,7 +486,8 @@ fn resolve_theme_color(color: &RgbaColor, theme: &Theme) -> RgbaColor {
                     if mode == "lighten" || mode == "darken" {
                         // Reconstruct base name from remaining parts
                         let base_name = parts[2];
-                        let base_color = theme.get_color(base_name).unwrap_or_else(RgbaColor::white);
+                        let base_color =
+                            theme.get_color(base_name).unwrap_or_else(RgbaColor::white);
                         match mode {
                             "lighten" => base_color.lighten(amount),
                             "darken" => base_color.darken(amount),
@@ -543,22 +544,26 @@ Container {
 
         let stylesheet = parse_stylesheet(css).expect("Failed to parse CSS");
         let theme = Theme::new("test", false);
-        
+
         let widget = WidgetMeta {
-            type_name: "Container".to_string(),
+            type_name: "Container",
             id: Some("vertical-layout".to_string()),
             classes: vec![],
             states: WidgetStates::empty(),
         };
-        
+
         let ancestors = vec![];
         let style = compute_style(&widget, &ancestors, &stylesheet, &theme);
-        
+
         // ID selector should override type selector
         // height: auto is represented as Scalar { value: 0.0, unit: Unit::Auto }
         assert!(style.height.is_some(), "height should be set");
         let height = style.height.as_ref().unwrap();
-        assert_eq!(height.unit, crate::types::geometry::Unit::Auto, 
-            "height should be 'auto', got {:?}", height);
+        assert_eq!(
+            height.unit,
+            crate::types::geometry::Unit::Auto,
+            "height should be 'auto', got {:?}",
+            height
+        );
     }
 }

@@ -664,7 +664,8 @@ fn test_property_scrollbar_background() {
 
 #[test]
 fn test_property_scrollbar_background_hover() {
-    let decl = parse_first_declaration("ScrollableContainer { scrollbar-background-hover: #666666; }");
+    let decl =
+        parse_first_declaration("ScrollableContainer { scrollbar-background-hover: #666666; }");
     if let Declaration::ScrollbarBackgroundHover(c) = decl {
         assert_eq!(c, RgbaColor::rgb(102, 102, 102));
     } else {
@@ -674,7 +675,8 @@ fn test_property_scrollbar_background_hover() {
 
 #[test]
 fn test_property_scrollbar_background_active() {
-    let decl = parse_first_declaration("ScrollableContainer { scrollbar-background-active: #777777; }");
+    let decl =
+        parse_first_declaration("ScrollableContainer { scrollbar-background-active: #777777; }");
     if let Declaration::ScrollbarBackgroundActive(c) = decl {
         assert_eq!(c, RgbaColor::rgb(119, 119, 119));
     } else {
@@ -697,7 +699,13 @@ fn test_property_scrollbar_size_single() {
     use tcss::types::scrollbar::ScrollbarSize;
     let decl = parse_first_declaration("ScrollableContainer { scrollbar-size: 2; }");
     if let Declaration::ScrollbarSize(size) = decl {
-        assert_eq!(size, ScrollbarSize { horizontal: 2, vertical: 2 });
+        assert_eq!(
+            size,
+            ScrollbarSize {
+                horizontal: 2,
+                vertical: 2
+            }
+        );
     } else {
         panic!("expected ScrollbarSize declaration, got {:?}", decl);
     }
@@ -708,7 +716,13 @@ fn test_property_scrollbar_size_two_values() {
     use tcss::types::scrollbar::ScrollbarSize;
     let decl = parse_first_declaration("ScrollableContainer { scrollbar-size: 1 2; }");
     if let Declaration::ScrollbarSize(size) = decl {
-        assert_eq!(size, ScrollbarSize { horizontal: 1, vertical: 2 });
+        assert_eq!(
+            size,
+            ScrollbarSize {
+                horizontal: 1,
+                vertical: 2
+            }
+        );
     } else {
         panic!("expected ScrollbarSize declaration");
     }
@@ -781,7 +795,7 @@ fn test_property_scrollbar_visibility_hidden() {
 #[test]
 fn test_scrollbar_multiple_properties() {
     let decls = parse_declarations(
-        "ScrollableContainer { scrollbar-color: cyan; scrollbar-background: #222; scrollbar-size: 1; }"
+        "ScrollableContainer { scrollbar-color: cyan; scrollbar-background: #222; scrollbar-size: 1; }",
     );
     assert_eq!(decls.len(), 3);
 
@@ -901,7 +915,9 @@ fn test_property_link_style_none() {
 
 #[test]
 fn test_property_link_style_all_modifiers() {
-    let decl = parse_first_declaration("Link { link-style: bold dim italic underline blink reverse strike; }");
+    let decl = parse_first_declaration(
+        "Link { link-style: bold dim italic underline blink reverse strike; }",
+    );
     if let Declaration::LinkStyle(s) = decl {
         assert!(s.bold);
         assert!(s.dim);
@@ -918,7 +934,7 @@ fn test_property_link_style_all_modifiers() {
 #[test]
 fn test_link_multiple_properties() {
     let decls = parse_declarations(
-        "Link { link-color: blue; link-background: transparent; link-style: underline; }"
+        "Link { link-color: blue; link-background: transparent; link-style: underline; }",
     );
     assert_eq!(decls.len(), 3);
 
@@ -966,7 +982,10 @@ fn test_property_link_style_hover_theme_variable() {
 
 #[test]
 fn test_background_tint_with_id_selector() {
-    use tcss::parser::{parse_stylesheet, cascade::{compute_style, WidgetMeta, WidgetStates}};
+    use tcss::parser::{
+        cascade::{WidgetMeta, WidgetStates, compute_style},
+        parse_stylesheet,
+    };
 
     let css = r#"
 Vertical {
@@ -978,32 +997,37 @@ Vertical {
 "#;
 
     let stylesheet = parse_stylesheet(css).unwrap();
-    let theme = tcss::types::Theme::standard_themes().get("textual-dark").unwrap().clone();
-    
+    let theme = tcss::types::Theme::standard_themes()
+        .get("textual-dark")
+        .unwrap()
+        .clone();
+
     // Test Vertical with id "tint1"
     let meta = WidgetMeta {
-        type_name: "Vertical".to_string(),
+        type_name: "Vertical",
         id: Some("tint1".to_string()),
         classes: vec![],
         states: WidgetStates::empty(),
     };
-    
+
     let style = compute_style(&meta, &[], &stylesheet, &theme);
     println!("Vertical#tint1:");
     println!("  background: {:?}", style.background);
     println!("  background_tint: {:?}", style.background_tint);
-    
-    assert!(style.background.is_some(), "background should be set");
-    assert!(style.background_tint.is_some(), "background_tint should be set for #tint1");
-}
 
+    assert!(style.background.is_some(), "background should be set");
+    assert!(
+        style.background_tint.is_some(),
+        "background_tint should be set for #tint1"
+    );
+}
 
 // Keyline tests
 
 #[test]
 fn test_property_keyline_heavy_green() {
     use tcss::types::keyline::KeylineStyle;
-    
+
     let decl = parse_first_declaration("Grid { keyline: heavy green; }");
     if let Declaration::Keyline(k) = decl {
         assert_eq!(k.style, KeylineStyle::Heavy);
@@ -1016,7 +1040,7 @@ fn test_property_keyline_heavy_green() {
 #[test]
 fn test_property_keyline_thin_red() {
     use tcss::types::keyline::KeylineStyle;
-    
+
     let decl = parse_first_declaration("Grid { keyline: thin red; }");
     if let Declaration::Keyline(k) = decl {
         assert_eq!(k.style, KeylineStyle::Thin);
@@ -1029,7 +1053,7 @@ fn test_property_keyline_thin_red() {
 #[test]
 fn test_property_keyline_double_hex() {
     use tcss::types::keyline::KeylineStyle;
-    
+
     let decl = parse_first_declaration("Grid { keyline: double #00ff00; }");
     if let Declaration::Keyline(k) = decl {
         assert_eq!(k.style, KeylineStyle::Double);
@@ -1042,7 +1066,7 @@ fn test_property_keyline_double_hex() {
 #[test]
 fn test_property_keyline_none() {
     use tcss::types::keyline::KeylineStyle;
-    
+
     let decl = parse_first_declaration("Grid { keyline: none; }");
     if let Declaration::Keyline(k) = decl {
         assert_eq!(k.style, KeylineStyle::None);
@@ -1054,7 +1078,7 @@ fn test_property_keyline_none() {
 #[test]
 fn test_property_keyline_rgb() {
     use tcss::types::keyline::KeylineStyle;
-    
+
     let decl = parse_first_declaration("Grid { keyline: heavy rgb(100, 150, 200); }");
     if let Declaration::Keyline(k) = decl {
         assert_eq!(k.style, KeylineStyle::Heavy);
@@ -1063,4 +1087,3 @@ fn test_property_keyline_rgb() {
         panic!("expected Keyline declaration, got {:?}", decl);
     }
 }
-
