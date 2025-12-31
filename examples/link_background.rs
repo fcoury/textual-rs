@@ -57,7 +57,6 @@ impl App for LinkBackgroundApp {
 }
 
 fn main() -> textual::Result<()> {
-    textual::init_logger("height_comparison.log");
     let mut app = LinkBackgroundApp::new();
     app.run()
 }
