@@ -190,14 +190,7 @@ Label {
     width: 100%;
     height: 1;
     color: #d4d4d4;
-}
-
-Label:nth-child(odd) {
     background: #252526;
-}
-
-Label:nth-child(even) {
-    background: #1e1e1e;
 }
 "#;
 }
