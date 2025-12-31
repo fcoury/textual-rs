@@ -153,10 +153,11 @@ impl Placeholder {
     fn get_display_content(&self, region: &Region) -> Option<String> {
         match self.variant {
             PlaceholderVariant::Default => {
-                // Explicit label > #id > None
+                // Explicit label > #id > "Placeholder" (matching Python Textual)
                 self.label
                     .clone()
                     .or_else(|| self.id.as_ref().map(|id| format!("#{}", id)))
+                    .or_else(|| Some("Placeholder".to_string()))
             }
             PlaceholderVariant::Size => Some(format!("{} x {}", region.width, region.height)),
             PlaceholderVariant::Text => {

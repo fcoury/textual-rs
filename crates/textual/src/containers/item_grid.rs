@@ -6,7 +6,7 @@
 //! - `stretch_height`: Force all cells in a row to equal height
 //! - `regular`: Ensure no partial rows (even distribution)
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, WidgetMeta, WidgetStates, types::Visibility};
 
 use crate::canvas::{Canvas, Region, Size};
 use crate::layouts::{self, GridLayout, Layout};
@@ -135,7 +135,12 @@ impl<M> Widget<M> for ItemGrid<M> {
         let viewport = canvas.viewport();
         canvas.push_clip(inner_region);
         for placement in self.compute_child_placements(inner_region, viewport) {
-            self.children[placement.child_index].render(canvas, placement.region);
+            let child = &self.children[placement.child_index];
+            // Skip rendering if visibility is hidden (but widget still occupies space)
+            if child.get_style().visibility == Visibility::Hidden {
+                continue;
+            }
+            child.render(canvas, placement.region);
         }
         canvas.pop_clip();
     }

@@ -5,6 +5,7 @@
 
 use tcss::types::keyline::KeylineStyle;
 use tcss::types::Layout as LayoutDirection;
+use tcss::types::Visibility;
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, Size};
@@ -473,7 +474,12 @@ Container {
 
         canvas.push_clip(inner_region);
         for placement in &placements {
-            self.children[placement.child_index].render(canvas, placement.region);
+            let child = &self.children[placement.child_index];
+            // Skip rendering if visibility is hidden (but widget still occupies space)
+            if child.get_style().visibility == Visibility::Hidden {
+                continue;
+            }
+            child.render(canvas, placement.region);
         }
 
         // 6. Render keylines on top of children (if enabled)

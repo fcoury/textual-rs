@@ -23,7 +23,7 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Keyline, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle};
+use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Keyline, Layout, Overflow, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle, Visibility};
 
 /// CSS specificity for determining rule precedence.
 ///
@@ -246,6 +246,8 @@ pub enum Declaration {
     // Display properties
     /// The `display` property (block or none).
     Display(Display),
+    /// The `visibility` property (visible or hidden).
+    Visibility(Visibility),
 
     // Overflow properties
     /// The `overflow-x` property for horizontal overflow behavior.

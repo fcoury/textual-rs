@@ -25,7 +25,7 @@
 //! }
 //! ```
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates, types::keyline::KeylineStyle};
+use tcss::{ComputedStyle, WidgetMeta, WidgetStates, types::keyline::KeylineStyle, types::Visibility};
 
 use crate::keyline_canvas::KeylineCanvas;
 use crate::layouts::{self, GridLayout, Layout};
@@ -214,7 +214,12 @@ Grid {
         let viewport = canvas.viewport();
         canvas.push_clip(inner_region);
         for placement in self.compute_child_placements(inner_region, viewport) {
-            self.children[placement.child_index].render(canvas, placement.region);
+            let child = &self.children[placement.child_index];
+            // Skip rendering if visibility is hidden (but widget still occupies space)
+            if child.get_style().visibility == Visibility::Hidden {
+                continue;
+            }
+            child.render(canvas, placement.region);
         }
 
         // 3. Render keylines on top of children (if enabled)

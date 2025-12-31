@@ -365,6 +365,9 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Display(d) => {
             style.display = *d;
         }
+        Declaration::Visibility(v) => {
+            style.visibility = *v;
+        }
 
         // Overflow properties
         Declaration::OverflowX(o) => {

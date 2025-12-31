@@ -172,6 +172,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
 
         // Display properties
         "display" => map(values::parse_display, Declaration::Display)(input)?,
+        "visibility" => map(values::parse_visibility, Declaration::Visibility)(input)?,
 
         // Overflow properties
         "overflow-x" => map(values::parse_overflow, Declaration::OverflowX)(input)?,

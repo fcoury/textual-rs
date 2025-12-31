@@ -13,7 +13,7 @@ use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
 use tcss::types::text::TextStyle;
-use tcss::types::{AlignHorizontal, AlignVertical, Layout, Overflow};
+use tcss::types::{AlignHorizontal, AlignVertical, Layout, Overflow, Visibility};
 
 /// Helper to parse a simple rule and extract declarations
 fn parse_declarations(input: &str) -> Vec<Declaration> {
@@ -512,11 +512,15 @@ fn test_property_display_block() {
 }
 
 #[test]
-#[ignore = "visibility property not yet implemented"]
 fn test_property_visibility_hidden() {
     let decl = parse_first_declaration("Button { visibility: hidden; }");
-    // Should parse as Declaration::Visibility(Visibility::Hidden)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    assert!(matches!(decl, Declaration::Visibility(Visibility::Hidden)));
+}
+
+#[test]
+fn test_property_visibility_visible() {
+    let decl = parse_first_declaration("Button { visibility: visible; }");
+    assert!(matches!(decl, Declaration::Visibility(Visibility::Visible)));
 }
 
 #[test]
