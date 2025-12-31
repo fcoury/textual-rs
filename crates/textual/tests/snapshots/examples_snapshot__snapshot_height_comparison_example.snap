@@ -1,0 +1,27 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+                                    #cells
+
+
+                                   #percent
+
+
+                                      #w
+
+
+
+                                      #h
+
+
+
+                                      #vw
+
+
+
+                                      #vh
+
+                                     #auto
+                                     #fr1
+                                     #fr2

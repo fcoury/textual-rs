@@ -277,9 +277,35 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         // Update scroll dimensions FIRST so show_*_scrollbar() has correct viewport info
         // This fixes keyboard-only scrolling and overflow:auto decisions on first render
         let content_size = self.content().desired_size();
+
+        // Handle u16::MAX (signal for "fill available space") - use actual content height
+        // When widgets have flexible heights (fr, %, etc), desired_size returns u16::MAX
+        // which would incorrectly allow scrolling to position 65535. Instead, use the
+        // content's intrinsic size for scrolling calculations.
+        let effective_height = if content_size.height == u16::MAX {
+            // Get the intrinsic content height from the widget
+            let h = self.content().content_height_for_scroll(inner_region.height as u16) as i32;
+            log::debug!(
+                "ScrollableContainer: content_size.height=MAX, content_height_for_scroll({})={}, inner_region.height={}",
+                inner_region.height, h, inner_region.height
+            );
+            h
+        } else {
+            log::debug!(
+                "ScrollableContainer: content_size.height={}, inner_region.height={}",
+                content_size.height, inner_region.height
+            );
+            content_size.height as i32
+        };
+        let effective_width = if content_size.width == u16::MAX {
+            inner_region.width
+        } else {
+            content_size.width as i32
+        };
+
         {
             let mut scroll = self.scroll.borrow_mut();
-            scroll.set_virtual_size(content_size.width as i32, content_size.height as i32);
+            scroll.set_virtual_size(effective_width, effective_height);
             // We need to estimate content region size before calling content_region()
             // to avoid chicken-and-egg problem with scrollbar visibility
             let style = self.scrollbar_style();
@@ -287,7 +313,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 Overflow::Scroll => style.size.vertical as i32,
                 Overflow::Auto => {
                     // If content is taller than inner_region, we'll need scrollbar
-                    if content_size.height as i32 > inner_region.height {
+                    // Use effective_height for flexible content
+                    if effective_height > inner_region.height {
                         style.size.vertical as i32
                     } else {
                         0
@@ -345,14 +372,19 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         canvas.push_clip(content_region);
 
         // Calculate content position with scroll offset
-        // IMPORTANT: Use VIEWPORT dimensions for layout calculations (so %, h, vh, vw units work correctly)
-        // The content can overflow and scroll, but percentage calculations should be viewport-relative
-        // This matches Python Textual behavior
+        // Use the full virtual content size for layout so all children are positioned correctly.
+        // The clipping will show only the visible portion.
+        // NOTE: We use effective_height/effective_width calculated earlier for scroll purposes.
+        let scroll_ref = self.scroll.borrow();
+        let virtual_height = scroll_ref.virtual_height;
+        let virtual_width = scroll_ref.virtual_width;
+        drop(scroll_ref);
+
         let content_render_region = Region {
             x: content_region.x - offset_x,
             y: content_region.y - offset_y,
-            width: content_region.width,  // Use viewport width for layout
-            height: content_region.height, // Use viewport height for layout
+            width: virtual_width.max(content_region.width),  // At least viewport width
+            height: virtual_height.max(content_region.height), // Full content height for layout
         };
 
         log::trace!(
@@ -369,10 +401,11 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             let v_region = self.vertical_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.vertical_colors();
 
+            // Use virtual_height (which equals effective_height) for correct scrollbar rendering
             ScrollBarRender::render_vertical(
                 canvas,
                 v_region,
-                content_size.height as f32,
+                virtual_height as f32,
                 content_region.height as f32,
                 offset_y as f32,
                 thumb_color,
@@ -385,10 +418,11 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             let h_region = self.horizontal_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.horizontal_colors();
 
+            // Use virtual_width (which equals effective_width) for correct scrollbar rendering
             ScrollBarRender::render_horizontal(
                 canvas,
                 h_region,
-                content_size.width as f32,
+                virtual_width as f32,
                 content_region.width as f32,
                 offset_x as f32,
                 thumb_color,
@@ -643,11 +677,11 @@ impl<M> ScrollableContainer<M> {
         let my = event.row as i32;
         let pos_in_bar = my - region.y;
 
-        let content_size = self.content().desired_size();
+        // Use virtual_height from scroll state (set during render from effective_height)
         let scroll = self.scroll.borrow();
         let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
             region.height,
-            content_size.height as f32,
+            scroll.virtual_height as f32,
             scroll.viewport_height as f32,
             scroll.offset_y as f32,
         );
@@ -680,11 +714,11 @@ impl<M> ScrollableContainer<M> {
         let mx = event.column as i32;
         let pos_in_bar = mx - region.x;
 
-        let content_size = self.content().desired_size();
+        // Use virtual_width from scroll state (set during render from effective_width)
         let scroll = self.scroll.borrow();
         let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
             region.width,
-            content_size.width as f32,
+            scroll.virtual_width as f32,
             scroll.viewport_width as f32,
             scroll.offset_x as f32,
         );
@@ -720,8 +754,7 @@ impl<M> ScrollableContainer<M> {
         vertical: bool,
         grab_offset: i32,
     ) -> Option<M> {
-        let content_size = self.content().desired_size();
-
+        // Use virtual sizes from scroll state (set during render from effective heights/widths)
         if vertical {
             let v_region = self.vertical_scrollbar_region(region);
             let my = event.row as i32;
@@ -729,8 +762,10 @@ impl<M> ScrollableContainer<M> {
             let new_thumb_start = pos_in_bar - grab_offset;
 
             let track_size = v_region.height as f32;
-            let virtual_size = content_size.height as f32;
-            let window_size = self.scroll.borrow().viewport_height as f32;
+            let scroll = self.scroll.borrow();
+            let virtual_size = scroll.virtual_height as f32;
+            let window_size = scroll.viewport_height as f32;
+            drop(scroll);
             let thumb_size = (window_size / virtual_size) * track_size;
             let track_range = track_size - thumb_size;
 
@@ -747,8 +782,10 @@ impl<M> ScrollableContainer<M> {
             let new_thumb_start = pos_in_bar - grab_offset;
 
             let track_size = h_region.width as f32;
-            let virtual_size = content_size.width as f32;
-            let window_size = self.scroll.borrow().viewport_width as f32;
+            let scroll = self.scroll.borrow();
+            let virtual_size = scroll.virtual_width as f32;
+            let window_size = scroll.viewport_width as f32;
+            drop(scroll);
             let thumb_size = (window_size / virtual_size) * track_size;
             let track_range = track_size - thumb_size;
 

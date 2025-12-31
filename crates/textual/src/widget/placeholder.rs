@@ -230,11 +230,11 @@ impl Placeholder {
 
 impl<M> Widget<M> for Placeholder {
     fn default_css(&self) -> &'static str {
+        // Match Python Textual: no min-height, sizes to content
         r#"
 Placeholder {
     width: 1fr;
     height: auto;
-    min-height: 2;
 }
 "#
     }
@@ -338,8 +338,37 @@ Placeholder {
     }
 
     fn desired_size(&self) -> Size {
-        // Reasonable default size for prototyping
-        Size::new(20, 3)
+        use tcss::types::Unit;
+
+        // Check CSS dimensions - return u16::MAX for flexible units
+        let width = if let Some(w) = &self.style.width {
+            match w.unit {
+                Unit::Cells => w.value as u16,
+                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                    u16::MAX // Signal "fill available space"
+                }
+                Unit::Auto => 20, // Default width for auto
+            }
+        } else {
+            20 // Default width
+        };
+
+        // For height, match Python Textual behavior:
+        // - auto returns content height (1 for label, more for text variant)
+        // - This allows vertical layout to size based on actual content
+        let height = if let Some(h) = &self.style.height {
+            match h.unit {
+                Unit::Cells => h.value as u16,
+                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                    u16::MAX // Signal "fill available space"
+                }
+                Unit::Auto => 1, // Content height: 1 row for label (matching Python)
+            }
+        } else {
+            1 // Default: 1 row for label content
+        };
+
+        Size::new(width, height)
     }
 
     fn get_meta(&self) -> WidgetMeta {

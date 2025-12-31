@@ -1217,3 +1217,86 @@ fn snapshot_hatch_example() {
     let canvas = render_to_canvas(&app, hatch_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Height Comparison Example (tests vw/vh/w/h/% units)
+// ============================================================================
+
+mod height_comparison_example {
+    use super::*;
+    use textual::{Placeholder, Static, VerticalScroll};
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct HeightComparisonApp;
+
+    impl Compose for HeightComparisonApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                VerticalScroll {
+                    Placeholder(id: "cells")
+                    Placeholder(id: "percent")
+                    Placeholder(id: "w")
+                    Placeholder(id: "h")
+                    Placeholder(id: "vw")
+                    Placeholder(id: "vh")
+                    Placeholder(id: "auto")
+                    Placeholder(id: "fr1")
+                    Placeholder(id: "fr2")
+                }
+                Static("", id: "ruler")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#cells {
+    height: 2;
+}
+#percent {
+    height: 12.5%;
+}
+#w {
+    height: 5w;
+}
+#h {
+    height: 12.5h;
+}
+#vw {
+    height: 6.25vw;
+}
+#vh {
+    height: 12.5vh;
+}
+#auto {
+    height: auto;
+}
+#fr1 {
+    height: 1fr;
+}
+#fr2 {
+    height: 2fr;
+}
+
+Screen {
+    overflow: hidden;
+}
+
+#ruler {
+    dock: right;
+    width: 1;
+    background: $accent;
+}
+"#;
+}
+
+#[test]
+fn snapshot_height_comparison_example() {
+    let app = height_comparison_example::HeightComparisonApp;
+    // Test at 80x24 viewport
+    let canvas = render_to_canvas(&app, height_comparison_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}

@@ -40,6 +40,9 @@ pub struct Container<M> {
     /// Optional layout direction override (takes precedence over CSS).
     /// Used by Horizontal/Vertical wrappers to enforce their layout mode.
     layout_override: Option<LayoutDirection>,
+    /// Cached viewport size from on_resize (terminal dimensions).
+    /// Used for content_height_for_scroll to match layout calculations.
+    viewport: Size,
 }
 
 impl<M> Container<M> {
@@ -54,6 +57,7 @@ impl<M> Container<M> {
             border_title: None,
             border_subtitle: None,
             layout_override: None,
+            viewport: Size::new(80, 24), // Default until on_resize is called
         }
     }
 
@@ -399,6 +403,87 @@ Container {
         Size::new(width, height)
     }
 
+    fn content_height_for_scroll(&self, _available_height: u16) -> u16 {
+        use tcss::types::Unit;
+
+        // Calculate actual content height for scrolling, resolving percentage/fr units
+        // This is used when desired_size returns u16::MAX (fill available space)
+        // Use stored viewport dimensions to match layout calculations (Python uses parent.app.size)
+        let viewport_width = self.viewport.width;
+        let viewport_height = self.viewport.height;
+
+        log::debug!(
+            "content_height_for_scroll: viewport={}x{}, _available_height={}",
+            viewport_width, viewport_height, _available_height
+        );
+
+        let mut total_height: u16 = 0;
+
+        for child in &self.children {
+            if !child.participates_in_layout() {
+                continue;
+            }
+            let child_style = child.get_style();
+            let child_desired = child.desired_size();
+
+            // Calculate child height based on its CSS height property
+            // Use viewport dimensions to match layout (Python uses parent.app.size for all)
+            let child_height = if let Some(h) = &child_style.height {
+                match h.unit {
+                    Unit::Cells => h.value as u16,
+                    Unit::Percent | Unit::Height => {
+                        // Python uses parent.app.size.height for these
+                        ((h.value / 100.0) * viewport_height as f64) as u16
+                    }
+                    Unit::Width => {
+                        // Python uses parent.app.size.width for w units
+                        ((h.value / 100.0) * viewport_width as f64) as u16
+                    }
+                    Unit::ViewWidth => {
+                        ((h.value / 100.0) * viewport_width as f64) as u16
+                    }
+                    Unit::ViewHeight => {
+                        ((h.value / 100.0) * viewport_height as f64) as u16
+                    }
+                    Unit::Fraction => {
+                        // fr units use their value as minimum height for scroll estimation
+                        // 1fr = 1 row minimum, 2fr = 2 rows minimum, etc.
+                        (h.value as u16).max(1)
+                    }
+                    Unit::Auto => {
+                        // Auto uses intrinsic height
+                        if child_desired.height == u16::MAX {
+                            child.content_height_for_scroll(viewport_height)
+                        } else {
+                            child_desired.height
+                        }
+                    }
+                }
+            } else if child_desired.height == u16::MAX {
+                // No CSS height, child wants to fill - recurse
+                child.content_height_for_scroll(viewport_height)
+            } else {
+                child_desired.height
+            };
+
+            // Add margins
+            let margin_v = child_style.margin.top.value as u16 + child_style.margin.bottom.value as u16;
+            total_height = total_height.saturating_add(child_height).saturating_add(margin_v);
+        }
+
+        // Add container chrome (border + padding)
+        let border_size = if self.style.border.is_none() { 0 } else { 2 };
+        let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+        let result = total_height.saturating_add(border_size).saturating_add(padding_v);
+
+        log::debug!(
+            "content_height_for_scroll: total_height={}, border={}, padding={}, result={}",
+            total_height, border_size, padding_v, result
+        );
+
+        result
+    }
+
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "Container".to_string(),
@@ -439,6 +524,9 @@ Container {
     }
 
     fn on_resize(&mut self, size: Size) {
+        // Store viewport for content_height_for_scroll calculations
+        log::debug!("Container::on_resize: size={}x{}", size.width, size.height);
+        self.viewport = size;
         for child in &mut self.children {
             child.on_resize(size);
         }

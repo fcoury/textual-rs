@@ -25,6 +25,22 @@ pub trait Widget<M> {
     /// Tell the parent container how much space this widget needs.
     fn desired_size(&self) -> Size;
 
+    /// Returns the actual content height for scroll calculations.
+    ///
+    /// This is used by ScrollableContainer when desired_size returns u16::MAX
+    /// (indicating "fill available space"). The default returns desired_size().height,
+    /// but containers with flexible children should calculate actual content height.
+    ///
+    /// `available_height` is the viewport height that would be available.
+    fn content_height_for_scroll(&self, available_height: u16) -> u16 {
+        let size = self.desired_size();
+        if size.height == u16::MAX {
+            available_height
+        } else {
+            size.height
+        }
+    }
+
     fn for_each_child(&mut self, _f: &mut dyn FnMut(&mut dyn Widget<M>)) {}
 
     /// Called when the terminal or parent container is resized.
@@ -466,6 +482,10 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn desired_size(&self) -> Size {
         self.as_ref().desired_size()
+    }
+
+    fn content_height_for_scroll(&self, available_height: u16) -> u16 {
+        self.as_ref().content_height_for_scroll(available_height)
     }
 
     fn get_state(&self) -> WidgetStates {

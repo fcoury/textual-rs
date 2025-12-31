@@ -182,6 +182,10 @@ macro_rules! impl_widget_delegation {
             fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn $crate::Widget<$m>)) {
                 self.$field.for_each_child(f)
             }
+
+            fn content_height_for_scroll(&self, available_height: u16) -> u16 {
+                self.$field.content_height_for_scroll(available_height)
+            }
         }
     };
 }
