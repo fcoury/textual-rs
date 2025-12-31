@@ -86,3 +86,34 @@ where
 
     canvas
 }
+
+/// Render a Compose implementation directly to an SVG string.
+///
+/// This is a convenience function that combines `render_to_canvas` and `to_svg`.
+///
+/// # Arguments
+/// * `app` - The Compose implementation to render
+/// * `css` - CSS stylesheet for styling
+/// * `width` - Terminal width in columns
+/// * `height` - Terminal height in rows
+/// * `title` - Optional title for the SVG
+///
+/// # Example
+/// ```ignore
+/// let app = MyApp::new();
+/// let svg = render_to_svg(&app, MyApp::CSS, 80, 24, Some("My App"));
+/// std::fs::write("screenshot.svg", svg).unwrap();
+/// ```
+pub fn render_to_svg<T, M>(
+    app: &T,
+    css: &str,
+    width: u16,
+    height: u16,
+    title: Option<&str>,
+) -> String
+where
+    T: Compose<Message = M>,
+    M: Send + 'static,
+{
+    render_to_canvas(app, css, width, height).to_svg(title)
+}

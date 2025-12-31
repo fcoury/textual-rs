@@ -141,6 +141,16 @@ impl Canvas {
         }
     }
 
+    /// Returns the canvas dimensions as (width, height).
+    pub fn size(&self) -> (u16, u16) {
+        (self.size.width, self.size.height)
+    }
+
+    /// Returns a reference to the cell at the given index.
+    pub fn cell_at(&self, index: usize) -> &Cell {
+        &self.cells[index]
+    }
+
     // === Clipping ===
 
     /// Pushes a new clipping region onto the stack.
@@ -492,6 +502,30 @@ impl Canvas {
         }
 
         result
+    }
+
+    /// Render canvas to SVG format for visual snapshots.
+    ///
+    /// This produces Rich-compatible SVG output suitable for
+    /// documentation and visual regression testing.
+    ///
+    /// # Arguments
+    /// * `title` - Optional title to display in the SVG
+    ///
+    /// # Example
+    /// ```ignore
+    /// let svg = canvas.to_svg(Some("My App"));
+    /// std::fs::write("screenshot.svg", svg)?;
+    /// ```
+    pub fn to_svg(&self, title: Option<&str>) -> String {
+        use crate::svg::{SvgConfig, SvgRenderer};
+
+        let config = SvgConfig {
+            title: title.map(String::from),
+            ..Default::default()
+        };
+
+        SvgRenderer::new(config).render(self)
     }
 }
 

@@ -79,6 +79,13 @@ fn snapshot_border_example_ansi() {
     assert_snapshot!(canvas.to_ansi_snapshot());
 }
 
+#[test]
+fn snapshot_border_example_svg() {
+    let app = border_example::BorderApp;
+    let canvas = render_to_canvas(&app, border_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Border Example")));
+}
+
 // ============================================================================
 // Align Example
 // ============================================================================
@@ -274,6 +281,13 @@ fn snapshot_background_example_ansi() {
     let app = background_example::BackgroundApp;
     let canvas = render_to_canvas(&app, background_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+#[test]
+fn snapshot_background_example_svg() {
+    let app = background_example::BackgroundApp;
+    let canvas = render_to_canvas(&app, background_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Background Example")));
 }
 
 // ============================================================================
@@ -784,6 +798,13 @@ fn snapshot_border_title_colors_example_ansi() {
     let app = border_title_colors_example::BorderTitleColorsApp;
     let canvas = render_to_canvas(&app, border_title_colors_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+#[test]
+fn snapshot_border_title_colors_example_svg() {
+    let app = border_title_colors_example::BorderTitleColorsApp;
+    let canvas = render_to_canvas(&app, border_title_colors_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Border Title Colors Example")));
 }
 
 // ============================================================================
@@ -1442,6 +1463,13 @@ fn snapshot_color_example_ansi() {
     assert_snapshot!(canvas.to_ansi_snapshot());
 }
 
+#[test]
+fn snapshot_color_example_svg() {
+    let app = color_example::ColorApp;
+    let canvas = render_to_canvas(&app, color_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Color Example")));
+}
+
 // ============================================================================
 // Color Auto Example
 // ============================================================================
@@ -1980,6 +2008,13 @@ fn snapshot_link_background_example_ansi() {
     let app = link_background_example::LinkBackgroundApp;
     let canvas = render_to_canvas(&app, link_background_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+#[test]
+fn snapshot_link_background_example_svg() {
+    let app = link_background_example::LinkBackgroundApp;
+    let canvas = render_to_canvas(&app, link_background_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Link Background Example")));
 }
 
 // ============================================================================
