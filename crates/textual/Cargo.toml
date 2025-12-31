@@ -40,3 +40,7 @@ harness = false
 [[bench]]
 name = "canvas_benchmarks"
 harness = false
+
+[[bench]]
+name = "render_benchmarks"
+harness = false
