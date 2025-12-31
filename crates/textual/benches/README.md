@@ -1,6 +1,6 @@
-# Textual-RS Benchmarks
+# textual-rs Benchmarks
 
-Performance benchmarks for the Textual-RS rendering pipeline.
+Performance benchmarks for the textual-rs rendering pipeline.
 
 ## Quick Start
 
@@ -17,12 +17,12 @@ cargo bench -p textual --bench render_benchmarks
 
 ## Benchmark Suites
 
-| Suite | Description | Key Metrics |
-|-------|-------------|-------------|
-| `segment_benchmarks` | Segment operations | `cell_length()`, creation, splitting |
-| `strip_benchmarks` | Strip operations | `from_segments()`, cropping, joining |
-| `canvas_benchmarks` | Canvas operations | `put_str()`, `render_strip()`, clipping |
-| `render_benchmarks` | End-to-end rendering | Full pipeline: CSS → layout → canvas |
+| Suite                | Description          | Key Metrics                             |
+| -------------------- | -------------------- | --------------------------------------- |
+| `segment_benchmarks` | Segment operations   | `cell_length()`, creation, splitting    |
+| `strip_benchmarks`   | Strip operations     | `from_segments()`, cropping, joining    |
+| `canvas_benchmarks`  | Canvas operations    | `put_str()`, `render_strip()`, clipping |
+| `render_benchmarks`  | End-to-end rendering | Full pipeline: CSS → layout → canvas    |
 
 ## Comparing Before/After Optimizations
 
@@ -82,17 +82,17 @@ timeout 5s cargo run --release --example buttons
 
 ## Key Optimizations Tracked
 
-| Optimization | Benchmark | Expected Improvement |
-|--------------|-----------|---------------------|
-| Segment width caching | `segment_cell_length/*` | O(N) → O(1) |
-| Differential rendering | `render_repeated/*` | 90%+ fewer bytes written |
-| Output batching | `canvas_flush/*` | Fewer syscalls |
-| SmallVec for strips | `strip_from_segments/*` | Fewer heap allocations |
+| Optimization           | Benchmark               | Expected Improvement     |
+| ---------------------- | ----------------------- | ------------------------ |
+| Segment width caching  | `segment_cell_length/*` | O(N) → O(1)              |
+| Differential rendering | `render_repeated/*`     | 90%+ fewer bytes written |
+| Output batching        | `canvas_flush/*`        | Fewer syscalls           |
+| SmallVec for strips    | `strip_from_segments/*` | Fewer heap allocations   |
 
 ## Performance Targets
 
-| Operation | Target | Current |
-|-----------|--------|---------|
-| `cell_length()` | < 1ns | ✅ ~0.6ps (cached) |
-| Full frame 80x24 | < 1ms | TBD |
-| Incremental update | < 100µs | TBD |
+| Operation          | Target  | Current            |
+| ------------------ | ------- | ------------------ |
+| `cell_length()`    | < 1ns   | ✅ ~0.6ps (cached) |
+| Full frame 80x24   | < 1ms   | TBD                |
+| Incremental update | < 100µs | TBD                |

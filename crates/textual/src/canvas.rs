@@ -101,7 +101,7 @@ impl Region {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cell {
     pub symbol: char,
     pub fg: Option<Color>,
@@ -112,31 +112,29 @@ pub struct Cell {
 pub struct Canvas {
     size: Size,
     cells: Vec<Cell>,
-    // Track current active colors to minimize ANSI escape codes
-    // TODO: Use these for optimization in flush()
-    #[allow(dead_code)]
-    current_fg: Option<Color>,
-    #[allow(dead_code)]
-    current_bg: Option<Color>,
+    /// Previous frame's cells for differential rendering.
+    /// Only cells that differ from prev_cells are written to the terminal.
+    prev_cells: Vec<Cell>,
+    /// Whether this is the first flush (requires full redraw).
+    first_flush: bool,
     /// Stack of clipping regions. The active clip is the intersection of all.
     clip_stack: Vec<Region>,
 }
 
 impl Canvas {
     pub fn new(width: u16, height: u16) -> Self {
+        let blank_cell = Cell {
+            symbol: ' ',
+            fg: None,
+            bg: None,
+            attrs: TextAttributes::default(),
+        };
+        let cell_count = (width * height) as usize;
         Self {
             size: Size { width, height },
-            cells: vec![
-                Cell {
-                    symbol: ' ',
-                    fg: None,
-                    bg: None,
-                    attrs: TextAttributes::default(),
-                };
-                (width * height) as usize
-            ],
-            current_fg: None,
-            current_bg: None,
+            cells: vec![blank_cell; cell_count],
+            prev_cells: vec![blank_cell; cell_count],
+            first_flush: true,
             clip_stack: Vec::new(),
         }
     }
@@ -306,11 +304,27 @@ impl Canvas {
 
     pub fn flush(&mut self) -> std::io::Result<()> {
         let mut out = std::io::stdout();
+
+        // First flush requires full redraw
+        if self.first_flush {
+            self.flush_full(&mut out)?;
+            self.first_flush = false;
+        } else {
+            self.flush_diff(&mut out)?;
+        }
+
+        // Swap buffers: current becomes previous for next frame
+        std::mem::swap(&mut self.cells, &mut self.prev_cells);
+
+        out.flush()?;
+        Ok(())
+    }
+
+    /// Full flush - redraws entire screen (used on first render).
+    fn flush_full<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
         execute!(out, cursor::MoveTo(0, 0))?;
 
-        // Reset colors and attributes at start of each render to prevent bleeding
-        // between frames. Without this, the terminal keeps colors/attributes from the
-        // previous render when cells have None for fg/bg.
+        // Reset colors and attributes at start of each render
         execute!(out, SetForegroundColor(Color::Reset))?;
         execute!(out, SetBackgroundColor(Color::Reset))?;
         execute!(out, SetAttribute(Attribute::Reset))?;
@@ -324,53 +338,107 @@ impl Canvas {
 
         for (row_idx, row) in rows.into_iter().enumerate() {
             for cell in row {
-                // Handle attribute changes
-                if cell.attrs != last_attrs {
-                    // Reset all attributes first, then set the new ones
-                    execute!(out, SetAttribute(Attribute::Reset))?;
-                    if cell.attrs.bold {
-                        execute!(out, SetAttribute(Attribute::Bold))?;
-                    }
-                    if cell.attrs.dim {
-                        execute!(out, SetAttribute(Attribute::Dim))?;
-                    }
-                    if cell.attrs.italic {
-                        execute!(out, SetAttribute(Attribute::Italic))?;
-                    }
-                    if cell.attrs.underline {
-                        execute!(out, SetAttribute(Attribute::Underlined))?;
-                    }
-                    if cell.attrs.strike {
-                        execute!(out, SetAttribute(Attribute::CrossedOut))?;
-                    }
-                    if cell.attrs.reverse {
-                        execute!(out, SetAttribute(Attribute::Reverse))?;
-                    }
-                    last_attrs = cell.attrs;
-                    // Reset color tracking since attribute reset clears colors
-                    last_fg = None;
-                    last_bg = None;
-                }
-
-                // Only send escape code if the color actually changed
-                if cell.fg != last_fg {
-                    let color = cell.fg.unwrap_or(Color::Reset);
-                    execute!(out, SetForegroundColor(color))?;
-                    last_fg = cell.fg;
-                }
-                if cell.bg != last_bg {
-                    let color = cell.bg.unwrap_or(Color::Reset);
-                    execute!(out, SetBackgroundColor(color))?;
-                    last_bg = cell.bg;
-                }
-                write!(out, "{}", cell.symbol)?;
+                self.emit_cell(out, cell, &mut last_fg, &mut last_bg, &mut last_attrs)?;
             }
-            // Don't print newline after the last row to prevent terminal scrolling
             if row_idx < num_rows - 1 {
                 write!(out, "\r\n")?;
             }
         }
-        out.flush()?;
+        Ok(())
+    }
+
+    /// Differential flush - only redraws changed cells.
+    fn flush_diff<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        let mut last_fg: Option<Color> = None;
+        let mut last_bg: Option<Color> = None;
+        let mut last_attrs = TextAttributes::default();
+        let mut cursor_x: i32 = -1;
+        let mut cursor_y: i32 = -1;
+
+        let width = self.size.width as usize;
+
+        for (i, (cell, prev)) in self.cells.iter().zip(self.prev_cells.iter()).enumerate() {
+            // Skip unchanged cells
+            if cell == prev {
+                continue;
+            }
+
+            let x = (i % width) as u16;
+            let y = (i / width) as u16;
+
+            // Move cursor if not at expected position
+            if cursor_x != x as i32 || cursor_y != y as i32 {
+                execute!(out, cursor::MoveTo(x, y))?;
+                // After cursor move, we need to reset state tracking
+                // since the terminal state at new position is unknown from our POV
+                // (though typically unchanged, being conservative is safer)
+            }
+
+            self.emit_cell(out, cell, &mut last_fg, &mut last_bg, &mut last_attrs)?;
+
+            // Update cursor position (advances by 1 after writing a char)
+            cursor_x = x as i32 + 1;
+            cursor_y = y as i32;
+
+            // Handle line wrap
+            if cursor_x >= width as i32 {
+                cursor_x = 0;
+                cursor_y += 1;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Emit a single cell with optimized attribute/color handling.
+    fn emit_cell<W: Write>(
+        &self,
+        out: &mut W,
+        cell: &Cell,
+        last_fg: &mut Option<Color>,
+        last_bg: &mut Option<Color>,
+        last_attrs: &mut TextAttributes,
+    ) -> std::io::Result<()> {
+        // Handle attribute changes
+        if cell.attrs != *last_attrs {
+            execute!(out, SetAttribute(Attribute::Reset))?;
+            if cell.attrs.bold {
+                execute!(out, SetAttribute(Attribute::Bold))?;
+            }
+            if cell.attrs.dim {
+                execute!(out, SetAttribute(Attribute::Dim))?;
+            }
+            if cell.attrs.italic {
+                execute!(out, SetAttribute(Attribute::Italic))?;
+            }
+            if cell.attrs.underline {
+                execute!(out, SetAttribute(Attribute::Underlined))?;
+            }
+            if cell.attrs.strike {
+                execute!(out, SetAttribute(Attribute::CrossedOut))?;
+            }
+            if cell.attrs.reverse {
+                execute!(out, SetAttribute(Attribute::Reverse))?;
+            }
+            *last_attrs = cell.attrs;
+            // Reset color tracking since attribute reset clears colors
+            *last_fg = None;
+            *last_bg = None;
+        }
+
+        // Only send escape code if the color actually changed
+        if cell.fg != *last_fg {
+            let color = cell.fg.unwrap_or(Color::Reset);
+            execute!(out, SetForegroundColor(color))?;
+            *last_fg = cell.fg;
+        }
+        if cell.bg != *last_bg {
+            let color = cell.bg.unwrap_or(Color::Reset);
+            execute!(out, SetBackgroundColor(color))?;
+            *last_bg = cell.bg;
+        }
+
+        write!(out, "{}", cell.symbol)?;
         Ok(())
     }
 
@@ -382,6 +450,12 @@ impl Canvas {
             attrs: TextAttributes::default(),
         });
         self.clip_stack.clear();
+    }
+
+    /// Force a full redraw on the next flush.
+    /// Call this after resize or when the terminal state is unknown.
+    pub fn invalidate(&mut self) {
+        self.first_flush = true;
     }
 
     // === Test helpers ===
