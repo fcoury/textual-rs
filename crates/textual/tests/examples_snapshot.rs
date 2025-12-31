@@ -1300,3 +1300,704 @@ fn snapshot_height_comparison_example() {
     let canvas = render_to_canvas(&app, height_comparison_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Layout Example
+// ============================================================================
+
+mod layout_example {
+    use super::*;
+    use textual::Container;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct LayoutApp;
+
+    impl Compose for LayoutApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Container(id: "vertical-layout") {
+                    Label("Layout")
+                    Label("Is")
+                    Label("Vertical")
+                }
+                Container(id: "horizontal-layout") {
+                    Label("Layout")
+                    Label("Is")
+                    Label("Horizontal")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#vertical-layout {
+    layout: vertical;
+    background: darkmagenta;
+    height: auto;
+}
+
+#horizontal-layout {
+    layout: horizontal;
+    background: darkcyan;
+    height: auto;
+}
+
+Label {
+    margin: 1;
+    width: 12;
+    color: black;
+    background: yellowgreen;
+}
+"#;
+}
+
+#[test]
+fn snapshot_layout_example() {
+    let app = layout_example::LayoutApp;
+    let canvas = render_to_canvas(&app, layout_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Color Example
+// ============================================================================
+
+mod color_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct ColorApp;
+
+    impl Compose for ColorApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("I'm red!", id: "label1")
+                Label("I'm rgb(0, 255, 0)!", id: "label2")
+                Label("I'm hsl(240, 100%, 50%)!", id: "label3")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Label {
+    height: 1fr;
+    content-align: center middle;
+    width: 100%;
+}
+
+#label1 {
+    color: red;
+}
+
+#label2 {
+    color: rgb(0, 255, 0);
+}
+
+#label3 {
+    color: hsl(240, 100%, 50%);
+}
+"#;
+}
+
+#[test]
+fn snapshot_color_example() {
+    let app = color_example::ColorApp;
+    let canvas = render_to_canvas(&app, color_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Color Auto Example
+// ============================================================================
+
+mod color_auto_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct ColorAutoApp;
+
+    impl Compose for ColorAutoApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("The quick brown fox jumps over the lazy dog!", id: "lbl1")
+                Label("The quick brown fox jumps over the lazy dog!", id: "lbl2")
+                Label("The quick brown fox jumps over the lazy dog!", id: "lbl3")
+                Label("The quick brown fox jumps over the lazy dog!", id: "lbl4")
+                Label("The quick brown fox jumps over the lazy dog!", id: "lbl5")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Label {
+    color: auto 80%;
+    content-align: center middle;
+    height: 1fr;
+    width: 100%;
+}
+
+#lbl1 {
+    background: red 80%;
+}
+
+#lbl2 {
+    background: yellow 80%;
+}
+
+#lbl3 {
+    background: blue 80%;
+}
+
+#lbl4 {
+    background: pink 80%;
+}
+
+#lbl5 {
+    background: green 80%;
+}
+"#;
+}
+
+#[test]
+fn snapshot_color_auto_example() {
+    let app = color_auto_example::ColorAutoApp;
+    let canvas = render_to_canvas(&app, color_auto_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Background Tint Example
+// ============================================================================
+
+mod background_tint_example {
+    use super::*;
+    use textual::Vertical;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct BackgroundTintApp;
+
+    impl Compose for BackgroundTintApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Vertical(id: "tint1") {
+                    Label("0%")
+                }
+                Vertical(id: "tint2") {
+                    Label("25%")
+                }
+                Vertical(id: "tint3") {
+                    Label("50%")
+                }
+                Vertical(id: "tint4") {
+                    Label("75%")
+                }
+                Vertical(id: "tint5") {
+                    Label("100%")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Vertical {
+    background: $panel;
+    color: auto 90%;
+    height: 1fr;
+}
+#tint1 { background-tint: $foreground 0%; }
+#tint2 { background-tint: $foreground 25%; }
+#tint3 { background-tint: $foreground 50%; }
+#tint4 { background-tint: $foreground 75%; }
+#tint5 { background-tint: $foreground 100%; }
+"#;
+}
+
+#[test]
+fn snapshot_background_tint_example() {
+    let app = background_tint_example::BackgroundTintApp;
+    let canvas = render_to_canvas(&app, background_tint_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Background Transparency Example
+// ============================================================================
+
+mod background_transparency_example {
+    use super::*;
+    use textual::Static;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct BackgroundTransparencyApp;
+
+    impl Compose for BackgroundTransparencyApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Static("10%", id: "t10")
+                Static("20%", id: "t20")
+                Static("30%", id: "t30")
+                Static("40%", id: "t40")
+                Static("50%", id: "t50")
+                Static("60%", id: "t60")
+                Static("70%", id: "t70")
+                Static("80%", id: "t80")
+                Static("90%", id: "t90")
+                Static("100%", id: "t100")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#t10 { background: red 10%; }
+#t20 { background: red 20%; }
+#t30 { background: red 30%; }
+#t40 { background: red 40%; }
+#t50 { background: red 50%; }
+#t60 { background: red 60%; }
+#t70 { background: red 70%; }
+#t80 { background: red 80%; }
+#t90 { background: red 90%; }
+#t100 { background: red 100%; }
+
+Screen {
+    layout: horizontal;
+}
+
+Static {
+    height: 100%;
+    width: 1fr;
+    content-align: center middle;
+}
+"#;
+}
+
+#[test]
+fn snapshot_background_transparency_example() {
+    let app = background_transparency_example::BackgroundTransparencyApp;
+    let canvas = render_to_canvas(&app, background_transparency_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Grid Columns Example
+// ============================================================================
+
+mod grid_columns_example {
+    use super::*;
+    use textual::Grid;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct GridColumnsApp;
+
+    impl Compose for GridColumnsApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Grid {
+                    Label("1fr")
+                    Label("width = 16")
+                    Label("2fr")
+                    Label("1fr")
+                    Label("width = 16")
+                    Label("1fr")
+                    Label("width = 16")
+                    Label("2fr")
+                    Label("1fr")
+                    Label("width = 16")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Grid {
+    grid-size: 5 2;
+    grid-columns: 1fr 16 2fr;
+}
+
+Label {
+    border: round white;
+    content-align-horizontal: center;
+    width: 100%;
+    height: 100%;
+}
+"#;
+}
+
+#[test]
+fn snapshot_grid_columns_example() {
+    let app = grid_columns_example::GridColumnsApp;
+    let canvas = render_to_canvas(&app, grid_columns_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Grid Size Both Example
+// ============================================================================
+
+mod grid_size_both_example {
+    use super::*;
+    use textual::Grid;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct GridSizeBothApp;
+
+    impl Compose for GridSizeBothApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Grid {
+                    Label("1")
+                    Label("2")
+                    Label("3")
+                    Label("4")
+                    Label("5")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Grid {
+    grid-size: 2 4;
+}
+
+Label {
+    border: round white;
+    content-align: center middle;
+    width: 100%;
+    height: 100%;
+}
+"#;
+}
+
+#[test]
+fn snapshot_grid_size_both_example() {
+    let app = grid_size_both_example::GridSizeBothApp;
+    let canvas = render_to_canvas(&app, grid_size_both_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Grid Size Columns Example
+// ============================================================================
+
+mod grid_size_columns_example {
+    use super::*;
+    use textual::Grid;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct GridSizeColumnsApp;
+
+    impl Compose for GridSizeColumnsApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Grid {
+                    Label("1")
+                    Label("2")
+                    Label("3")
+                    Label("4")
+                    Label("5")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Grid {
+    grid-size: 2;
+}
+
+Label {
+    border: round white;
+    content-align: center middle;
+    width: 100%;
+    height: 100%;
+}
+"#;
+}
+
+#[test]
+fn snapshot_grid_size_columns_example() {
+    let app = grid_size_columns_example::GridSizeColumnsApp;
+    let canvas = render_to_canvas(&app, grid_size_columns_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Height Example
+// ============================================================================
+
+mod height_example {
+    use super::*;
+    use textual::Container;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct HeightApp;
+
+    impl Compose for HeightApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Container {}
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Screen > Container {
+    background: green;
+    height: 50%;
+    color: white;
+}
+"#;
+}
+
+#[test]
+fn snapshot_height_example() {
+    let app = height_example::HeightApp;
+    let canvas = render_to_canvas(&app, height_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Keyline Example
+// ============================================================================
+
+mod keyline_example {
+    use super::*;
+    use textual::{Grid, Placeholder};
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct KeylineApp;
+
+    impl Compose for KeylineApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Grid {
+                    Placeholder(id: "foo")
+                    Placeholder(id: "bar")
+                    Placeholder()
+                    Placeholder(classes: "hidden")
+                    Placeholder(id: "baz")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Grid {
+    grid-size: 3 3;
+    grid-gutter: 1;
+    padding: 2 3;
+    keyline: heavy green;
+}
+Placeholder {
+    height: 1fr;
+}
+.hidden {
+    visibility: hidden;
+}
+#foo {
+    column-span: 2;
+}
+#bar {
+    row-span: 2;
+}
+#baz {
+    column-span: 3;
+}
+"#;
+}
+
+#[test]
+fn snapshot_keyline_example() {
+    let app = keyline_example::KeylineApp;
+    let canvas = render_to_canvas(&app, keyline_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Keyline Horizontal Example
+// ============================================================================
+
+mod keyline_horizontal_example {
+    use super::*;
+    use textual::{Horizontal, Placeholder};
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct KeylineHorizontalApp;
+
+    impl Compose for KeylineHorizontalApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Horizontal {
+                    Placeholder()
+                    Placeholder()
+                    Placeholder()
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Placeholder {
+    margin: 1;
+    width: 1fr;
+}
+
+Horizontal {
+    keyline: thin $secondary;
+}
+"#;
+}
+
+#[test]
+fn snapshot_keyline_horizontal_example() {
+    let app = keyline_horizontal_example::KeylineHorizontalApp;
+    let canvas = render_to_canvas(&app, keyline_horizontal_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Link Background Example
+// ============================================================================
+
+mod link_background_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct LinkBackgroundApp;
+
+    impl Compose for LinkBackgroundApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("Visit the [link='https://textualize.io']Textualize[/link] website.", id: "lbl1")
+                Label("Click [@click=app.bell]here[/] for the bell sound.", id: "lbl2")
+                Label("You can also click [@click=app.bell]here[/] for the bell sound.", id: "lbl3")
+                Label("[@click=app.quit]Exit this application.[/]", id: "lbl4")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#lbl1, #lbl2 {
+    link-background: red;
+}
+
+#lbl3 {
+    link-background: hsl(60,100%,50%) 50%;
+}
+
+#lbl4 {
+    link-background: $accent;
+}
+"#;
+}
+
+#[test]
+fn snapshot_link_background_example() {
+    let app = link_background_example::LinkBackgroundApp;
+    let canvas = render_to_canvas(&app, link_background_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+// ============================================================================
+// Test Grid Align Example
+// ============================================================================
+
+mod test_grid_align_example {
+    use super::*;
+    use textual::{Container, Grid};
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct TestGridAlignApp;
+
+    impl Compose for TestGridAlignApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Grid {
+                    Container { Label("1") }
+                    Container { Label("2") }
+                    Container { Label("3") }
+                    Container { Label("4") }
+                    Container { Label("5") }
+                    Container { Label("6") }
+                    Container { Label("7") }
+                    Container { Label("8") }
+                    Container { Label("9") }
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Grid {
+    grid-size: 3 3;
+    align: center middle;
+}
+
+Container {
+    width: 100%;
+    height: 100%;
+    align: center middle;
+    border: solid white;
+}
+"#;
+}
+
+#[test]
+fn snapshot_test_grid_align_example() {
+    let app = test_grid_align_example::TestGridAlignApp;
+    let canvas = render_to_canvas(&app, test_grid_align_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}

@@ -1,0 +1,25 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+                  The quick brown fox jumps over the lazy dog!
+
+
+
+
+                  The quick brown fox jumps over the lazy dog!
+
+
+
+
+                  The quick brown fox jumps over the lazy dog!
+
+
+
+
+                  The quick brown fox jumps over the lazy dog!
+
+
+
+
+                  The quick brown fox jumps over the lazy dog!

@@ -1,0 +1,8 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+Visit the Textualize website.
+Click here for the bell sound.
+You can also click here for the bell sound.
+Exit this application.

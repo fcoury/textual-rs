@@ -1,0 +1,21 @@
+---
+source: crates/textual/tests/examples_snapshot.rs
+expression: canvas.to_snapshot()
+---
+                                    I'm red!
+
+
+
+
+
+
+
+                              I'm rgb(0, 255, 0)!
+
+
+
+
+
+
+
+                            I'm hsl(240, 100%, 50%)!
