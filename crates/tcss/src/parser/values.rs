@@ -129,39 +129,57 @@ fn find_color_end(input: &str) -> usize {
     end
 }
 
-/// Parse a border edge (e.g., "solid red", "round #ff0000").
+/// Try to parse a border kind from an identifier string.
+fn try_parse_border_kind(s: &str) -> Option<BorderKind> {
+    match s.to_lowercase().as_str() {
+        "none" | "hidden" => Some(BorderKind::None),
+        "ascii" => Some(BorderKind::Ascii),
+        "blank" => Some(BorderKind::Blank),
+        "block" => Some(BorderKind::Block),
+        "dashed" => Some(BorderKind::Dashed),
+        "double" => Some(BorderKind::Double),
+        "heavy" => Some(BorderKind::Heavy),
+        "hkey" => Some(BorderKind::Hkey),
+        "inner" => Some(BorderKind::Inner),
+        "outer" => Some(BorderKind::Outer),
+        "panel" => Some(BorderKind::Panel),
+        "round" => Some(BorderKind::Round),
+        "solid" => Some(BorderKind::Solid),
+        "tall" => Some(BorderKind::Tall),
+        "thick" => Some(BorderKind::Thick),
+        "vkey" => Some(BorderKind::Vkey),
+        "wide" => Some(BorderKind::Wide),
+        _ => None,
+    }
+}
+
+/// Parse a border edge (e.g., "solid red", "round #ff0000", "blue wide").
+///
+/// Accepts both `<kind> <color>` and `<color> <kind>` orders for compatibility
+/// with Python Textual's CSS parser.
 pub fn parse_border_edge(input: &str) -> IResult<&str, BorderEdge> {
-    let (input, kind_str) = parse_ident(input)?;
-    let kind = match kind_str.to_lowercase().as_str() {
-        "none" | "hidden" => BorderKind::None,
-        "ascii" => BorderKind::Ascii,
-        "blank" => BorderKind::Blank,
-        "block" => BorderKind::Block,
-        "dashed" => BorderKind::Dashed,
-        "double" => BorderKind::Double,
-        "heavy" => BorderKind::Heavy,
-        "hkey" => BorderKind::Hkey,
-        "inner" => BorderKind::Inner,
-        "outer" => BorderKind::Outer,
-        "panel" => BorderKind::Panel,
-        "round" => BorderKind::Round,
-        "solid" => BorderKind::Solid,
-        "tall" => BorderKind::Tall,
-        "thick" => BorderKind::Thick,
-        "vkey" => BorderKind::Vkey,
-        "wide" => BorderKind::Wide,
-        _ => {
-            return Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                nom::error::ErrorKind::Tag,
-            )));
+    let input = input.trim_start();
+
+    // First, try to parse the first token as a border kind
+    if let Ok((remaining, kind_str)) = parse_ident(input) {
+        if let Some(kind) = try_parse_border_kind(kind_str) {
+            // Successfully parsed kind first: "<kind> [<color>]"
+            let (remaining, color) = opt(preceded(multispace1, parse_color))(remaining)?;
+            return Ok((remaining, BorderEdge { kind, color }));
         }
-    };
+    }
 
-    // Color is optional - some borders like "none" or "blank" may not have a color
-    let (input, color) = opt(preceded(multispace1, parse_color))(input)?;
+    // First token wasn't a valid border kind, try parsing as "<color> <kind>"
+    let (input, color) = parse_color(input)?;
+    let input = input.trim_start();
 
-    Ok((input, BorderEdge { kind, color }))
+    // Parse the kind (required when color comes first)
+    let (input, kind_str) = parse_ident(input)?;
+    let kind = try_parse_border_kind(kind_str).ok_or_else(|| {
+        nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag))
+    })?;
+
+    Ok((input, BorderEdge { kind, color: Some(color) }))
 }
 
 /// Parse text-alignment keywords.

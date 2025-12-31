@@ -510,3 +510,66 @@ fn test_color_no_alpha_percentage() {
     let (_, color) = parse_color("blue").unwrap();
     assert_eq!(color.a, 1.0);
 }
+
+// ============================================================================
+// BORDER VALUES - COLOR FIRST SYNTAX (Python Textual compatibility)
+// ============================================================================
+
+#[test]
+fn test_border_color_first_named() {
+    // Python Textual accepts "blue wide" as well as "wide blue"
+    let (_, border) = parse_border_edge("blue wide").unwrap();
+    assert_eq!(border.kind, BorderKind::Wide);
+    assert_eq!(border.color, Some(RgbaColor::rgb(0, 0, 255)));
+}
+
+#[test]
+fn test_border_color_first_hex() {
+    let (_, border) = parse_border_edge("#ff0000 solid").unwrap();
+    assert_eq!(border.kind, BorderKind::Solid);
+    assert_eq!(border.color, Some(RgbaColor::rgb(255, 0, 0)));
+}
+
+#[test]
+fn test_border_color_first_rgb() {
+    let (_, border) = parse_border_edge("rgb(0, 255, 0) heavy").unwrap();
+    assert_eq!(border.kind, BorderKind::Heavy);
+    assert_eq!(border.color, Some(RgbaColor::rgb(0, 255, 0)));
+}
+
+#[test]
+fn test_border_color_first_with_alpha() {
+    // Color with alpha percentage before kind
+    let (_, border) = parse_border_edge("magenta 50% round").unwrap();
+    assert_eq!(border.kind, BorderKind::Round);
+    let color = border.color.unwrap();
+    assert_eq!(color.r, 255);
+    assert_eq!(color.g, 0);
+    assert_eq!(color.b, 255);
+    assert!((color.a - 0.5).abs() < 0.01);
+}
+
+#[test]
+fn test_border_green_wide() {
+    // From Python Textual's overflow.tcss example
+    let (_, border) = parse_border_edge("green wide").unwrap();
+    assert_eq!(border.kind, BorderKind::Wide);
+    assert_eq!(border.color, Some(RgbaColor::rgb(0, 128, 0)));
+}
+
+#[test]
+fn test_border_heavy_blue() {
+    // From Python Textual's visibility.tcss example
+    let (_, border) = parse_border_edge("heavy blue").unwrap();
+    assert_eq!(border.kind, BorderKind::Heavy);
+    assert_eq!(border.color, Some(RgbaColor::rgb(0, 0, 255)));
+}
+
+#[test]
+fn test_border_both_orders_equivalent() {
+    // Both orderings should produce the same result
+    let (_, border1) = parse_border_edge("solid red").unwrap();
+    let (_, border2) = parse_border_edge("red solid").unwrap();
+    assert_eq!(border1.kind, border2.kind);
+    assert_eq!(border1.color, border2.color);
+}
