@@ -208,6 +208,14 @@ pub enum Declaration {
     Height(Scalar),
     /// The `margin` property for outer spacing.
     Margin(Spacing),
+    /// The `margin-top` property for top outer spacing.
+    MarginTop(Scalar),
+    /// The `margin-right` property for right outer spacing.
+    MarginRight(Scalar),
+    /// The `margin-bottom` property for bottom outer spacing.
+    MarginBottom(Scalar),
+    /// The `margin-left` property for left outer spacing.
+    MarginLeft(Scalar),
     /// The `padding` property for inner spacing.
     Padding(Spacing),
     /// The `border` property for element borders.

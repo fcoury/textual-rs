@@ -688,26 +688,40 @@ impl Layout for GridLayout {
                                 )
                             };
 
-                            // Apply alignment within the cell
+                            // Apply margins to child placement
+                            let margin_top = child_style.margin.top.value as i32;
+                            let margin_right = child_style.margin.right.value as i32;
+                            let margin_bottom = child_style.margin.bottom.value as i32;
+                            let margin_left = child_style.margin.left.value as i32;
+
+                            // Reduce child dimensions by margins
+                            let child_width = (child_width - margin_left - margin_right).max(0);
+                            let child_height = (child_height - margin_top - margin_bottom).max(0);
+
+                            // Calculate effective cell region after margins
+                            let effective_cell_width = cell_region.width - margin_left - margin_right;
+                            let effective_cell_height = cell_region.height - margin_top - margin_bottom;
+
+                            // Apply alignment within the margin-adjusted cell
                             let x_offset = match parent_style.align_horizontal {
                                 AlignHorizontal::Left => 0,
                                 AlignHorizontal::Center => {
-                                    (cell_region.width - child_width) / 2
+                                    (effective_cell_width - child_width).max(0) / 2
                                 }
-                                AlignHorizontal::Right => cell_region.width - child_width,
+                                AlignHorizontal::Right => (effective_cell_width - child_width).max(0),
                             };
 
                             let y_offset = match parent_style.align_vertical {
                                 AlignVertical::Top => 0,
                                 AlignVertical::Middle => {
-                                    (cell_region.height - child_height) / 2
+                                    (effective_cell_height - child_height).max(0) / 2
                                 }
-                                AlignVertical::Bottom => cell_region.height - child_height,
+                                AlignVertical::Bottom => (effective_cell_height - child_height).max(0),
                             };
 
                             let final_region = Region {
-                                x: cell_region.x + x_offset,
-                                y: cell_region.y + y_offset,
+                                x: cell_region.x + margin_left + x_offset,
+                                y: cell_region.y + margin_top + y_offset,
                                 width: child_width,
                                 height: child_height,
                             };

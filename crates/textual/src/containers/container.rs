@@ -85,6 +85,12 @@ impl<M> Container<M> {
         self
     }
 
+    /// Set CSS classes (space-separated).
+    pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
+        self.classes = classes.into().split_whitespace().map(String::from).collect();
+        self
+    }
+
     /// Set the layout direction, overriding CSS.
     ///
     /// This is used by Horizontal/Vertical wrappers to enforce their layout
@@ -691,7 +697,7 @@ Container {
         WidgetMeta {
             type_name: "Container",
             id: self.id.clone(),
-            classes: Vec::new(),
+            classes: self.classes.clone(),
             states: WidgetStates::empty(),
         }
     }

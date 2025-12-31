@@ -150,6 +150,10 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "width" => map(units::parse_scalar, Declaration::Width)(input)?,
         "height" => map(units::parse_scalar, Declaration::Height)(input)?,
         "margin" => map(units::parse_spacing, Declaration::Margin)(input)?,
+        "margin-top" => map(units::parse_scalar, Declaration::MarginTop)(input)?,
+        "margin-right" => map(units::parse_scalar, Declaration::MarginRight)(input)?,
+        "margin-bottom" => map(units::parse_scalar, Declaration::MarginBottom)(input)?,
+        "margin-left" => map(units::parse_scalar, Declaration::MarginLeft)(input)?,
         "padding" => map(units::parse_spacing, Declaration::Padding)(input)?,
         "border" => map(values::parse_border_edge, Declaration::Border)(input)?,
 

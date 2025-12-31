@@ -135,8 +135,9 @@ impl Layout for VerticalLayout {
                         apply_box_sizing_height(h.value as i32, child_style) as f64
                     }
                     Unit::Percent | Unit::Height => {
-                        // Python uses parent.app.size (terminal size) for these units
-                        (h.value / 100.0) * viewport.height as f64
+                        // For percentage heights, use available.height (parent container)
+                        // This ensures height: 100% fills the parent, not the viewport
+                        (h.value / 100.0) * available.height as f64
                     }
                     Unit::Width => {
                         // Python uses parent.app.size (terminal size) for w units
@@ -160,6 +161,18 @@ impl Layout for VerticalLayout {
             // Get vertical margins
             let margin_top = child_style.margin.top.value as f64;
             let margin_bottom = child_style.margin.bottom.value as f64;
+
+            // For percentage/fill heights, reduce by margins to fit within container
+            // For explicit heights (cells), margins are outside the content box
+            let should_reduce_by_margins = match &child_style.height {
+                Some(h) => matches!(h.unit, Unit::Percent | Unit::Height | Unit::Fraction),
+                None => desired_size.height == u16::MAX, // fill case
+            };
+            let box_height = if should_reduce_by_margins {
+                (box_height - margin_top - margin_bottom).max(0.0)
+            } else {
+                box_height
+            };
 
             // CSS margin collapsing
             let effective_top_margin = if i == 0 {
