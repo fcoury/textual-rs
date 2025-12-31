@@ -23,6 +23,19 @@ use crate::segment::Style;
 use crate::strip::Strip;
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, VisualType, Widget};
 
+/// Count lines in text, preserving trailing empty lines.
+///
+/// Unlike Rust's `.lines()` which ignores trailing newlines, this function
+/// counts them as creating empty lines to match Python Textual's behavior.
+/// For example, "Hello!\n" has 2 lines (the line + trailing blank).
+fn count_lines_preserving_trailing(text: &str) -> usize {
+    if text.is_empty() {
+        1
+    } else {
+        text.split('\n').count()
+    }
+}
+
 /// A clickable link region within rendered content.
 #[derive(Debug, Clone)]
 struct LinkRegion {
@@ -651,13 +664,13 @@ Static {
                 // Auto: fall back to content height + chrome
                 Unit::Auto => {
                     let text = self.text();
-                    let content_height = text.lines().count().max(1) as u16;
+                    let content_height = count_lines_preserving_trailing(&text) as u16;
                     content_height + chrome_height
                 }
             }
         } else {
             let text = self.text();
-            let content_height = text.lines().count().max(1) as u16;
+            let content_height = count_lines_preserving_trailing(&text) as u16;
             content_height + chrome_height
         };
 

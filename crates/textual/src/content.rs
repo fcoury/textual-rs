@@ -179,14 +179,36 @@ impl Content {
     }
 
     /// Returns the number of lines.
+    ///
+    /// Unlike Rust's `.lines()` which ignores trailing newlines, this method
+    /// counts trailing newlines as creating empty lines to match Python Textual's
+    /// behavior. For example, "Hello!\n" has height 2 (the line + trailing blank).
     pub fn height(&self) -> usize {
-        self.text.lines().count().max(1)
+        self.split_lines_preserving_trailing().count().max(1)
+    }
+
+    /// Split text into lines, preserving trailing empty lines.
+    ///
+    /// Unlike Rust's `.lines()` which ignores trailing newlines, this iterator
+    /// includes the trailing empty line if the text ends with '\n'.
+    /// This matches Python Textual's `split(allow_blank=True)` behavior.
+    ///
+    /// Examples:
+    /// - "Hello!" -> ["Hello!"]
+    /// - "Hello!\n" -> ["Hello!", ""]
+    /// - "Hello!\n\n" -> ["Hello!", "", ""]
+    fn split_lines_preserving_trailing(&self) -> impl Iterator<Item = &str> {
+        // split('\n') includes trailing empty string when text ends with \n
+        self.text.split('\n')
     }
 
     /// Splits content into lines, returning one Strip per line.
     ///
     /// If the content was created from markup, spans are applied to create
     /// properly styled segments.
+    ///
+    /// Unlike Rust's `.lines()`, this preserves trailing blank lines when
+    /// the text ends with '\n', matching Python Textual's behavior.
     pub fn lines(&self) -> Vec<Strip> {
         if self.text.is_empty() {
             return vec![Strip::new()];
@@ -198,8 +220,7 @@ impl Content {
         }
 
         // Simple case: uniform style
-        self.text
-            .lines()
+        self.split_lines_preserving_trailing()
             .map(|line| {
                 let segment = match &self.style {
                     Some(s) => Segment::styled(line, s.clone()),
@@ -215,7 +236,7 @@ impl Content {
         let mut result = Vec::new();
         let mut line_start = 0;
 
-        for line in self.text.lines() {
+        for line in self.split_lines_preserving_trailing() {
             let line_end = line_start + line.len();
             let strip = self.render_line_with_spans(line, line_start, line_end, spans);
             result.push(strip);
@@ -349,7 +370,7 @@ impl Content {
                 bold: link_style.style.bold || link_style.style_hover.bold,
                 dim: link_style.style.dim || link_style.style_hover.dim,
                 italic: link_style.style.italic || link_style.style_hover.italic,
-                underline: link_style.style_hover.underline, // Hover controls underline
+                underline: link_style.style.underline || link_style.style_hover.underline,
                 underline2: link_style.style.underline2 || link_style.style_hover.underline2,
                 blink: link_style.style.blink || link_style.style_hover.blink,
                 blink2: link_style.style.blink2 || link_style.style_hover.blink2,
@@ -411,10 +432,10 @@ impl Content {
             base_style.fg
         };
 
-        // For hover: use the hover style (bold, no underline)
+        // For hover: use merged link-style and link-style-hover (underline is preserved)
         // For normal: default to underline unless link_text_style specifies otherwise
         let underline = if is_hovered {
-            // Hover style controls underline (default hover is bold, no underline)
+            // Merged style includes underline from either link-style or link-style-hover
             link_text_style.underline
         } else {
             // Normal links default to underline
@@ -996,6 +1017,38 @@ mod tests {
     }
 
     #[test]
+    fn link_style_hover_preserves_base_underline() {
+        // Regression test: underline from link-style should be preserved on hover
+        // even when link-style-hover specifies other styles like reverse/strike.
+        // This matches Python Textual's behavior: link-style-hover: reverse strike
+        // should result in underline + reverse + strike (not just reverse + strike).
+        use tcss::types::LinkStyle;
+
+        let mut link_style = LinkStyle::default();
+        // Set link-style to underline (this is the default for links)
+        link_style.style.underline = true;
+        // Set link-style-hover to reverse strike (simulating CSS: link-style-hover: reverse strike;)
+        link_style.style_hover.reverse = true;
+        link_style.style_hover.strike = true;
+
+        let content = Content::from_markup("Click [@click=test]here[/]")
+            .unwrap()
+            .with_link_style(link_style)
+            .with_hovered_action(Some("test".to_string()));
+
+        let lines = content.lines();
+        let segments = lines[0].segments();
+
+        let link_segment = segments.iter().find(|s| s.text() == "here").unwrap();
+        let style = link_segment.style().expect("Link should have style");
+
+        // All three should be present: underline from link-style + reverse/strike from hover
+        assert!(style.underline, "Hover should preserve link-style underline");
+        assert!(style.reverse, "Hover should add link-style-hover reverse");
+        assert!(style.strike, "Hover should add link-style-hover strike");
+    }
+
+    #[test]
     fn link_color_hover_blends_semi_transparent() {
         // Test that semi-transparent link-color-hover is blended over background
         // This is a regression test for the bug where alpha colors weren't blended
@@ -1029,5 +1082,62 @@ mod tests {
         assert!(fg.g > 150 && fg.g < 210, "Green should be blended: {}", fg.g);
         assert!(fg.b > 80 && fg.b < 130, "Blue should be blended: {}", fg.b);
         assert!((fg.a - 1.0).abs() < 0.01, "Alpha should be 1.0 (fully opaque after blend)");
+    }
+
+    #[test]
+    fn height_without_trailing_newline() {
+        let content = Content::new("Hello!");
+        assert_eq!(content.height(), 1);
+    }
+
+    #[test]
+    fn height_with_trailing_newline() {
+        // Regression test: trailing newline should create an extra blank line
+        // This matches Python Textual's behavior where "Hello!\n" renders as 2 lines
+        let content = Content::new("Hello!\n");
+        assert_eq!(content.height(), 2, "Trailing newline should add a blank line");
+    }
+
+    #[test]
+    fn height_with_multiple_trailing_newlines() {
+        let content = Content::new("Hello!\n\n");
+        assert_eq!(content.height(), 3, "Two trailing newlines should add two blank lines");
+    }
+
+    #[test]
+    fn height_empty_string() {
+        let content = Content::new("");
+        assert_eq!(content.height(), 1, "Empty content should have height 1");
+    }
+
+    #[test]
+    fn height_just_newline() {
+        let content = Content::new("\n");
+        assert_eq!(content.height(), 2, "Single newline should be 2 lines (empty + blank)");
+    }
+
+    #[test]
+    fn lines_with_trailing_newline() {
+        // Regression test: lines() should include trailing blank line
+        let content = Content::new("Hello!\n");
+        let lines = content.lines();
+        assert_eq!(lines.len(), 2, "Should have 2 lines");
+        assert_eq!(lines[0].cell_length(), 6, "First line should be 'Hello!'");
+        assert_eq!(lines[1].cell_length(), 0, "Second line should be empty");
+    }
+
+    #[test]
+    fn lines_without_trailing_newline() {
+        let content = Content::new("Hello!");
+        let lines = content.lines();
+        assert_eq!(lines.len(), 1, "Should have 1 line");
+        assert_eq!(lines[0].cell_length(), 6, "Line should be 'Hello!'");
+    }
+
+    #[test]
+    fn lines_multiline_with_trailing_newline() {
+        let content = Content::new("Line 1\nLine 2\n");
+        let lines = content.lines();
+        assert_eq!(lines.len(), 3, "Should have 3 lines (2 content + 1 blank)");
     }
 }
