@@ -316,6 +316,60 @@ fn bench_canvas_to_snapshot(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_canvas_flush_simulation(c: &mut Criterion) {
+    // Simulate flush cost by measuring ANSI snapshot generation
+    // (similar output generation without actual I/O)
+    let mut group = c.benchmark_group("canvas_flush_simulation");
+
+    for (w, h) in [(80, 24), (120, 40)] {
+        let cells = (w * h) as u64;
+        group.throughput(Throughput::Elements(cells));
+
+        let mut canvas = Canvas::new(w, h);
+        // Fill with realistic content
+        for y in 0..h {
+            let text = format!("Line {:02}: {}", y, "x".repeat((w as usize) - 10));
+            canvas.put_str(0, y as i32, &text, None, None, TextAttributes::default());
+        }
+
+        group.bench_with_input(
+            BenchmarkId::new("to_ansi", format!("{}x{}", w, h)),
+            &canvas,
+            |b, canvas| b.iter(|| black_box(canvas).to_ansi_snapshot()),
+        );
+    }
+
+    group.finish();
+}
+
+fn bench_differential_rendering(c: &mut Criterion) {
+    // Measure the benefit of differential rendering by comparing
+    // full vs partial updates using ANSI snapshot as proxy
+    let mut group = c.benchmark_group("differential_rendering");
+
+    let (w, h) = (80, 24);
+
+    // Create two canvases - one "before" and one "after" with small change
+    let mut canvas_full = Canvas::new(w, h);
+    for y in 0..h {
+        let text = format!("Line {:02}: {}", y, "x".repeat((w as usize) - 10));
+        canvas_full.put_str(0, y as i32, &text, None, None, TextAttributes::default());
+    }
+
+    group.bench_function("full_frame_1920_cells", |b| {
+        b.iter(|| black_box(&canvas_full).to_ansi_snapshot())
+    });
+
+    // Simulate differential: only generate output for changed portion
+    group.bench_function("partial_frame_96_cells", |b| {
+        let mut small_canvas = Canvas::new(w, 2); // Just 2 rows = ~160 cells
+        small_canvas.put_str(0, 0, &"Changed!".repeat(10), None, None, TextAttributes::default());
+        b.iter(|| black_box(&small_canvas).to_ansi_snapshot())
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_canvas_new,
@@ -326,6 +380,8 @@ criterion_group!(
     bench_canvas_full_frame,
     bench_canvas_clear,
     bench_canvas_clipping,
-    bench_canvas_to_snapshot
+    bench_canvas_to_snapshot,
+    bench_canvas_flush_simulation,
+    bench_differential_rendering
 );
 criterion_main!(benches);
