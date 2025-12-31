@@ -18,8 +18,9 @@ use crate::{KeyCode, MouseEvent, MouseEventKind};
 use tcss::types::{Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility};
 use tcss::ComputedStyle;
 
-/// Scroll amount for single scroll events (clicks, wheel, arrow keys).
-const SCROLL_AMOUNT: i32 = 3;
+/// Scroll amount for single scroll events (arrow keys).
+/// Matches Python Textual's behavior of scrolling 1 line per key press.
+const SCROLL_AMOUNT: i32 = 1;
 
 /// Page scroll amount multiplier (relative to viewport).
 const PAGE_SCROLL_RATIO: f32 = 0.9;
