@@ -25,7 +25,7 @@ fn collect_default_css<M>(widget: &mut dyn Widget<M>, collected: &mut HashSet<&'
 }
 
 /// Build a combined stylesheet from widget defaults and app CSS.
-fn build_combined_css<M>(root: &mut dyn Widget<M>, app_css: &str) -> String {
+pub fn build_combined_css<M>(root: &mut dyn Widget<M>, app_css: &str) -> String {
     let mut defaults: HashSet<&'static str> = HashSet::new();
     collect_default_css(root, &mut defaults);
 

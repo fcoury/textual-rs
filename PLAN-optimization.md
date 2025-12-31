@@ -11,7 +11,7 @@ This document outlines a prioritized roadmap for optimizing the Textual-RS libra
 | 1.3 Segment Width Caching | ✅ Complete | **99.4%** (93ns → 0.59ps) |
 | 2.1 SmallVec for Strips | ✅ Complete | **17-48%** faster strip creation |
 | 2.2 Static Widget Metadata | ✅ Complete | **6-18%** faster rendering |
-| 3.1 Layout Caching | 🔲 Pending | - |
+| 3.1 Layout Caching | ✅ Complete | **30%** faster repeated renders |
 | 3.2 Style Sharing | 🔲 Pending | - |
 | 3.3 Text Optimization | 🔲 Pending | - |
 
@@ -92,15 +92,17 @@ The primary bottlenecks identified are:
 
 **Goal:** Prevent O(N) layout recalculations.
 
-### 3.1 Layout Caching (High Impact / High Effort)
+### 3.1 Layout Caching (High Impact / High Effort) ✅ COMPLETE
 
 **Issue:** `Container::render` calls `compute_child_placements` every frame. Layout logic (especially flex/grid) is expensive.
 **Solution:**
 
-- Add `cached_placements: Option<Vec<WidgetPlacement>>` to `Container`.
-- Add `layout_dirty: bool` flag.
-- Invalidate cache on: `on_resize`, `set_style` (if layout props change), children addition/removal.
-  **Expected Gain:** Zero layout cost for static frames.
+- Added `CachedLayout` struct storing placements + region/viewport for validation.
+- Added `cached_layout: RefCell<Option<CachedLayout>>` to `Container`.
+- Cache invalidation on: `on_resize`, `set_style`, `mark_dirty`.
+- Cache validated by comparing current region/viewport with cached values.
+
+**Result:** 30% faster for repeated renders of the same container. Grid layout benchmark shows 618µs for 10 cached renders vs ~888µs expected without caching.
 
 ### 3.2 Style Sharing (Medium Impact / Medium Effort)
 

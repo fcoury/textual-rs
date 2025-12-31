@@ -42,7 +42,7 @@ pub struct WidgetPlacement {
 }
 
 /// Viewport dimensions for CSS vw/vh unit resolution.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Viewport {
     pub width: i32,
     pub height: i32,

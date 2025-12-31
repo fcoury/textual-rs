@@ -5,9 +5,14 @@
 //!
 //! Run with: `cargo bench -p textual --bench render_benchmarks`
 
+use std::collections::VecDeque;
+
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use textual::testing::render_to_canvas;
-use textual::{Compose, Label, Widget, ui};
+use textual::canvas::{Canvas, Region, Size};
+use textual::style_resolver::resolve_styles;
+use textual::testing::{build_combined_css, render_to_canvas};
+use textual::tree::WidgetTree;
+use textual::{Compose, Label, Screen, Widget, ui};
 
 // ============================================================================
 // Simple App - Single Label
@@ -323,6 +328,60 @@ fn bench_canvas_to_snapshot(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark layout caching - renders same widget tree multiple times.
+/// This tests the optimization where layout is cached and reused when
+/// region/viewport haven't changed.
+fn bench_layout_caching(c: &mut Criterion) {
+    let mut group = c.benchmark_group("layout_caching");
+
+    let themes = tcss::types::Theme::standard_themes();
+    let theme = themes
+        .get("textual-dark")
+        .cloned()
+        .unwrap_or_else(|| tcss::types::Theme::new("default", true));
+
+    // Test with grid layout (9 cells) - more layout computation
+    let app = grid_app::GridApp;
+    let root = Box::new(Screen::new(app.compose()));
+    let mut tree = WidgetTree::new(root);
+    tree.root_mut().on_resize(Size::new(80, 24));
+
+    let combined_css = build_combined_css(tree.root_mut(), grid_app::CSS);
+    let stylesheet = tcss::parser::parse_stylesheet(&combined_css).expect("CSS parsing failed");
+    let mut ancestors = VecDeque::new();
+    resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
+
+    let region = Region::from_u16(0, 0, 80, 24);
+
+    // Single render (first render, cache miss)
+    group.bench_function("grid_first_render", |b| {
+        b.iter(|| {
+            // Create fresh tree for first-render scenario
+            let root = Box::new(Screen::new(grid_app::GridApp.compose()));
+            let mut tree = WidgetTree::new(root);
+            tree.root_mut().on_resize(Size::new(80, 24));
+            let combined_css = build_combined_css(tree.root_mut(), grid_app::CSS);
+            let stylesheet = tcss::parser::parse_stylesheet(&combined_css).unwrap();
+            let mut ancestors = VecDeque::new();
+            resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
+            let mut canvas = Canvas::new(80, 24);
+            tree.root().render(black_box(&mut canvas), region);
+        })
+    });
+
+    // Multiple renders of same tree (cache hits after first)
+    group.bench_function("grid_10_cached_renders", |b| {
+        b.iter(|| {
+            let mut canvas = Canvas::new(80, 24);
+            for _ in 0..10 {
+                tree.root().render(black_box(&mut canvas), region);
+            }
+        })
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_simple_render,
@@ -330,6 +389,7 @@ criterion_group!(
     bench_grid_render,
     bench_text_heavy_render,
     bench_repeated_render,
-    bench_canvas_to_snapshot
+    bench_canvas_to_snapshot,
+    bench_layout_caching
 );
 criterion_main!(benches);

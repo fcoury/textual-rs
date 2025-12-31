@@ -3,6 +3,8 @@
 //! Container is the base for all layout containers. It dispatches to the
 //! appropriate layout algorithm based on the `layout` CSS property.
 
+use std::cell::RefCell;
+
 use tcss::types::keyline::KeylineStyle;
 use tcss::types::Layout as LayoutDirection;
 use tcss::types::Visibility;
@@ -11,11 +13,20 @@ use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 use crate::canvas::{Canvas, Region, Size};
 use crate::content::Content;
 use crate::keyline_canvas::KeylineCanvas;
-use crate::layouts::{self, Layout};
+use crate::layouts::{self, Layout, Viewport, WidgetPlacement};
 use crate::render_cache::RenderCache;
 use crate::segment::Style;
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent};
+
+/// Cached layout computation result.
+/// Stores the computed placements along with the region/viewport they were computed for.
+#[derive(Debug, Clone)]
+struct CachedLayout {
+    placements: Vec<WidgetPlacement>,
+    region: Region,
+    viewport: Viewport,
+}
 
 // Re-export for use by Horizontal/Vertical
 pub use tcss::types::Layout as ContainerLayoutDirection;
@@ -46,6 +57,9 @@ pub struct Container<M> {
     /// Cached viewport size from on_resize (terminal dimensions).
     /// Used for content_height_for_scroll to match layout calculations.
     viewport: Size,
+    /// Cached layout placements to avoid recomputing on every render.
+    /// Uses RefCell for interior mutability since render takes &self.
+    cached_layout: RefCell<Option<CachedLayout>>,
 }
 
 impl<M> Container<M> {
@@ -61,6 +75,7 @@ impl<M> Container<M> {
             border_subtitle: None,
             layout_override: None,
             viewport: Size::new(80, 24), // Default until on_resize is called
+            cached_layout: RefCell::new(None),
         }
     }
 
@@ -123,12 +138,23 @@ impl<M> Container<M> {
     }
 
     /// Compute child placements using the appropriate layout algorithm.
+    /// Uses caching to avoid recomputation when region/viewport haven't changed.
     fn compute_child_placements(
         &self,
         region: Region,
-        viewport: layouts::Viewport,
-    ) -> Vec<layouts::WidgetPlacement> {
-        // Collect visible children with their styles and desired sizes
+        viewport: Viewport,
+    ) -> Vec<WidgetPlacement> {
+        // Check cache first - if region and viewport match, return cached placements
+        {
+            let cache = self.cached_layout.borrow();
+            if let Some(ref cached) = *cache {
+                if cached.region == region && cached.viewport == viewport {
+                    return cached.placements.clone();
+                }
+            }
+        }
+
+        // Cache miss - compute fresh placements
         let children_with_styles: Vec<_> = self
             .children
             .iter()
@@ -142,7 +168,17 @@ impl<M> Container<M> {
         effective_style.layout = self.effective_layout();
 
         // Dispatch to layout based on effective layout, using the propagated viewport
-        layouts::arrange_children_with_viewport(&effective_style, &children_with_styles, region, viewport)
+        let placements =
+            layouts::arrange_children_with_viewport(&effective_style, &children_with_styles, region, viewport);
+
+        // Store in cache
+        *self.cached_layout.borrow_mut() = Some(CachedLayout {
+            placements: placements.clone(),
+            region,
+            viewport,
+        });
+
+        placements
     }
 
     /// Render keylines for the container.
@@ -662,6 +698,8 @@ Container {
 
     fn set_style(&mut self, style: ComputedStyle) {
         self.style = style;
+        // Invalidate layout cache since style may affect layout
+        *self.cached_layout.borrow_mut() = None;
     }
 
     fn get_style(&self) -> ComputedStyle {
@@ -674,6 +712,8 @@ Container {
 
     fn mark_dirty(&mut self) {
         self.dirty = true;
+        // Invalidate layout cache when container is marked dirty
+        *self.cached_layout.borrow_mut() = None;
     }
 
     fn mark_clean(&mut self) {
@@ -694,6 +734,8 @@ Container {
         // Store viewport for content_height_for_scroll calculations
         log::debug!("Container::on_resize: size={}x{}", size.width, size.height);
         self.viewport = size;
+        // Invalidate layout cache since viewport changed
+        *self.cached_layout.borrow_mut() = None;
         for child in &mut self.children {
             child.on_resize(size);
         }
