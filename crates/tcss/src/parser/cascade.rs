@@ -504,3 +504,43 @@ fn resolve_theme_style(style: &crate::types::TextStyle, theme: &Theme) -> crate:
         style.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::parse_stylesheet;
+
+    #[test]
+    fn test_id_selector_overrides_type_selector() {
+        let css = r#"
+Container {
+    width: 1fr;
+    height: 1fr;
+}
+
+#vertical-layout {
+    height: auto;
+}
+"#;
+
+        let stylesheet = parse_stylesheet(css).expect("Failed to parse CSS");
+        let theme = Theme::new("test", false);
+        
+        let widget = WidgetMeta {
+            type_name: "Container".to_string(),
+            id: Some("vertical-layout".to_string()),
+            classes: vec![],
+            states: WidgetStates::empty(),
+        };
+        
+        let ancestors = vec![];
+        let style = compute_style(&widget, &ancestors, &stylesheet, &theme);
+        
+        // ID selector should override type selector
+        // height: auto is represented as Scalar { value: 0.0, unit: Unit::Auto }
+        assert!(style.height.is_some(), "height should be set");
+        let height = style.height.as_ref().unwrap();
+        assert_eq!(height.unit, crate::types::geometry::Unit::Auto, 
+            "height should be 'auto', got {:?}", height);
+    }
+}

@@ -188,8 +188,15 @@ impl Layout for HorizontalLayout {
 
             current_x += effective_left_margin;
 
-            // Reduce height by vertical margins to prevent overflow
-            let adjusted_height = (height - margin_top - margin_bottom).max(0);
+            // For height: auto (intrinsic), use the height as-is since it's the content height.
+            // For other heights (fill/fr), reduce by vertical margins to fit within container.
+            let is_auto_height = child_style.height.as_ref().map(|h| h.unit == Unit::Auto).unwrap_or(false);
+            let adjusted_height = if is_auto_height {
+                height // Use intrinsic height directly
+            } else {
+                // Fill available: reduce by margins to prevent overflow
+                (height - margin_top - margin_bottom).max(0)
+            };
 
             placements.push(WidgetPlacement {
                 child_index: *child_index,
