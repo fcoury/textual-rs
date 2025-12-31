@@ -2,7 +2,7 @@ use crossterm::{
     cursor, execute,
     style::{Attribute, Color, SetAttribute, SetBackgroundColor, SetForegroundColor},
 };
-use std::io::Write;
+use std::io::{BufWriter, Write};
 use tcss::types::RgbaColor;
 
 use crate::layouts::Viewport;
@@ -303,7 +303,11 @@ impl Canvas {
     }
 
     pub fn flush(&mut self) -> std::io::Result<()> {
-        let mut out = std::io::stdout();
+        // Use BufWriter with locked stdout to batch writes and reduce syscalls.
+        // 8KB buffer is typical for terminal output; larger buffers have
+        // diminishing returns and increase latency for interactive apps.
+        let stdout = std::io::stdout();
+        let mut out = BufWriter::with_capacity(8192, stdout.lock());
 
         // First flush requires full redraw
         if self.first_flush {
@@ -316,6 +320,7 @@ impl Canvas {
         // Swap buffers: current becomes previous for next frame
         std::mem::swap(&mut self.cells, &mut self.prev_cells);
 
+        // Single flush writes entire buffer to stdout
         out.flush()?;
         Ok(())
     }
