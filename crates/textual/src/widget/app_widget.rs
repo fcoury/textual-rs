@@ -63,7 +63,7 @@ impl<M> Widget<M> for AppWidget<M> {
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "App".to_string(),
+            type_name: "App",
             classes: vec![],
             states: WidgetStates::empty(),
             id: None,

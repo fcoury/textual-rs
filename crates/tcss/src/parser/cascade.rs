@@ -71,7 +71,8 @@ bitflags! {
 #[derive(Clone, Debug, Default)]
 pub struct WidgetMeta {
     /// The widget's type name (e.g., "Button", "Label", "Container").
-    pub type_name: String,
+    /// Static str to avoid allocation on every style resolution call.
+    pub type_name: &'static str,
     /// The widget's unique ID, if set (e.g., "submit", "header").
     pub id: Option<String>,
     /// The widget's CSS classes (e.g., ["primary", "active"]).

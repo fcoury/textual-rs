@@ -100,7 +100,7 @@ HorizontalScroll {
 
     fn get_meta(&self) -> WidgetMeta {
         let mut meta = self.inner.get_meta();
-        meta.type_name = "HorizontalScroll".to_string();
+        meta.type_name = "HorizontalScroll";
         meta
     }
 

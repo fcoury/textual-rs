@@ -653,7 +653,7 @@ Container {
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "Container".to_string(),
+            type_name: "Container",
             id: self.id.clone(),
             classes: Vec::new(),
             states: WidgetStates::empty(),

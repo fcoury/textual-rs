@@ -15,7 +15,7 @@ Screen {
     let theme = Theme::standard_themes().get("textual-dark").unwrap().clone();
 
     let screen_meta = WidgetMeta {
-        type_name: "Screen".to_string(),
+        type_name: "Screen",
         id: None,
         classes: vec![],
         states: WidgetStates::empty(),
@@ -39,7 +39,7 @@ Static {
     let theme = Theme::standard_themes().get("textual-dark").unwrap().clone();
 
     let static_meta = WidgetMeta {
-        type_name: "Static".to_string(),
+        type_name: "Static",
         id: None,
         classes: vec![],
         states: WidgetStates::empty(),

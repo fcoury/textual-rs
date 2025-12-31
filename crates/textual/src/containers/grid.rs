@@ -257,7 +257,7 @@ Grid {
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "Grid".to_string(),
+            type_name: "Grid",
             id: self.id.clone(),
             classes: Vec::new(),
             states: WidgetStates::empty(),

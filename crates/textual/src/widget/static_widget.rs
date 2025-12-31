@@ -670,7 +670,7 @@ Static {
             states |= WidgetStates::DISABLED;
         }
         WidgetMeta {
-            type_name: "Static".to_string(),
+            type_name: "Static",
             id: self.id.clone(),
             classes: self.classes.clone(),
             states,

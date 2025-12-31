@@ -385,7 +385,7 @@ Placeholder {
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "Placeholder".to_string(),
+            type_name: "Placeholder",
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: WidgetStates::empty(),

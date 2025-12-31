@@ -232,7 +232,7 @@ Label {
 
     fn get_meta(&self) -> tcss::WidgetMeta {
         let mut meta = self.inner.get_meta();
-        meta.type_name = "Label".to_string();
+        meta.type_name = "Label";
         meta
     }
 

@@ -58,7 +58,7 @@ macro_rules! impl_widget_delegation {
 
             fn get_meta(&self) -> ::tcss::WidgetMeta {
                 let mut meta = self.$field.get_meta();
-                meta.type_name = $name.to_string();
+                meta.type_name = $name;
                 meta
             }
 

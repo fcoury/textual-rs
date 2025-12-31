@@ -153,7 +153,7 @@ impl<M> Widget<M> for ItemGrid<M> {
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "ItemGrid".to_string(),
+            type_name: "ItemGrid",
             id: self.id.clone(),
             classes: Vec::new(),
             states: WidgetStates::empty(),

@@ -178,7 +178,7 @@ Screen {
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "Screen".to_string(),
+            type_name: "Screen",
             // Convert &'static str to String only when metadata is requested
             classes: self.responsive_classes.iter().map(|s| s.to_string()).collect(),
             states: WidgetStates::empty(), // Screen typically doesn't have focus/hover itself

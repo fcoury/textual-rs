@@ -204,7 +204,7 @@ Ruler.-horizontal {
 
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
-            type_name: "Ruler".to_string(),
+            type_name: "Ruler",
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: WidgetStates::empty(),

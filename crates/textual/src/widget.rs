@@ -68,14 +68,14 @@ pub trait Widget<M> {
     fn get_meta(&self) -> WidgetMeta {
         let full_name = std::any::type_name::<Self>();
         // Strip paths and generics: "textual::widget::switch::Switch<M, F>" -> "Switch"
+        // Since full_name is &'static str, all slice operations preserve the lifetime.
         let type_name = full_name
             .split('<')
             .next()
             .unwrap_or(full_name)
             .split("::")
             .last()
-            .unwrap_or(full_name)
-            .to_string();
+            .unwrap_or(full_name);
 
         WidgetMeta {
             type_name,
