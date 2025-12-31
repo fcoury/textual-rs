@@ -409,15 +409,16 @@ Container {
         // Calculate actual content height for scrolling, resolving percentage/fr units
         // This is used when desired_size returns u16::MAX (fill available space)
         // Use stored viewport dimensions to match layout calculations (Python uses parent.app.size)
+        //
+        // IMPORTANT: Use f64 accumulation with floor arithmetic to match vertical layout.
+        // Simple truncation (as u16) gives wrong results because fractional heights
+        // accumulate differently. E.g., 5.875 + 2.125 = 8.0 (8 rows), but
+        // floor(5.875) + floor(2.125) = 5 + 2 = 7 rows.
         let viewport_width = self.viewport.width;
         let viewport_height = self.viewport.height;
 
-        log::debug!(
-            "content_height_for_scroll: viewport={}x{}, _available_height={}",
-            viewport_width, viewport_height, _available_height
-        );
-
-        let mut total_height: u16 = 0;
+        // Accumulate heights as f64 using the same floor arithmetic as vertical layout
+        let mut current_y: f64 = 0.0;
 
         for child in &self.children {
             if !child.participates_in_layout() {
@@ -426,60 +427,60 @@ Container {
             let child_style = child.get_style();
             let child_desired = child.desired_size();
 
-            // Calculate child height based on its CSS height property
+            // Calculate child height based on its CSS height property (as f64)
             // Use viewport dimensions to match layout (Python uses parent.app.size for all)
-            let child_height = if let Some(h) = &child_style.height {
+            let box_height: f64 = if let Some(h) = &child_style.height {
                 match h.unit {
-                    Unit::Cells => h.value as u16,
+                    Unit::Cells => h.value,
                     Unit::Percent | Unit::Height => {
                         // Python uses parent.app.size.height for these
-                        ((h.value / 100.0) * viewport_height as f64) as u16
+                        (h.value / 100.0) * viewport_height as f64
                     }
                     Unit::Width => {
                         // Python uses parent.app.size.width for w units
-                        ((h.value / 100.0) * viewport_width as f64) as u16
+                        (h.value / 100.0) * viewport_width as f64
                     }
                     Unit::ViewWidth => {
-                        ((h.value / 100.0) * viewport_width as f64) as u16
+                        (h.value / 100.0) * viewport_width as f64
                     }
                     Unit::ViewHeight => {
-                        ((h.value / 100.0) * viewport_height as f64) as u16
+                        (h.value / 100.0) * viewport_height as f64
                     }
                     Unit::Fraction => {
                         // fr units use their value as minimum height for scroll estimation
                         // 1fr = 1 row minimum, 2fr = 2 rows minimum, etc.
-                        (h.value as u16).max(1)
+                        h.value.max(1.0)
                     }
                     Unit::Auto => {
                         // Auto uses intrinsic height
                         if child_desired.height == u16::MAX {
-                            child.content_height_for_scroll(viewport_height)
+                            child.content_height_for_scroll(viewport_height) as f64
                         } else {
-                            child_desired.height
+                            child_desired.height as f64
                         }
                     }
                 }
             } else if child_desired.height == u16::MAX {
                 // No CSS height, child wants to fill - recurse
-                child.content_height_for_scroll(viewport_height)
+                child.content_height_for_scroll(viewport_height) as f64
             } else {
-                child_desired.height
+                child_desired.height as f64
             };
 
-            // Add margins
-            let margin_v = child_style.margin.top.value as u16 + child_style.margin.bottom.value as u16;
-            total_height = total_height.saturating_add(child_height).saturating_add(margin_v);
+            // Use floor arithmetic matching the vertical layout:
+            // region.height = floor(next_y) - floor(y)
+            let next_y = current_y + box_height;
+            let _region_height = (next_y.floor() as i32 - current_y.floor() as i32).max(0);
+            current_y = next_y;
         }
+
+        // Total height is floor of final Y position
+        let total_height = current_y.floor() as u16;
 
         // Add container chrome (border + padding)
         let border_size = if self.style.border.is_none() { 0 } else { 2 };
         let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
         let result = total_height.saturating_add(border_size).saturating_add(padding_v);
-
-        log::debug!(
-            "content_height_for_scroll: total_height={}, border={}, padding={}, result={}",
-            total_height, border_size, padding_v, result
-        );
 
         result
     }
