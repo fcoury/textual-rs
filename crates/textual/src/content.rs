@@ -372,8 +372,19 @@ impl Content {
                     // No background to contrast against, use default text color
                     base_style.fg
                 }
+            } else if color.a < 1.0 {
+                // Semi-transparent explicit color - blend over background
+                // This matches Python Textual's behavior: hover_background + link_color_hover
+                if let Some(bg) = &effective_bg {
+                    Some(color.blend_over(bg))
+                } else if let Some(base_bg) = &base_style.bg {
+                    Some(color.blend_over(base_bg))
+                } else {
+                    // No background to blend over, use color as-is (may look wrong)
+                    Some(color.clone())
+                }
             } else {
-                // Explicit color set
+                // Opaque explicit color - use directly
                 Some(color.clone())
             }
         } else if let Some(bg) = &effective_bg {
