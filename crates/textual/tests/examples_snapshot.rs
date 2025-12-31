@@ -2071,3 +2071,125 @@ fn snapshot_test_grid_align_example() {
     let canvas = render_to_canvas(&app, test_grid_align_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_snapshot());
 }
+
+// ============================================================================
+// Link Style Example
+// ============================================================================
+
+mod link_style_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct LinkStyleApp;
+
+    impl Compose for LinkStyleApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("Visit the [link='https://textualize.io']Textualize[/link] website.", id: "lbl1")
+                Label("Click [@click=app.bell]here[/] for the bell sound.", id: "lbl2")
+                Label("You can also click [@click=app.bell]here[/] for the bell sound.", id: "lbl3")
+                Label("[@click=app.quit]Exit this application.[/]", id: "lbl4")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#lbl1, #lbl2 {
+    link-style: bold italic;
+}
+
+#lbl3 {
+    link-style: reverse strike;
+}
+
+#lbl4 {
+    link-style: bold;
+}
+"#;
+}
+
+#[test]
+fn snapshot_link_style_example() {
+    let app = link_style_example::LinkStyleApp;
+    let canvas = render_to_canvas(&app, link_style_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+#[test]
+fn snapshot_link_style_example_ansi() {
+    let app = link_style_example::LinkStyleApp;
+    let canvas = render_to_canvas(&app, link_style_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+#[test]
+fn snapshot_link_style_example_svg() {
+    let app = link_style_example::LinkStyleApp;
+    let canvas = render_to_canvas(&app, link_style_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Link Style Example")));
+}
+
+// ============================================================================
+// Link Color Hover Example
+// ============================================================================
+
+mod link_color_hover_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct LinkColorHoverApp;
+
+    impl Compose for LinkColorHoverApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("Visit the [link='https://textualize.io']Textualize[/link] website.", id: "lbl1")
+                Label("Click [@click=app.bell]here[/] for the bell sound.", id: "lbl2")
+                Label("You can also click [@click=app.bell]here[/] for the bell sound.", id: "lbl3")
+                Label("[@click=app.quit]Exit this application.[/]", id: "lbl4")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#lbl1, #lbl2 {
+    link-color-hover: red;
+}
+
+#lbl3 {
+    link-color-hover: hsl(60,100%,50%) 50%;
+}
+
+#lbl4 {
+    link-color-hover: black;
+}
+"#;
+}
+
+#[test]
+fn snapshot_link_color_hover_example() {
+    let app = link_color_hover_example::LinkColorHoverApp;
+    let canvas = render_to_canvas(&app, link_color_hover_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+#[test]
+fn snapshot_link_color_hover_example_ansi() {
+    let app = link_color_hover_example::LinkColorHoverApp;
+    let canvas = render_to_canvas(&app, link_color_hover_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+#[test]
+fn snapshot_link_color_hover_example_svg() {
+    let app = link_color_hover_example::LinkColorHoverApp;
+    let canvas = render_to_canvas(&app, link_color_hover_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Link Color Hover Example")));
+}

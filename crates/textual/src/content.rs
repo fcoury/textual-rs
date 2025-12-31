@@ -909,4 +909,125 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn link_style_preserved_on_hover() {
+        // Test that link-style attributes are preserved when hovering
+        // This is a regression test for the bug where hover replaced link-style
+        // instead of merging with it.
+        use tcss::types::LinkStyle;
+
+        let mut link_style = LinkStyle::default();
+        // Set link-style to italic (simulating: link-style: italic;)
+        link_style.style.italic = true;
+        // Default link-style-hover is bold (simulating default theme)
+        link_style.style_hover.bold = true;
+
+        let content = Content::from_markup("Click [@click=test]here[/]")
+            .unwrap()
+            .with_link_style(link_style)
+            .with_hovered_action(Some("test".to_string()));
+
+        let lines = content.lines();
+        let segments = lines[0].segments();
+
+        // Find the "here" segment (should be the link)
+        let link_segment = segments.iter().find(|s| s.text() == "here").unwrap();
+        let style = link_segment.style().expect("Link should have style");
+
+        // When hovering, both italic (from link-style) and bold (from link-style-hover)
+        // should be present
+        assert!(style.italic, "Hover should preserve link-style italic");
+        assert!(style.bold, "Hover should add link-style-hover bold");
+    }
+
+    #[test]
+    fn link_style_hover_merges_reverse_and_strike() {
+        // Test that reverse and strike from link-style are preserved on hover
+        use tcss::types::LinkStyle;
+
+        let mut link_style = LinkStyle::default();
+        // Set link-style to reverse strike (simulating: link-style: reverse strike;)
+        link_style.style.reverse = true;
+        link_style.style.strike = true;
+        // Default link-style-hover is bold
+        link_style.style_hover.bold = true;
+
+        let content = Content::from_markup("Click [@click=test]here[/]")
+            .unwrap()
+            .with_link_style(link_style)
+            .with_hovered_action(Some("test".to_string()));
+
+        let lines = content.lines();
+        let segments = lines[0].segments();
+
+        let link_segment = segments.iter().find(|s| s.text() == "here").unwrap();
+        let style = link_segment.style().expect("Link should have style");
+
+        // All three should be present on hover
+        assert!(style.reverse, "Hover should preserve link-style reverse");
+        assert!(style.strike, "Hover should preserve link-style strike");
+        assert!(style.bold, "Hover should add link-style-hover bold");
+    }
+
+    #[test]
+    fn link_style_not_hovered_uses_base_style() {
+        // Test that when not hovering, only link-style is applied (not link-style-hover)
+        use tcss::types::LinkStyle;
+
+        let mut link_style = LinkStyle::default();
+        link_style.style.italic = true;
+        link_style.style_hover.bold = true;
+
+        // Note: no hovered action set, so not hovering
+        let content = Content::from_markup("Click [@click=test]here[/]")
+            .unwrap()
+            .with_link_style(link_style);
+
+        let lines = content.lines();
+        let segments = lines[0].segments();
+
+        let link_segment = segments.iter().find(|s| s.text() == "here").unwrap();
+        let style = link_segment.style().expect("Link should have style");
+
+        // Only italic (from link-style), not bold (from link-style-hover)
+        assert!(style.italic, "Non-hover should have link-style italic");
+        assert!(!style.bold, "Non-hover should NOT have link-style-hover bold");
+    }
+
+    #[test]
+    fn link_color_hover_blends_semi_transparent() {
+        // Test that semi-transparent link-color-hover is blended over background
+        // This is a regression test for the bug where alpha colors weren't blended
+        use tcss::types::LinkStyle;
+
+        let mut link_style = LinkStyle::default();
+        // Yellow at 50% alpha: hsl(60,100%,50%) 50% = rgba(255,255,0,0.5)
+        link_style.color_hover = Some(RgbaColor::rgba(255, 255, 0, 0.5));
+        // Blue background (simulating $primary)
+        link_style.background_hover = Some(RgbaColor::rgb(1, 120, 212));
+
+        let base_style = Style::default();
+
+        let content = Content::from_markup("Click [@click=test]here[/]")
+            .unwrap()
+            .with_style(base_style)
+            .with_link_style(link_style)
+            .with_hovered_action(Some("test".to_string()));
+
+        let lines = content.lines();
+        let segments = lines[0].segments();
+
+        let link_segment = segments.iter().find(|s| s.text() == "here").unwrap();
+        let style = link_segment.style().expect("Link should have style");
+        let fg = style.fg.clone().expect("Link should have foreground color");
+
+        // The result should be yellow blended over blue, NOT pure yellow
+        // Yellow (255,255,0) at 50% over blue (1,120,212) should give greenish result
+        // Approximately: r=128, g=187-188, b=106
+        assert!(fg.r > 100 && fg.r < 150, "Red should be blended: {}", fg.r);
+        assert!(fg.g > 150 && fg.g < 210, "Green should be blended: {}", fg.g);
+        assert!(fg.b > 80 && fg.b < 130, "Blue should be blended: {}", fg.b);
+        assert!((fg.a - 1.0).abs() < 0.01, "Alpha should be 1.0 (fully opaque after blend)");
+    }
 }
