@@ -291,3 +291,63 @@ Ruler.-horizontal {
         self.classes.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that char_at produces the correct pattern matching Python Textual.
+    /// Pattern: middle dot (·) for most positions, bullet (•) every 5th position.
+    /// Positions are 0-indexed, so bullets appear at 4, 9, 14... (1-indexed: 5, 10, 15...)
+    #[test]
+    fn test_ruler_char_pattern() {
+        let ruler: Ruler<()> = Ruler::vertical();
+
+        // Test first 15 positions
+        let expected = ['·', '·', '·', '·', '•', '·', '·', '·', '·', '•', '·', '·', '·', '·', '•'];
+
+        for (i, &expected_char) in expected.iter().enumerate() {
+            assert_eq!(
+                ruler.char_at(i),
+                expected_char,
+                "Position {} should be '{}', got '{}'",
+                i,
+                expected_char,
+                ruler.char_at(i)
+            );
+        }
+    }
+
+    /// Test that bullet (•) appears at every 5th position (1-indexed).
+    #[test]
+    fn test_ruler_major_ticks_at_multiples_of_five() {
+        let ruler: Ruler<()> = Ruler::vertical();
+
+        // Bullets at positions 4, 9, 14, 19... (0-indexed)
+        // Which is 5, 10, 15, 20... (1-indexed)
+        for i in 0..100 {
+            let ch = ruler.char_at(i);
+            if (i + 1) % 5 == 0 {
+                assert_eq!(ch, '•', "Position {} (1-indexed: {}) should be bullet", i, i + 1);
+            } else {
+                assert_eq!(ch, '·', "Position {} should be middle dot", i);
+            }
+        }
+    }
+
+    /// Test default orientation is vertical.
+    #[test]
+    fn test_ruler_default_orientation() {
+        let ruler: Ruler<()> = Ruler::default();
+        assert_eq!(ruler.orientation, RulerOrientation::Vertical);
+        assert!(ruler.classes.contains(&"-vertical".to_string()));
+    }
+
+    /// Test horizontal ruler creation.
+    #[test]
+    fn test_ruler_horizontal() {
+        let ruler: Ruler<()> = Ruler::horizontal();
+        assert_eq!(ruler.orientation, RulerOrientation::Horizontal);
+        assert!(ruler.classes.contains(&"-horizontal".to_string()));
+    }
+}

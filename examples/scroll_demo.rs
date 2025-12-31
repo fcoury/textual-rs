@@ -10,9 +10,9 @@
 //! - Drag scrollbar thumb: smooth scroll
 //! - 'q': quit
 
+use textual::canvas::TextAttributes;
 use textual::containers::scrollable::ScrollableContainer;
 use textual::widget::Widget;
-use textual::canvas::TextAttributes;
 use textual::{App, Canvas, Compose, KeyCode, MessageEnvelope, Region, Result, Size};
 
 /// A simple widget that renders multiple lines of text for scrolling demo.
@@ -130,7 +130,6 @@ impl App for ScrollApp {
 }
 
 fn main() -> Result<()> {
-    textual::init_logger("scroll_demo.log");
     let mut app = ScrollApp::new();
     app.run()
 }

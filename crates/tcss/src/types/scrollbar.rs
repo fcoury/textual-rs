@@ -67,19 +67,22 @@ pub struct ScrollbarStyle {
 }
 
 impl ScrollbarStyle {
-    /// Fallback thumb color (Textual Python: bright_magenta)
+    /// Fallback thumb color.
+    /// Python Textual computes this as: background-darken-1 + primary.with_alpha(0.4)
+    /// With textual-dark theme (primary=#0178D4, background=#121212), this produces ~#003054.
     pub fn fallback_thumb() -> RgbaColor {
-        RgbaColor::rgb(255, 0, 255)
+        RgbaColor::rgb(0, 48, 84)
     }
 
-    /// Fallback track color (Textual Python: #555555)
+    /// Fallback track color.
+    /// Python Textual renders this as pure black in practice.
     pub fn fallback_track() -> RgbaColor {
-        RgbaColor::rgb(85, 85, 85)
+        RgbaColor::rgb(0, 0, 0)
     }
 
-    /// Fallback corner color (same as track)
+    /// Fallback corner color (same as track).
     pub fn fallback_corner() -> RgbaColor {
-        RgbaColor::rgb(85, 85, 85)
+        RgbaColor::rgb(0, 0, 0)
     }
 
     /// Get effective thumb color (with fallback).
@@ -166,7 +169,8 @@ mod tests {
     #[test]
     fn test_effective_color_fallback() {
         let style = ScrollbarStyle::default();
-        assert_eq!(style.effective_color(), ScrollbarStyle::fallback_thumb());
+        // Default thumb is dark blue (#003054)
+        assert_eq!(style.effective_color(), RgbaColor::rgb(0, 48, 84));
     }
 
     #[test]
@@ -180,7 +184,8 @@ mod tests {
     #[test]
     fn test_effective_background_fallback() {
         let style = ScrollbarStyle::default();
-        assert_eq!(style.effective_background(), ScrollbarStyle::fallback_track());
+        // Default track is pure black
+        assert_eq!(style.effective_background(), RgbaColor::rgb(0, 0, 0));
     }
 
     #[test]
@@ -204,8 +209,8 @@ mod tests {
         let hover_color = RgbaColor::rgb(150, 150, 150);
         let active_color = RgbaColor::rgb(200, 200, 200);
 
-        // No colors set -> fallback
-        assert_eq!(style.effective_color_active(), ScrollbarStyle::fallback_thumb());
+        // No colors set -> fallback (dark blue #003054)
+        assert_eq!(style.effective_color_active(), RgbaColor::rgb(0, 48, 84));
 
         // Only base set -> uses base
         style.color = Some(base_color.clone());
