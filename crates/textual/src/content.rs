@@ -340,8 +340,25 @@ impl Content {
         } else {
             link_style.color.as_ref()
         };
+        // For text styles on hover: merge link-style with link-style-hover
+        // (hover adds attributes to the base link-style, not replaces it)
+        // This matches Python Textual's behavior where link-style is preserved on hover.
+        let merged_hover_style;
         let link_text_style = if is_hovered {
-            &link_style.style_hover
+            merged_hover_style = tcss::types::TextStyle {
+                bold: link_style.style.bold || link_style.style_hover.bold,
+                dim: link_style.style.dim || link_style.style_hover.dim,
+                italic: link_style.style.italic || link_style.style_hover.italic,
+                underline: link_style.style_hover.underline, // Hover controls underline
+                underline2: link_style.style.underline2 || link_style.style_hover.underline2,
+                blink: link_style.style.blink || link_style.style_hover.blink,
+                blink2: link_style.style.blink2 || link_style.style_hover.blink2,
+                reverse: link_style.style.reverse || link_style.style_hover.reverse,
+                strike: link_style.style.strike || link_style.style_hover.strike,
+                overline: link_style.style.overline || link_style.style_hover.overline,
+                theme_var: None,
+            };
+            &merged_hover_style
         } else {
             &link_style.style
         };
