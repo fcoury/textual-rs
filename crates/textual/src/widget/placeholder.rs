@@ -20,7 +20,7 @@
 //! }
 //! ```
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::cell::Cell;
 
 use tcss::types::RgbaColor;
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
@@ -55,8 +55,18 @@ impl PlaceholderVariant {
 /// Lorem ipsum paragraph for the Text variant.
 const LOREM_IPSUM_PARAGRAPH: &str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam feugiat ac elit sit amet accumsan. Suspendisse bibendum nec libero quis gravida. Phasellus id eleifend ligula. Nullam imperdiet sem tellus, sed vehicula nisl faucibus sit amet. Praesent iaculis tempor ultricies. Sed lacinia, tellus id rutrum lacinia, sapien sapien congue mauris, sit amet pellentesque quam quam vel nisl. Curabitur vulputate erat pellentesque mauris posuere, non dictum risus mattis.";
 
-/// Global counter for auto-assigning palette indices.
-static PLACEHOLDER_COUNTER: AtomicUsize = AtomicUsize::new(0);
+thread_local! {
+    /// Thread-local counter for auto-assigning palette indices.
+    /// Using thread-local ensures deterministic colors in tests (each test thread starts at 0).
+    static PLACEHOLDER_COUNTER: Cell<usize> = const { Cell::new(0) };
+}
+
+/// Reset the placeholder counter to zero.
+/// Used in tests to ensure deterministic color assignment.
+#[doc(hidden)]
+pub fn reset_placeholder_counter() {
+    PLACEHOLDER_COUNTER.with(|c| c.set(0));
+}
 
 /// 12-color palette matching Python Textual's _PLACEHOLDER_BACKGROUND_COLORS.
 const PALETTE: [(u8, u8, u8); 12] = [
@@ -99,7 +109,11 @@ pub struct Placeholder {
 impl Placeholder {
     /// Create a new Placeholder with the given label.
     pub fn new() -> Self {
-        let index = PLACEHOLDER_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let index = PLACEHOLDER_COUNTER.with(|c| {
+            let current = c.get();
+            c.set(current + 1);
+            current
+        });
         Self {
             label: None,
             palette_index: index % PALETTE.len(),

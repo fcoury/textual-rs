@@ -58,6 +58,7 @@ pub use tcss::{parser::parse_stylesheet, types::Theme};
 pub use textual_macros::{ui, widget};
 pub use widget::{
     Compose, Widget, placeholder::Placeholder, placeholder::PlaceholderVariant,
+    placeholder::reset_placeholder_counter,
     ruler::Ruler, ruler::RulerOrientation, screen::Breakpoint, screen::Screen,
     scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch,
 };

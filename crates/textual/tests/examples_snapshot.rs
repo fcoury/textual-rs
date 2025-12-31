@@ -1337,6 +1337,7 @@ Screen {
 
 #[test]
 fn snapshot_height_comparison_example() {
+    textual::reset_placeholder_counter(); // Ensure deterministic colors
     let app = height_comparison_example::HeightComparisonApp;
     // Test at 80x24 viewport
     let canvas = render_to_canvas(&app, height_comparison_example::CSS, 80, 24);
@@ -1345,6 +1346,7 @@ fn snapshot_height_comparison_example() {
 
 #[test]
 fn snapshot_height_comparison_example_ansi() {
+    textual::reset_placeholder_counter(); // Ensure deterministic colors
     let app = height_comparison_example::HeightComparisonApp;
     // Test with ANSI colors to catch Placeholder color regressions
     let canvas = render_to_canvas(&app, height_comparison_example::CSS, 80, 24);
