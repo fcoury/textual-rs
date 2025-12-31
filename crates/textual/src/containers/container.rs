@@ -266,7 +266,7 @@ impl<M> Container<M> {
             return Size::new(border_size + padding_h, border_size + padding_v);
         }
 
-        // Collect children sizes
+        // Collect children sizes with margin collapsing support
         // u16::MAX signals "fill available space" - propagate this signal
         let mut total_width: u16 = 0;
         let mut total_height: u16 = 0;
@@ -274,6 +274,18 @@ impl<M> Container<M> {
         let mut max_height: u16 = 0;
         let mut any_child_wants_fill_width = false;
         let mut any_child_wants_fill_height = false;
+
+        // For margin collapsing in vertical layout
+        let mut prev_margin_bottom: u16 = 0;
+        let mut first_child_margin_top: u16 = 0;
+        let mut last_child_margin_bottom: u16 = 0;
+        let mut is_first_child = true;
+
+        // For margin collapsing in horizontal layout
+        let mut prev_margin_right: u16 = 0;
+        let mut first_child_margin_left: u16 = 0;
+        let mut last_child_margin_right: u16 = 0;
+        let mut is_first_h_child = true;
 
         for child in &self.children {
             if !child.participates_in_layout() {
@@ -294,29 +306,56 @@ impl<M> Container<M> {
             let capped_width = if child_size.width == u16::MAX { 0 } else { child_size.width.min(1000) };
             let capped_height = if child_size.height == u16::MAX { 0 } else { child_size.height.min(1000) };
 
-            // Include child margins in the size calculation
-            let margin_h = child_style.margin.left.value as u16 + child_style.margin.right.value as u16;
-            let margin_v = child_style.margin.top.value as u16 + child_style.margin.bottom.value as u16;
+            let margin_left = child_style.margin.left.value as u16;
+            let margin_right = child_style.margin.right.value as u16;
+            let margin_top = child_style.margin.top.value as u16;
+            let margin_bottom = child_style.margin.bottom.value as u16;
 
-            let width_with_margin = capped_width.saturating_add(margin_h);
-            let height_with_margin = capped_height.saturating_add(margin_v);
+            // For horizontal layout: calculate width with margin collapsing
+            if is_first_h_child {
+                first_child_margin_left = margin_left;
+                total_width = total_width.saturating_add(capped_width);
+                is_first_h_child = false;
+            } else {
+                // CSS margin collapsing: use max of adjacent margins, not sum
+                let collapsed_margin = margin_left.max(prev_margin_right);
+                total_width = total_width.saturating_add(collapsed_margin).saturating_add(capped_width);
+            }
+            prev_margin_right = margin_right;
+            last_child_margin_right = margin_right;
 
+            // For vertical layout: calculate height with margin collapsing
+            if is_first_child {
+                first_child_margin_top = margin_top;
+                total_height = total_height.saturating_add(capped_height);
+                is_first_child = false;
+            } else {
+                // CSS margin collapsing: use max of adjacent margins, not sum
+                let collapsed_margin = margin_top.max(prev_margin_bottom);
+                total_height = total_height.saturating_add(collapsed_margin).saturating_add(capped_height);
+            }
+            prev_margin_bottom = margin_bottom;
+            last_child_margin_bottom = margin_bottom;
+
+            // Max dimensions include full margins (for cross-axis)
+            let width_with_margin = capped_width.saturating_add(margin_left).saturating_add(margin_right);
+            let height_with_margin = capped_height.saturating_add(margin_top).saturating_add(margin_bottom);
             max_width = max_width.max(width_with_margin);
             max_height = max_height.max(height_with_margin);
-
-            // Track totals for stacking
-            total_width = total_width.saturating_add(width_with_margin);
-            total_height = total_height.saturating_add(height_with_margin);
         }
+
+        // Add outer margins (first and last child's outer margins)
+        total_width = first_child_margin_left.saturating_add(total_width).saturating_add(last_child_margin_right);
+        total_height = first_child_margin_top.saturating_add(total_height).saturating_add(last_child_margin_bottom);
 
         // Calculate based on layout mode (use effective layout, not just CSS)
         let (content_w, content_h) = match self.effective_layout() {
             LayoutDirection::Vertical => {
-                // Stacked vertically: width = max child width, height = sum of heights
+                // Stacked vertically: width = max child width, height = sum of heights (with collapsing)
                 (max_width, total_height)
             }
             LayoutDirection::Horizontal => {
-                // Stacked horizontally: width = sum of widths, height = max child height
+                // Stacked horizontally: width = sum of widths (with collapsing), height = max child height
                 (total_width, max_height)
             }
             LayoutDirection::Grid => {
