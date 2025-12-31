@@ -468,22 +468,39 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
 
 fn resolve_theme_color(color: &RgbaColor, theme: &Theme) -> RgbaColor {
     if let Some(var_name) = &color.theme_var {
-        // Check for modifiers like "-lighten-1"
-        let parts: Vec<&str> = var_name.split('-').collect();
-        let base_name = parts[0];
+        // First, try the full variable name (handles multi-word names like "link-background-hover")
+        let mut resolved = if let Some(c) = theme.get_color(var_name) {
+            c
+        } else {
+            // Fallback: check for modifiers like "-lighten-1" at the end
+            // Pattern: base-modifier-amount (e.g., "primary-lighten-1")
+            let parts: Vec<&str> = var_name.rsplitn(3, '-').collect();
+            // After rsplitn(3, "-") on "primary-lighten-1": ["1", "lighten", "primary"]
+            // After rsplitn(3, "-") on "link-background-hover": ["hover", "background", "link-..."]
 
-        let mut resolved = theme.get_color(base_name).unwrap_or_else(RgbaColor::white);
-
-        if parts.len() >= 3 {
-            let mode = parts[1]; // "lighten" or "darken"
-            let amount = parts[2].parse::<f32>().unwrap_or(0.0);
-
-            resolved = match mode {
-                "lighten" => resolved.lighten(amount),
-                "darken" => resolved.darken(amount),
-                _ => resolved,
-            };
-        }
+            if parts.len() >= 3 {
+                // Check if this looks like a modifier pattern
+                if let Ok(amount) = parts[0].parse::<f32>() {
+                    let mode = parts[1];
+                    if mode == "lighten" || mode == "darken" {
+                        // Reconstruct base name from remaining parts
+                        let base_name = parts[2];
+                        let base_color = theme.get_color(base_name).unwrap_or_else(RgbaColor::white);
+                        match mode {
+                            "lighten" => base_color.lighten(amount),
+                            "darken" => base_color.darken(amount),
+                            _ => base_color,
+                        }
+                    } else {
+                        RgbaColor::white()
+                    }
+                } else {
+                    RgbaColor::white()
+                }
+            } else {
+                RgbaColor::white()
+            }
+        };
 
         // Preserve alpha from the original color if it was explicitly set
         // (e.g., "$foreground 50%" should use 0.5 alpha)

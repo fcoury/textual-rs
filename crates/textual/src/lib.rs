@@ -39,7 +39,7 @@ pub use containers::{
     vertical_scroll::VerticalScroll,
 };
 pub use context::{AppContext, IntervalHandle, MountContext};
-pub use tree::DOMQuery;
+pub use tree::{DOMQuery, clear_all_hover, collect_pending_actions_mut};
 pub use error::Result;
 pub use fraction::Fraction;
 pub use log_init::init_logger;
@@ -110,6 +110,11 @@ fn build_combined_css<M>(root: &mut dyn Widget<M>, app_css: &str) -> String {
 
     // Concatenate defaults (order doesn't matter, app CSS will override)
     let mut combined = String::new();
+
+    // First add base widget CSS (universal defaults like scrollbar and link styling)
+    combined.push_str(widget::screen::Screen::<M>::base_widget_css());
+    combined.push('\n');
+
     for css in defaults {
         combined.push_str(css);
         combined.push('\n');
@@ -144,6 +149,80 @@ where
 
     /// Return true when the application should exit.
     fn should_quit(&self) -> bool;
+
+    /// Handle an action string from a link click (e.g., "app.bell", "app.quit").
+    ///
+    /// Override this to handle custom actions. Return `true` if the action was handled.
+    /// The default implementation handles built-in actions:
+    /// - `app.quit` or `quit` - sets a flag to quit the app
+    /// - `app.bell` or `bell` - triggers the terminal bell
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn on_action(&mut self, action: &str) -> bool {
+    ///     match action {
+    ///         "my_custom_action" => {
+    ///             // Handle custom action
+    ///             true
+    ///         }
+    ///         _ => false, // Let default handling proceed
+    ///     }
+    /// }
+    /// ```
+    fn on_action(&mut self, _action: &str) -> bool {
+        false // Default: no custom handling
+    }
+
+    /// Request the application to quit.
+    ///
+    /// This is called by the "app.quit" action from link clicks.
+    /// Override this to set a quit flag in your app state.
+    ///
+    /// The default implementation does nothing - you must implement this
+    /// if you want `app.quit` links to work.
+    fn request_quit(&mut self) {
+        // Default: do nothing. Apps must override this.
+    }
+
+    /// Trigger the terminal bell sound.
+    ///
+    /// This is called by the "app.bell" action from link clicks.
+    /// The default implementation writes the bell character to stdout.
+    fn bell(&mut self) {
+        use std::io::Write;
+        let _ = std::io::stdout().write_all(b"\x07");
+        let _ = std::io::stdout().flush();
+    }
+
+    /// Dispatch an action string from a link click.
+    ///
+    /// This is called automatically by the event loop when a link with
+    /// `[@click=action]` markup is clicked. It first calls `on_action()` to
+    /// allow custom handling, then falls back to built-in actions.
+    ///
+    /// Built-in actions:
+    /// - `app.quit` / `quit` - calls `request_quit()`
+    /// - `app.bell` / `bell` - calls `bell()`
+    fn dispatch_action(&mut self, action: &str) {
+        // First, let the app handle custom actions
+        if self.on_action(action) {
+            return;
+        }
+
+        // Handle built-in actions
+        match action {
+            "app.quit" | "quit" => {
+                self.request_quit();
+            }
+            "app.bell" | "bell" => {
+                self.bell();
+            }
+            _ => {
+                // Unknown action - log and ignore
+                log::debug!("Unknown action: {}", action);
+            }
+        }
+    }
 
     /// Returns the current focus index for the widget tree.
     /// The run loop uses this to set focus on the nth focusable widget.
@@ -468,6 +547,12 @@ where
                                 // Compute the full-screen region for mouse event routing
                                 let region = Region::from_u16(0, 0, cols, rows);
 
+                                // Clear hover state on all widgets before processing move events
+                                // This ensures widgets that are no longer hovered clear their state
+                                if matches!(mouse_event.kind, crossterm::event::MouseEventKind::Moved) {
+                                    clear_all_hover(tree.root_mut());
+                                }
+
                                 // Route mouse event through widget tree hit-testing
                                 // NOTE: Mouse events use hit-testing, not focus path.
                                 // Full mouse bubbling would require on_mouse to track the hit path.
@@ -478,6 +563,13 @@ where
                                     // Check if app wants tree rebuild (Elm-style)
                                     needs_recompose = self.needs_recompose();
                                 }
+
+                                // Collect and dispatch pending actions from link clicks
+                                let actions = collect_pending_actions_mut(tree.root_mut());
+                                for action in actions {
+                                    self.dispatch_action(&action);
+                                }
+
                                 needs_render = true;
                             }
                             Some(Ok(_)) => {}

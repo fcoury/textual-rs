@@ -50,6 +50,10 @@ impl App for LinkBackgroundApp {
     fn should_quit(&self) -> bool {
         self.quit
     }
+
+    fn request_quit(&mut self) {
+        self.quit = true;
+    }
 }
 
 fn main() -> textual::Result<()> {

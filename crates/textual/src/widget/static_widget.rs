@@ -5,11 +5,14 @@
 //! - Visual caching for performance
 //! - Content alignment (horizontal and vertical)
 //! - The `update()` method for dynamic content
+//! - Link hover/click handling for @click actions
 //!
 //! Label and other text widgets wrap Static to add specialized behavior.
 
+use std::cell::RefCell;
 use std::marker::PhantomData;
 
+use crossterm::event::MouseEventKind;
 use tcss::types::{AlignHorizontal, AlignVertical};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 use unicode_width::UnicodeWidthStr;
@@ -19,6 +22,19 @@ use crate::render_cache::RenderCache;
 use crate::segment::Style;
 use crate::strip::Strip;
 use crate::{Canvas, KeyCode, MouseEvent, Region, Size, VisualType, Widget};
+
+/// A clickable link region within rendered content.
+#[derive(Debug, Clone)]
+struct LinkRegion {
+    /// The action string (e.g., "app.quit", "app.bell")
+    action: String,
+    /// Row relative to content area (0-indexed)
+    row: usize,
+    /// Start column (cell position, 0-indexed)
+    start_col: usize,
+    /// End column (exclusive)
+    end_col: usize,
+}
 
 /// A widget that displays static or updateable text content.
 ///
@@ -58,6 +74,15 @@ pub struct Static<M> {
     border_title: Option<String>,
     /// Subtitle displayed in the bottom border (supports markup).
     border_subtitle: Option<String>,
+    /// Cached link regions from last render (for hit testing).
+    /// Using RefCell to allow updating during render (which takes &self).
+    link_regions: RefCell<Vec<LinkRegion>>,
+    /// Currently hovered link action (if any).
+    hovered_link: RefCell<Option<String>>,
+    /// Last render region for coordinate translation in mouse events.
+    last_render_region: RefCell<Option<Region>>,
+    /// Pending action to be executed (set on click, consumed by app).
+    pending_action: RefCell<Option<String>>,
     _phantom: PhantomData<M>,
 }
 
@@ -76,6 +101,10 @@ impl<M> Default for Static<M> {
             dirty: true,
             border_title: None,
             border_subtitle: None,
+            link_regions: RefCell::new(Vec::new()),
+            hovered_link: RefCell::new(None),
+            last_render_region: RefCell::new(None),
+            pending_action: RefCell::new(None),
             _phantom: PhantomData,
         }
     }
@@ -317,6 +346,62 @@ impl<M> Static<M> {
 
         result
     }
+
+    /// Extract link regions from rendered content for hit testing.
+    fn extract_link_regions(&self, lines: &[Strip], cache: &RenderCache) {
+        let mut regions = Vec::new();
+        let border_offset = if cache.has_border() { 1 } else { 0 };
+        let padding_left = cache.padding_left();
+        let padding_top = cache.padding_top();
+
+        for (row_idx, strip) in lines.iter().enumerate() {
+            let mut col = 0;
+            for segment in strip.segments() {
+                let seg_width = segment.cell_length();
+
+                // Check if this segment has an @click action
+                if let Some(action) = segment.get_meta("@click") {
+                    regions.push(LinkRegion {
+                        action: action.to_string(),
+                        // Account for border and padding offsets
+                        row: row_idx + border_offset + padding_top,
+                        start_col: col + border_offset + padding_left,
+                        end_col: col + seg_width + border_offset + padding_left,
+                    });
+                }
+                col += seg_width;
+            }
+        }
+
+        *self.link_regions.borrow_mut() = regions;
+    }
+
+    /// Find the link at the given coordinates (relative to widget region).
+    fn find_link_at(&self, x: usize, y: usize) -> Option<String> {
+        let regions = self.link_regions.borrow();
+        for region in regions.iter() {
+            if y == region.row && x >= region.start_col && x < region.end_col {
+                return Some(region.action.clone());
+            }
+        }
+        None
+    }
+
+    /// Take the pending action (if any) and clear it.
+    /// This is called by the app to consume actions after mouse events.
+    pub fn take_pending_action(&self) -> Option<String> {
+        self.pending_action.borrow_mut().take()
+    }
+
+    /// Check if there's a pending action without consuming it.
+    pub fn has_pending_action(&self) -> bool {
+        self.pending_action.borrow().is_some()
+    }
+
+    /// Get the currently hovered link action (if any).
+    pub fn hovered_link(&self) -> Option<String> {
+        self.hovered_link.borrow().clone()
+    }
 }
 
 impl<M: 'static> Widget<M> for Static<M> {
@@ -344,13 +429,19 @@ Static {
         let (inner_width, inner_height) = cache.inner_size(width, height);
 
         // 3. Parse content into strips (with markup if enabled)
-        let content = if self.markup {
+        let mut content = if self.markup {
             Content::from_markup(self.text())
                 .unwrap_or_else(|_| Content::new(self.text()))
                 .with_style(style.clone())
         } else {
             Content::new(self.text()).with_style(style.clone())
         };
+
+        // Apply link styling from CSS if present, with hover state
+        content = content
+            .with_link_style(self.style.link.clone())
+            .with_hovered_action(self.hovered_link.borrow().clone());
+
         let lines = if inner_width > 0 {
             content.wrap(inner_width)
         } else {
@@ -359,6 +450,11 @@ Static {
 
         // 4. Apply content alignment
         let aligned_lines = self.align_content(&lines, inner_width, inner_height, style.clone());
+
+        // 4b. Extract link regions from content for hit testing
+        // Store the render region for coordinate translation in mouse events
+        *self.last_render_region.borrow_mut() = Some(region);
+        self.extract_link_regions(&aligned_lines, &cache);
 
         // 5. Calculate content region boundaries (accounting for borders and padding)
         let border_offset = if cache.has_border() { 1 } else { 0 };
@@ -644,8 +740,50 @@ Static {
         None
     }
 
-    fn on_mouse(&mut self, _event: MouseEvent, _region: Region) -> Option<M> {
+    fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        // Only handle mouse events if we're within the region
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        if !region.contains_point(mx, my) {
+            return None;
+        }
+
+        // Convert to widget-local coordinates
+        let local_x = (mx - region.x) as usize;
+        let local_y = (my - region.y) as usize;
+
+        match event.kind {
+            MouseEventKind::Down(crossterm::event::MouseButton::Left) => {
+                // Check if click is on a link
+                if let Some(action) = self.find_link_at(local_x, local_y) {
+                    // Store the action for the app to consume
+                    *self.pending_action.borrow_mut() = Some(action);
+                    self.dirty = true;
+                }
+            }
+            MouseEventKind::Moved => {
+                // Update hover state
+                let new_hover = self.find_link_at(local_x, local_y);
+                let old_hover = self.hovered_link.borrow().clone();
+
+                if new_hover != old_hover {
+                    *self.hovered_link.borrow_mut() = new_hover;
+                    self.dirty = true; // Re-render to show hover styles
+                }
+            }
+            _ => {}
+        }
+
         None
+    }
+
+    fn clear_hover(&mut self) {
+        // Clear link hover state when mouse leaves widget
+        if self.hovered_link.borrow().is_some() {
+            *self.hovered_link.borrow_mut() = None;
+            self.dirty = true;
+        }
     }
 
     fn as_any(&self) -> Option<&dyn std::any::Any> {
@@ -681,5 +819,9 @@ Static {
 
     fn classes(&self) -> Vec<String> {
         self.classes.clone()
+    }
+
+    fn take_pending_action(&self) -> Option<String> {
+        self.pending_action.borrow_mut().take()
     }
 }

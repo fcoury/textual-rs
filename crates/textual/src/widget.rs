@@ -231,6 +231,15 @@ pub trait Widget<M> {
     /// Clears hover state from this widget and all children.
     fn clear_hover(&mut self) {}
 
+    /// Take the pending action (if any) and clear it.
+    ///
+    /// This is called by the app to consume actions after mouse events.
+    /// Link widgets (Static, Label) store pending actions when clicked,
+    /// which the app collects and executes.
+    fn take_pending_action(&self) -> Option<String> {
+        None
+    }
+
     /// Returns true if this widget can receive focus.
     ///
     /// Default implementation returns false. Widgets should also return
@@ -542,6 +551,10 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn clear_hover(&mut self) {
         self.as_mut().clear_hover();
+    }
+
+    fn take_pending_action(&self) -> Option<String> {
+        self.as_ref().take_pending_action()
     }
 
     fn is_focusable(&self) -> bool {

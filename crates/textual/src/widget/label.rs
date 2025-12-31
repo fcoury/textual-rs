@@ -280,6 +280,10 @@ Label {
         self.inner.clear_hover()
     }
 
+    fn take_pending_action(&self) -> Option<String> {
+        self.inner.take_pending_action()
+    }
+
     fn is_focusable(&self) -> bool {
         self.inner.is_focusable()
     }

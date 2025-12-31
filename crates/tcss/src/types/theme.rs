@@ -290,11 +290,12 @@ impl ColorSystem {
         });
         vars.insert("scrollbar-corner-color".into(), background.clone());
 
-        // Link colors
-        vars.insert("link-color".into(), self.primary.clone());
+        // Link colors - use auto colors for contrast (like Python Textual's "auto 87%")
+        // Auto colors compute contrast against the link background
+        vars.insert("link-color".into(), RgbaColor::auto(0.87));
         vars.insert("link-background".into(), RgbaColor::transparent());
-        vars.insert("link-color-hover".into(), self.primary.lighten(0.15));
-        vars.insert("link-background-hover".into(), self.primary.with_alpha(0.15));
+        vars.insert("link-color-hover".into(), RgbaColor::auto(0.87));
+        vars.insert("link-background-hover".into(), self.primary.clone());
 
         // Border colors
         vars.insert("border".into(), if self.dark {
@@ -382,7 +383,7 @@ impl ColorSystem {
 
         let mut link_style_hover = TextStyle::default();
         link_style_hover.bold = true;
-        link_style_hover.underline = true;
+        // No underline on hover (Python: "bold not underline")
         styles.insert("link-style-hover".into(), link_style_hover);
 
         // Block cursor text styles

@@ -363,6 +363,67 @@ impl<M> WidgetTree<M> {
     }
 }
 
+/// Collect all pending actions from widgets in the tree.
+///
+/// Actions are stored by widgets when links are clicked, and this function
+/// traverses the tree to collect and consume all pending actions.
+pub fn collect_pending_actions<M>(widget: &dyn Widget<M>) -> Vec<String> {
+    let mut actions = Vec::new();
+
+    // Check this widget for a pending action
+    if let Some(action) = widget.take_pending_action() {
+        actions.push(action);
+    }
+
+    // Recursively check all children
+    // Note: We need to use for_each_child which requires &mut, but we only have &
+    // So we use child_count and get_child_ref pattern
+    // Actually, take_pending_action takes &self, so we can use a reference traversal
+
+    // However, child_count and get_child_mut require &mut for get_child_mut
+    // Let's create a separate mutable version below
+    actions
+}
+
+/// Collect all pending actions from widgets in the tree (mutable version).
+///
+/// This version requires mutable access to traverse children.
+pub fn collect_pending_actions_mut<M>(widget: &mut dyn Widget<M>) -> Vec<String> {
+    let mut actions = Vec::new();
+
+    // Check this widget for a pending action
+    if let Some(action) = widget.take_pending_action() {
+        actions.push(action);
+    }
+
+    // Recursively check all children
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            actions.extend(collect_pending_actions_mut(child));
+        }
+    }
+
+    actions
+}
+
+/// Clear hover state on all widgets in the tree.
+///
+/// This should be called before dispatching mouse events to ensure
+/// that widgets that are no longer hovered have their hover state cleared.
+pub fn clear_all_hover<M>(widget: &mut dyn Widget<M>) {
+    // Clear hover on this widget
+    widget.clear_hover();
+
+    // Recursively clear all children
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            clear_all_hover(child);
+        }
+    }
+}
+
 /// Navigate to a widget at the given path and call handle_message on it.
 ///
 /// This is a free function to avoid borrow conflicts in bubble_message.

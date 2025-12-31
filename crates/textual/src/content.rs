@@ -27,6 +27,7 @@ use std::collections::HashMap;
 
 use crate::segment::{Segment, Style};
 use crate::strip::Strip;
+use tcss::types::link::LinkStyle;
 use tcss::types::RgbaColor;
 use unicode_width::UnicodeWidthStr;
 
@@ -58,6 +59,10 @@ pub struct Content {
     style: Option<Style>,
     /// Styled spans (from markup parsing).
     spans: Option<Vec<InternalSpan>>,
+    /// Link styling from CSS (applied to segments with @link or @click metadata).
+    link_style: Option<LinkStyle>,
+    /// Currently hovered link action (for applying hover styles).
+    hovered_action: Option<String>,
 }
 
 impl Content {
@@ -67,6 +72,8 @@ impl Content {
             text: text.into(),
             style: None,
             spans: None,
+            link_style: None,
+            hovered_action: None,
         }
     }
 
@@ -101,6 +108,8 @@ impl Content {
             text: parsed.text().to_string(),
             style: None,
             spans: if spans.is_empty() { None } else { Some(spans) },
+            link_style: None,
+            hovered_action: None,
         })
     }
 
@@ -134,6 +143,24 @@ impl Content {
     /// Sets the style for this content.
     pub fn with_style(mut self, style: Style) -> Self {
         self.style = Some(style);
+        self
+    }
+
+    /// Sets the link styling for this content.
+    ///
+    /// Link styling is applied to segments that have `@link` or `@click` metadata
+    /// from Rich markup (e.g., `[link='url']text[/]` or `[@click=action]text[/]`).
+    pub fn with_link_style(mut self, link_style: LinkStyle) -> Self {
+        self.link_style = Some(link_style);
+        self
+    }
+
+    /// Sets the currently hovered link action for hover styling.
+    ///
+    /// When a segment's `@click` action matches this value, hover styles
+    /// (link-color-hover, link-background-hover, link-style-hover) are applied.
+    pub fn with_hovered_action(mut self, action: Option<String>) -> Self {
+        self.hovered_action = action;
         self
     }
 
@@ -246,6 +273,17 @@ impl Content {
                 }
             }
 
+            // Apply link styling only to action links (@click), not URL links (@link)
+            // URL links get OSC 8 hyperlink treatment instead of CSS link-* styling
+            let click_action = meta.get("@click").cloned();
+            if let Some(ref action) = click_action {
+                if let Some(link_style) = &self.link_style {
+                    // Check if this link is hovered
+                    let is_hovered = self.hovered_action.as_ref() == Some(action);
+                    style = self.apply_link_style(style, link_style, is_hovered);
+                }
+            }
+
             // Find where the style changes next
             let mut next_change = line.len();
             for span in &relevant_spans {
@@ -280,6 +318,92 @@ impl Content {
         }
 
         Strip::from_segments(segments)
+    }
+
+    /// Apply link styling to a segment style.
+    ///
+    /// This converts LinkStyle (from CSS) to rendering Style and applies it
+    /// on top of the existing segment style. Links default to underlined text
+    /// and auto-contrast foreground color when a background is set.
+    ///
+    /// When `is_hovered` is true, hover variants (link-color-hover, link-background-hover,
+    /// link-style-hover) are used instead of the normal variants.
+    fn apply_link_style(&self, base_style: Style, link_style: &LinkStyle, is_hovered: bool) -> Style {
+        // Select colors based on hover state (hover takes precedence if set)
+        let link_bg = if is_hovered {
+            link_style.background_hover.as_ref().or(link_style.background.as_ref())
+        } else {
+            link_style.background.as_ref()
+        };
+        let link_color = if is_hovered {
+            link_style.color_hover.as_ref().or(link_style.color.as_ref())
+        } else {
+            link_style.color.as_ref()
+        };
+        let link_text_style = if is_hovered {
+            &link_style.style_hover
+        } else {
+            &link_style.style
+        };
+
+        // Determine the effective background, compositing semi-transparent link backgrounds
+        // over the base background (like CSS alpha compositing)
+        let effective_bg = match (link_bg, &base_style.bg) {
+            (Some(link_bg), Some(base_bg)) if link_bg.a < 1.0 => {
+                // Composite semi-transparent link background over base
+                Some(link_bg.blend_over(base_bg))
+            }
+            (Some(link_bg), _) => Some(link_bg.clone()),
+            (None, base) => base.clone(),
+        };
+
+        // Determine foreground color:
+        // 1. If link-color is "auto", compute contrast against link background (or base bg)
+        // 2. If link-color is explicitly set to a real color, use it
+        // 3. Otherwise use base foreground
+        let fg = if let Some(color) = link_color {
+            if color.auto {
+                // Auto color - compute contrast against the effective background
+                if let Some(bg) = &effective_bg {
+                    Some(bg.get_contrasting_color(color.a))
+                } else if let Some(base_bg) = &base_style.bg {
+                    Some(base_bg.get_contrasting_color(color.a))
+                } else {
+                    // No background to contrast against, use default text color
+                    base_style.fg
+                }
+            } else {
+                // Explicit color set
+                Some(color.clone())
+            }
+        } else if let Some(bg) = &effective_bg {
+            // No link-color but has background - auto-contrast
+            Some(bg.get_contrasting_color(0.87))
+        } else {
+            base_style.fg
+        };
+
+        // For hover: use the hover style (bold, no underline)
+        // For normal: default to underline unless link_text_style specifies otherwise
+        let underline = if is_hovered {
+            // Hover style controls underline (default hover is bold, no underline)
+            link_text_style.underline
+        } else {
+            // Normal links default to underline
+            base_style.underline || link_text_style.underline || true
+        };
+
+        Style {
+            fg,
+            bg: effective_bg,
+            // Merge text style attributes (link-style adds to base style)
+            bold: base_style.bold || link_text_style.bold,
+            dim: base_style.dim || link_text_style.dim,
+            italic: base_style.italic || link_text_style.italic,
+            underline,
+            strike: base_style.strike || link_text_style.strike,
+            reverse: base_style.reverse || link_text_style.reverse,
+        }
     }
 
     /// Word-wraps the content to fit within the given width.
