@@ -97,12 +97,12 @@ impl<M> ScrollableContainer<M> {
             Overflow::Scroll => true,
             Overflow::Auto => {
                 // Only show scrollbar when viewport is initialized and content exceeds it
+                // Use scroll state (virtual vs viewport) to handle flexible sizes (fr/%/vw/vh).
                 let scroll = self.scroll.borrow();
                 if scroll.viewport_height <= 0 {
                     return false;
                 }
-                let content_height = self.content().desired_size().height as i32;
-                content_height > scroll.viewport_height
+                scroll.virtual_height > scroll.viewport_height
             }
             Overflow::Hidden => false,
         }
@@ -121,12 +121,12 @@ impl<M> ScrollableContainer<M> {
             Overflow::Scroll => true,
             Overflow::Auto => {
                 // Only show scrollbar when viewport is initialized and content exceeds it
+                // Use scroll state (virtual vs viewport) to handle flexible sizes (fr/%/vw/vh).
                 let scroll = self.scroll.borrow();
                 if scroll.viewport_width <= 0 {
                     return false;
                 }
-                let content_width = self.content().desired_size().width as i32;
-                content_width > scroll.viewport_width
+                scroll.virtual_width > scroll.viewport_width
             }
             Overflow::Hidden => false,
         }
