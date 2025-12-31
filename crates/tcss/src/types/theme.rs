@@ -268,15 +268,16 @@ impl ColorSystem {
         vars.insert("error-muted".into(), error.with_alpha(0.3));
         vars.insert("success-muted".into(), success.with_alpha(0.3));
 
-        // Scrollbar colors
+        // Scrollbar colors - blend primary at 40% over darkened background (matches Python Textual)
         let scrollbar_color = if self.dark {
-            RgbaColor::hex("#666666")
+            // Python: background-darken-1 + primary.with_alpha(0.4) ≈ #003157
+            self.primary.with_alpha(0.4).blend_over(&background.darken(0.03))
         } else {
-            RgbaColor::hex("#999999")
+            self.primary.with_alpha(0.4).blend_over(&background.darken(0.03))
         };
         vars.insert("scrollbar".into(), scrollbar_color.clone());
-        vars.insert("scrollbar-hover".into(), scrollbar_color.lighten(0.1));
-        vars.insert("scrollbar-active".into(), scrollbar_color.lighten(0.2));
+        vars.insert("scrollbar-hover".into(), scrollbar_color.lighten(0.15));
+        vars.insert("scrollbar-active".into(), self.primary.clone());
         vars.insert("scrollbar-background".into(), background.clone());
         vars.insert("scrollbar-background-hover".into(), if self.dark {
             background.lighten(0.05)
