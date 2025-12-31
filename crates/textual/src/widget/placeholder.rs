@@ -243,11 +243,10 @@ impl Placeholder {
 
 impl<M> Widget<M> for Placeholder {
     fn default_css(&self) -> &'static str {
-        // Match Python Textual: no min-height, sizes to content
+        // Match Python Textual: width fills, height unspecified (fills in horizontal, intrinsic in vertical)
         r#"
 Placeholder {
     width: 1fr;
-    height: auto;
 }
 "#
     }

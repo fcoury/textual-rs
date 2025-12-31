@@ -50,4 +50,10 @@ impl<M: 'static> Vertical<M> {
     }
 }
 
-impl_widget_delegation!(Vertical<M> => inner, type_name = "Vertical");
+impl_widget_delegation!(Vertical<M> => inner, type_name = "Vertical", default_css = |_| r#"
+Vertical {
+    width: 1fr;
+    height: 1fr;
+    layout: vertical;
+}
+"#);

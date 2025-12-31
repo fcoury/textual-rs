@@ -40,8 +40,13 @@ macro_rules! impl_widget_delegation {
         $crate::impl_widget_delegation!($ty<$m> => $field, type_name = stringify!($ty));
     };
 
-    // Full form with explicit type_name
+    // Form with explicit type_name (delegates default_css to inner)
     ($ty:ident<$m:ident> => $field:ident, type_name = $name:expr) => {
+        $crate::impl_widget_delegation!($ty<$m> => $field, type_name = $name, default_css = |s: &Self| s.$field.default_css());
+    };
+
+    // Full form with explicit type_name and default_css
+    ($ty:ident<$m:ident> => $field:ident, type_name = $name:expr, default_css = $css:expr) => {
         impl<$m> $crate::Widget<$m> for $ty<$m> {
             fn render(&self, canvas: &mut $crate::Canvas, region: $crate::Region) {
                 self.$field.render(canvas, region)
@@ -70,7 +75,8 @@ macro_rules! impl_widget_delegation {
             }
 
             fn default_css(&self) -> &'static str {
-                self.$field.default_css()
+                let f: fn(&Self) -> &'static str = $css;
+                f(self)
             }
 
             fn is_dirty(&self) -> bool {
