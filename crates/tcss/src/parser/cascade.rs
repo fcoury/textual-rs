@@ -263,6 +263,10 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::MarginBottom(s) => style.margin.bottom = *s,
         Declaration::MarginLeft(s) => style.margin.left = *s,
         Declaration::Padding(s) => style.padding = *s,
+        Declaration::PaddingTop(s) => style.padding.top = *s,
+        Declaration::PaddingRight(s) => style.padding.right = *s,
+        Declaration::PaddingBottom(s) => style.padding.bottom = *s,
+        Declaration::PaddingLeft(s) => style.padding.left = *s,
         Declaration::Border(b) => {
             let mut resolved_edge = b.clone();
             if let Some(ref color) = b.color {

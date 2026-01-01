@@ -159,6 +159,10 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "margin-bottom" => map(units::parse_scalar, Declaration::MarginBottom)(input)?,
         "margin-left" => map(units::parse_scalar, Declaration::MarginLeft)(input)?,
         "padding" => map(units::parse_spacing, Declaration::Padding)(input)?,
+        "padding-top" => map(units::parse_scalar, Declaration::PaddingTop)(input)?,
+        "padding-right" => map(units::parse_scalar, Declaration::PaddingRight)(input)?,
+        "padding-bottom" => map(units::parse_scalar, Declaration::PaddingBottom)(input)?,
+        "padding-left" => map(units::parse_scalar, Declaration::PaddingLeft)(input)?,
         "border" => map(values::parse_border_edge, Declaration::Border)(input)?,
 
         // Scrollbar properties

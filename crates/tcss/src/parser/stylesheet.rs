@@ -226,6 +226,14 @@ pub enum Declaration {
     MarginLeft(Scalar),
     /// The `padding` property for inner spacing.
     Padding(Spacing),
+    /// The `padding-top` property for top inner spacing.
+    PaddingTop(Scalar),
+    /// The `padding-right` property for right inner spacing.
+    PaddingRight(Scalar),
+    /// The `padding-bottom` property for bottom inner spacing.
+    PaddingBottom(Scalar),
+    /// The `padding-left` property for left inner spacing.
+    PaddingLeft(Scalar),
     /// The `border` property for element borders.
     Border(BorderEdge),
 

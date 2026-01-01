@@ -315,6 +315,90 @@ fn test_property_padding_four_values() {
 }
 
 // ============================================================================
+// INDIVIDUAL PADDING PROPERTIES
+// ============================================================================
+
+#[test]
+fn test_property_padding_top() {
+    let decl = parse_first_declaration("Button { padding-top: 5; }");
+    if let Declaration::PaddingTop(s) = decl {
+        assert_eq!(s.value, 5.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected PaddingTop declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_padding_top_percent() {
+    let decl = parse_first_declaration("Button { padding-top: 10%; }");
+    if let Declaration::PaddingTop(s) = decl {
+        assert_eq!(s.value, 10.0);
+        assert_eq!(s.unit, Unit::Percent);
+    } else {
+        panic!("expected PaddingTop declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_padding_right() {
+    let decl = parse_first_declaration("Button { padding-right: 3; }");
+    if let Declaration::PaddingRight(s) = decl {
+        assert_eq!(s.value, 3.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected PaddingRight declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_padding_bottom() {
+    let decl = parse_first_declaration("Button { padding-bottom: 7; }");
+    if let Declaration::PaddingBottom(s) = decl {
+        assert_eq!(s.value, 7.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected PaddingBottom declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_padding_left() {
+    let decl = parse_first_declaration("Button { padding-left: 4; }");
+    if let Declaration::PaddingLeft(s) = decl {
+        assert_eq!(s.value, 4.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected PaddingLeft declaration, got {:?}", decl);
+    }
+}
+
+#[test]
+fn test_property_padding_individual_with_shorthand() {
+    // Test that both shorthand and individual properties parse in the same rule
+    let decls = parse_declarations("Button { padding: 1; padding-top: 5; padding-right: 3; }");
+    assert_eq!(decls.len(), 3);
+
+    if let Declaration::Padding(s) = &decls[0] {
+        assert_eq!(s.top.value, 1.0);
+    } else {
+        panic!("expected Padding declaration");
+    }
+
+    if let Declaration::PaddingTop(s) = &decls[1] {
+        assert_eq!(s.value, 5.0);
+    } else {
+        panic!("expected PaddingTop declaration");
+    }
+
+    if let Declaration::PaddingRight(s) = &decls[2] {
+        assert_eq!(s.value, 3.0);
+    } else {
+        panic!("expected PaddingRight declaration");
+    }
+}
+
+// ============================================================================
 // BORDER PROPERTY
 // ============================================================================
 
