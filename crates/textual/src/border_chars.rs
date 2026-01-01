@@ -39,11 +39,14 @@ pub type BorderLocations = [[u8; 3]; 3];
 /// Standard border location: all positions use widget style.
 const STANDARD_LOCATIONS: BorderLocations = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
-/// Inner border location: border uses outer style, center uses widget style.
-const INNER_LOCATIONS: BorderLocations = [[1, 1, 1], [1, 0, 1], [1, 1, 1]];
+/// Inner border location: all positions use outer/parent style.
+const INNER_LOCATIONS: BorderLocations = [[1, 1, 1], [1, 1, 1], [1, 1, 1]];
 
-/// Outer border location: all positions use outer style.
-const OUTER_LOCATIONS: BorderLocations = [[1, 1, 1], [1, 1, 1], [1, 1, 1]];
+/// Block border location: top/bottom use outer, middle uses widget style.
+const BLOCK_LOCATIONS: BorderLocations = [[1, 1, 1], [0, 0, 0], [1, 1, 1]];
+
+/// Tab border location: special mixed zones for tab appearance.
+const TAB_LOCATIONS: BorderLocations = [[1, 1, 1], [0, 1, 3], [1, 1, 1]];
 
 /// Tall border location: left=reversed outer/inner, center=inner, right=outer.
 const TALL_LOCATIONS: BorderLocations = [[2, 0, 1], [2, 0, 1], [2, 0, 1]];
@@ -131,6 +134,16 @@ pub static BORDER_CHARS: phf::Map<&'static str, BorderChars> = phf_map! {
         ['▌', ' ', '▐'],
         ['▙', '▄', '▟'],
     ],
+    "block" => [
+        ['▀', '▀', '▀'],
+        ['█', ' ', '█'],
+        ['▄', '▄', '▄'],
+    ],
+    "tab" => [
+        ['▀', '▀', '▀'],
+        ['▎', ' ', ' '],
+        ['▔', '▔', '▔'],
+    ],
     "hkey" => [
         ['▔', '▔', '▔'],
         [' ', ' ', ' '],
@@ -159,7 +172,9 @@ pub static BORDER_LOCATIONS: phf::Map<&'static str, BorderLocations> = phf_map! 
     "panel" => PANEL_LOCATIONS,
     "wide" => WIDE_LOCATIONS,
     "inner" => INNER_LOCATIONS,
-    "outer" => OUTER_LOCATIONS,
+    "outer" => STANDARD_LOCATIONS,
+    "block" => BLOCK_LOCATIONS,
+    "tab" => TAB_LOCATIONS,
     "hkey" => STANDARD_LOCATIONS,
     "vkey" => STANDARD_LOCATIONS,
 };

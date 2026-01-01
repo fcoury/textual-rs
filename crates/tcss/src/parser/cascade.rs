@@ -477,6 +477,18 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.keyline = resolved_keyline;
         }
 
+        // Offset properties (visual position adjustment after layout)
+        Declaration::Offset(x, y) => {
+            style.offset_x = Some(x.clone());
+            style.offset_y = Some(y.clone());
+        }
+        Declaration::OffsetX(x) => {
+            style.offset_x = Some(x.clone());
+        }
+        Declaration::OffsetY(y) => {
+            style.offset_y = Some(y.clone());
+        }
+
         Declaration::Unknown(_) => {}
     }
 }

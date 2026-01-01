@@ -151,3 +151,11 @@ pub fn parse_grid_gutter(input: &str) -> IResult<&str, (Scalar, Option<Scalar>)>
     let (input, h) = opt(preceded(multispace1, parse_scalar))(input)?;
     Ok((input, (v, h)))
 }
+
+/// Parse offset: `<x> <y>` - two required scalar values.
+/// Positive X moves right, positive Y moves down.
+pub fn parse_offset(input: &str) -> IResult<&str, (Scalar, Scalar)> {
+    let (input, x) = parse_scalar(input)?;
+    let (input, y) = preceded(multispace1, parse_scalar)(input)?;
+    Ok((input, (x, y)))
+}

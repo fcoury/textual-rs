@@ -147,6 +147,12 @@ pub struct ComputedStyle {
 
     // Keyline (box-drawing borders around widgets)
     pub keyline: Keyline,
+
+    // Offset (visual position adjustment after layout)
+    /// Horizontal offset from calculated position. Positive moves right.
+    pub offset_x: Option<Scalar>,
+    /// Vertical offset from calculated position. Positive moves down.
+    pub offset_y: Option<Scalar>,
 }
 
 impl Default for ComputedStyle {
@@ -197,6 +203,8 @@ impl Default for ComputedStyle {
             link: LinkStyle::default(),
             hatch: None,
             keyline: Keyline::default(),
+            offset_x: None,
+            offset_y: None,
         }
     }
 }

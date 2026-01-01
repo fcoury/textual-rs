@@ -364,6 +364,16 @@ pub enum Declaration {
     /// Syntax: `keyline: <style> <color>` where style is none, thin, heavy, or double.
     Keyline(Keyline),
 
+    // Offset properties (visual position adjustment after layout)
+    /// The `offset` property for X and Y visual position offset.
+    /// Syntax: `offset: <x> <y>` where values are scalars (cells, %, etc.).
+    /// Positive X moves right, positive Y moves down.
+    Offset(Scalar, Scalar),
+    /// The `offset-x` property for horizontal position offset.
+    OffsetX(Scalar),
+    /// The `offset-y` property for vertical position offset.
+    OffsetY(Scalar),
+
     /// An unrecognized property (stored for forward compatibility).
     Unknown(String),
 }

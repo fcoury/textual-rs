@@ -250,6 +250,14 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         // Keyline (box-drawing borders around widgets)
         "keyline" => map(values::parse_keyline, Declaration::Keyline)(input)?,
 
+        // Offset properties (visual position adjustment after layout)
+        "offset" => {
+            let (input, (x, y)) = units::parse_offset(input)?;
+            (input, Declaration::Offset(x, y))
+        }
+        "offset-x" => map(units::parse_scalar, Declaration::OffsetX)(input)?,
+        "offset-y" => map(units::parse_scalar, Declaration::OffsetY)(input)?,
+
         _ => {
             // Robustly consume until semicolon or brace for unknown properties
             let (input, _value) = take_until_semicolon_or_brace(input)?;

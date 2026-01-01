@@ -171,6 +171,10 @@ pub fn arrange_children_with_viewport(
     // Apply post-layout alignment to layout widgets only
     apply_alignment(&mut layout_placements, parent_style, content_region);
 
+    // Apply CSS offset to all placements (both docked and layout)
+    apply_offset(&mut placements, children, viewport);
+    apply_offset(&mut layout_placements, children, viewport);
+
     // Combine docked and layout placements
     placements.extend(layout_placements);
 
@@ -330,6 +334,10 @@ where
     // Apply post-layout alignment to layout widgets only
     apply_alignment(&mut layout_placements, parent_style, content_region);
 
+    // Apply CSS offset to all placements (both docked and layout)
+    apply_offset(&mut placements, children, viewport);
+    apply_offset(&mut layout_placements, children, viewport);
+
     // Combine docked and layout placements
     placements.extend(layout_placements);
 
@@ -413,6 +421,65 @@ fn get_placement_bounds(placements: &[WidgetPlacement]) -> Region {
         y: min_y,
         width: max_x - min_x,
         height: max_y - min_y,
+    }
+}
+
+/// Apply CSS offset to placements.
+///
+/// Offset is a POST-LAYOUT operation that visually shifts widgets from their
+/// calculated positions. It does not affect sibling layout - only the visual
+/// position of the offset widget itself.
+///
+/// # Arguments
+/// * `placements` - The widget placements to modify
+/// * `children` - The original children array to find styles
+/// * `viewport` - Viewport for resolving viewport-relative units
+fn apply_offset(
+    placements: &mut [WidgetPlacement],
+    children: &[(usize, ComputedStyle, Size)],
+    viewport: Viewport,
+) {
+    use tcss::types::geometry::Unit;
+
+    for placement in placements {
+        // Find the style for this child
+        if let Some((_, style, _)) = children.iter().find(|(idx, _, _)| *idx == placement.child_index) {
+            // Resolve offset_x
+            let offset_x = if let Some(scalar) = &style.offset_x {
+                match scalar.unit {
+                    Unit::Cells => scalar.value as i32,
+                    Unit::Percent => ((scalar.value / 100.0) * placement.region.width as f64) as i32,
+                    Unit::ViewWidth => ((scalar.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((scalar.value / 100.0) * viewport.height as f64) as i32,
+                    Unit::Width => ((scalar.value / 100.0) * placement.region.width as f64) as i32,
+                    Unit::Height => ((scalar.value / 100.0) * placement.region.height as f64) as i32,
+                    _ => scalar.value as i32,
+                }
+            } else {
+                0
+            };
+
+            // Resolve offset_y
+            let offset_y = if let Some(scalar) = &style.offset_y {
+                match scalar.unit {
+                    Unit::Cells => scalar.value as i32,
+                    Unit::Percent => ((scalar.value / 100.0) * placement.region.height as f64) as i32,
+                    Unit::ViewWidth => ((scalar.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((scalar.value / 100.0) * viewport.height as f64) as i32,
+                    Unit::Width => ((scalar.value / 100.0) * placement.region.width as f64) as i32,
+                    Unit::Height => ((scalar.value / 100.0) * placement.region.height as f64) as i32,
+                    _ => scalar.value as i32,
+                }
+            } else {
+                0
+            };
+
+            // Apply offsets
+            if offset_x != 0 || offset_y != 0 {
+                placement.region.x += offset_x;
+                placement.region.y += offset_y;
+            }
+        }
     }
 }
 
