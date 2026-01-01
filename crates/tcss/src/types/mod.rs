@@ -118,6 +118,16 @@ pub struct ComputedStyle {
     // Dock position (removes from layout flow)
     pub dock: Option<Dock>,
 
+    // Layer support (controls rendering order and overlay behavior)
+    /// Available layer names for this container's children.
+    /// Layers are rendered in order: lower indices first (bottom), higher indices on top.
+    /// Example: `layers: below above;` defines "below" as index 0, "above" as index 1.
+    pub layers: Option<Vec<String>>,
+    /// The layer this widget is assigned to.
+    /// Must match a name from the nearest ancestor's `layers` definition.
+    /// Default is "default" if not specified.
+    pub layer: Option<String>,
+
     // Grid layout
     pub grid: GridStyle,
     pub grid_placement: GridPlacement,
@@ -177,6 +187,8 @@ impl Default for ComputedStyle {
             opacity: 1.0,
             layout: Layout::default(),
             dock: None,
+            layers: None,
+            layer: None,
             grid: GridStyle::default(),
             grid_placement: GridPlacement::default(),
             overflow_x: Overflow::default(),

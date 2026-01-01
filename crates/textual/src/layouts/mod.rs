@@ -415,3 +415,114 @@ fn get_placement_bounds(placements: &[WidgetPlacement]) -> Region {
         height: max_y - min_y,
     }
 }
+
+/// Layer-aware arrangement of children.
+///
+/// This is the primary entry point for child arrangement. It implements
+/// Textual Python's layer system where:
+/// 1. Each layer gets the FULL available region (layers don't compete for space)
+/// 2. Lower layer indices render first (bottom), higher indices on top
+/// 3. Within each layer, docked widgets are processed, then layout widgets
+///
+/// When no layers are defined and no children have layer assignments, this
+/// falls back to the standard arrangement for efficiency.
+///
+/// # Arguments
+/// * `parent_style` - The computed style of the parent container (contains `layers` definition)
+/// * `children` - Vector of (child_index, child_style, desired_size) for visible children
+/// * `available` - The region available for layout
+/// * `viewport` - The viewport dimensions for vw/vh unit resolution
+pub fn arrange_children_with_layers(
+    parent_style: &ComputedStyle,
+    children: &[(usize, ComputedStyle, Size)],
+    available: Region,
+    viewport: Viewport,
+) -> Vec<WidgetPlacement> {
+    // Fast path: if no layers defined and no children have layer assignments,
+    // use the standard arrangement to avoid overhead
+    let needs_layers = parent_style.layers.is_some()
+        || children.iter().any(|(_, style, _)| style.layer.is_some());
+
+    if !needs_layers {
+        return arrange_children_with_viewport(parent_style, children, available, viewport);
+    }
+
+    // Get the layer order from parent style, defaulting to ["default"]
+    let layer_order: Vec<String> = parent_style
+        .layers
+        .clone()
+        .unwrap_or_else(|| vec!["default".to_string()]);
+
+    // Build a map from layer name to its widgets
+    let layers = build_layers(children, &layer_order);
+
+    // Process each layer in order - each layer gets the FULL available region
+    let mut all_placements = Vec::new();
+
+    for (_layer_name, layer_children) in layers {
+        if layer_children.is_empty() {
+            continue;
+        }
+
+        // Convert references to owned data for the layout functions
+        let children_vec: Vec<(usize, ComputedStyle, Size)> = layer_children
+            .iter()
+            .map(|(idx, style, size)| (*idx, style.clone(), *size))
+            .collect();
+
+        // Each layer gets the FULL available region - this is the key behavior!
+        // Layers don't compete for space; they overlay each other.
+        let layer_placements =
+            arrange_children_with_viewport(parent_style, &children_vec, available, viewport);
+
+        all_placements.extend(layer_placements);
+    }
+
+    all_placements
+}
+
+/// Separate widgets by layer.
+///
+/// Returns a vector of (layer_name, widgets) tuples in layer order.
+/// Widgets without an explicit layer are assigned to "default".
+///
+/// Layer order follows Python Textual's behavior:
+/// - Widgets on undefined layers (like "default" if not in layer_order) render FIRST (bottom)
+/// - Explicitly defined layers render in order (later = on top)
+fn build_layers<'a>(
+    children: &'a [(usize, ComputedStyle, Size)],
+    layer_order: &[String],
+) -> Vec<(String, Vec<&'a (usize, ComputedStyle, Size)>)> {
+    use std::collections::HashMap;
+
+    // Group children by their layer
+    let mut layer_map: HashMap<String, Vec<&(usize, ComputedStyle, Size)>> = HashMap::new();
+
+    for child in children {
+        let layer_name = child
+            .1
+            .layer
+            .clone()
+            .unwrap_or_else(|| "default".to_string());
+        layer_map.entry(layer_name).or_default().push(child);
+    }
+
+    let mut result = Vec::new();
+
+    // First: add widgets on layers NOT in layer_order (they render at the bottom)
+    // This matches Python where undefined layers default to index 0 (bottom-most)
+    for (name, widgets) in layer_map.iter() {
+        if !layer_order.contains(name) {
+            result.push((name.clone(), widgets.clone()));
+        }
+    }
+
+    // Then: add explicitly defined layers in order (later = on top)
+    for name in layer_order {
+        if let Some(widgets) = layer_map.get(name) {
+            result.push((name.clone(), widgets.clone()));
+        }
+    }
+
+    result
+}

@@ -210,6 +210,8 @@ pub enum Declaration {
     MaxHeight(Scalar),
     /// The `max-width` property for maximum element width.
     MaxWidth(Scalar),
+    /// The `min-height` property for minimum element height.
+    MinHeight(Scalar),
     /// The `margin` property for outer spacing.
     Margin(Spacing),
     /// The `margin-top` property for top outer spacing.
@@ -272,6 +274,13 @@ pub enum Declaration {
     Layout(Layout),
     /// The `dock` property (top, bottom, left, right).
     Dock(Dock),
+    /// The `layers` property defining available layer names for a container.
+    /// Layers control rendering order: lower indices render first (bottom), higher on top.
+    /// Example: `layers: below above;` defines "below" as index 0, "above" as index 1.
+    Layers(Vec<String>),
+    /// The `layer` property assigning a widget to a named layer.
+    /// Example: `layer: above;` assigns the widget to the "above" layer.
+    Layer(String),
     /// The `grid-size` property (columns, optional rows).
     GridSize(u16, Option<u16>),
     /// The `grid-columns` property (column width definitions).

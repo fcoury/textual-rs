@@ -151,6 +151,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "height" => map(units::parse_scalar, Declaration::Height)(input)?,
         "max-height" => map(units::parse_scalar, Declaration::MaxHeight)(input)?,
         "max-width" => map(units::parse_scalar, Declaration::MaxWidth)(input)?,
+        "min-height" => map(units::parse_scalar, Declaration::MinHeight)(input)?,
         "margin" => map(units::parse_spacing, Declaration::Margin)(input)?,
         "margin-top" => map(units::parse_scalar, Declaration::MarginTop)(input)?,
         "margin-right" => map(units::parse_scalar, Declaration::MarginRight)(input)?,
@@ -187,6 +188,8 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         // Layout and Grid properties
         "layout" => map(units::parse_layout, Declaration::Layout)(input)?,
         "dock" => map(values::parse_dock, Declaration::Dock)(input)?,
+        "layers" => map(values::parse_layers, Declaration::Layers)(input)?,
+        "layer" => map(values::parse_layer, Declaration::Layer)(input)?,
         "grid-size" => {
             let (input, (cols, rows)) = units::parse_grid_size(input)?;
             (input, Declaration::GridSize(cols, rows))

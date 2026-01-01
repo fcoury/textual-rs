@@ -255,6 +255,7 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Height(s) => style.height = Some(*s),
         Declaration::MaxHeight(s) => style.max_height = Some(*s),
         Declaration::MaxWidth(s) => style.max_width = Some(*s),
+        Declaration::MinHeight(s) => style.min_height = Some(*s),
         Declaration::Margin(s) => style.margin = *s,
         Declaration::MarginTop(s) => style.margin.top = *s,
         Declaration::MarginRight(s) => style.margin.right = *s,
@@ -390,6 +391,12 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         }
         Declaration::Dock(d) => {
             style.dock = Some(*d);
+        }
+        Declaration::Layers(names) => {
+            style.layers = Some(names.clone());
+        }
+        Declaration::Layer(name) => {
+            style.layer = Some(name.clone());
         }
         Declaration::GridSize(cols, rows) => {
             style.grid.columns = Some(*cols);

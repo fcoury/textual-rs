@@ -127,8 +127,8 @@ impl<M> Screen<M> {
             .map(|(i, c)| (i, c.get_style(), c.desired_size()))
             .collect();
 
-        // Dispatch to layout based on CSS, using the screen viewport
-        layouts::arrange_children_with_viewport(&self.style, &children_with_styles, region, viewport)
+        // Dispatch to layout (handles layers internally when needed)
+        layouts::arrange_children_with_layers(&self.style, &children_with_styles, region, viewport)
     }
 }
 

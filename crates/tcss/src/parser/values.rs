@@ -445,6 +445,62 @@ pub fn parse_dock(input: &str) -> IResult<&str, crate::types::Dock> {
     }
 }
 
+/// Parse layer: a single layer name identifier.
+///
+/// Layer names are simple identifiers that assign a widget to a rendering layer.
+/// Widgets on higher layer indices render on top of lower indices.
+///
+/// # Examples
+///
+/// - `layer: above;` → assigns to "above" layer
+/// - `layer: ruler;` → assigns to "ruler" layer
+pub fn parse_layer(input: &str) -> IResult<&str, String> {
+    let input = input.trim_start();
+    let (remaining, ident) = parse_ident(input)?;
+    Ok((remaining, ident.to_lowercase()))
+}
+
+/// Parse layers: a space-separated list of layer names.
+///
+/// The `layers` property defines available layer names for a container's children.
+/// Layers are rendered in order: lower indices first (bottom), higher on top.
+///
+/// # Examples
+///
+/// - `layers: below above;` → defines "below" (index 0), "above" (index 1)
+/// - `layers: ruler;` → defines single "ruler" layer (index 0)
+pub fn parse_layers(input: &str) -> IResult<&str, Vec<String>> {
+    let input = input.trim_start();
+
+    // Find where the value ends (at ; or })
+    let end = input
+        .find(|c: char| c == ';' || c == '}')
+        .unwrap_or(input.len());
+    let value_str = input[..end].trim();
+
+    if value_str.is_empty() {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
+
+    // Split by whitespace and collect layer names
+    let layers: Vec<String> = value_str
+        .split_whitespace()
+        .map(|s| s.to_lowercase())
+        .collect();
+
+    if layers.is_empty() {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        )));
+    }
+
+    Ok((&input[end..], layers))
+}
+
 /// Parse hatch pattern: `<pattern> <color> [opacity%]`.
 ///
 /// Pattern can be:
