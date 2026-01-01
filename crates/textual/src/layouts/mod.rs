@@ -30,7 +30,42 @@ pub use size_resolver::{
 pub use vertical::VerticalLayout;
 
 use crate::canvas::{Region, Size};
+use crate::widget::Widget;
 use tcss::types::{ComputedStyle, Dock, Layout as LayoutKind};
+
+/// Layout-specific view of a widget for intrinsic measurements.
+pub trait LayoutNode {
+    fn desired_size(&self) -> Size;
+    fn intrinsic_height_for_width(&self, width: u16) -> u16;
+}
+
+impl<M> LayoutNode for dyn Widget<M> {
+    fn desired_size(&self) -> Size {
+        Widget::desired_size(self)
+    }
+
+    fn intrinsic_height_for_width(&self, width: u16) -> u16 {
+        Widget::intrinsic_height_for_width(self, width)
+    }
+}
+
+impl<M> LayoutNode for Box<dyn Widget<M>> {
+    fn desired_size(&self) -> Size {
+        self.as_ref().desired_size()
+    }
+
+    fn intrinsic_height_for_width(&self, width: u16) -> u16 {
+        self.as_ref().intrinsic_height_for_width(width)
+    }
+}
+
+/// Child metadata for layout algorithms.
+pub struct LayoutChild<'a> {
+    pub index: usize,
+    pub style: ComputedStyle,
+    pub desired_size: Size,
+    pub node: &'a dyn LayoutNode,
+}
 
 /// Result of layout arrangement - maps child indices to their computed regions.
 #[derive(Debug, Clone)]
@@ -74,7 +109,7 @@ pub trait Layout {
     fn arrange(
         &mut self,
         parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle, Size)],
+        children: &[LayoutChild],
         available: Region,
         viewport: Viewport,
     ) -> Vec<WidgetPlacement>;
@@ -104,7 +139,7 @@ pub trait Layout {
 /// * `available` - The region available for layout
 pub fn arrange_children(
     parent_style: &ComputedStyle,
-    children: &[(usize, ComputedStyle, Size)],
+    children: &[LayoutChild],
     available: Region,
 ) -> Vec<WidgetPlacement> {
     // Use available region as viewport (fallback for containers that don't know viewport)
@@ -124,16 +159,25 @@ pub fn arrange_children(
 /// * `viewport` - The viewport dimensions for vw/vh unit resolution
 pub fn arrange_children_with_viewport(
     parent_style: &ComputedStyle,
-    children: &[(usize, ComputedStyle, Size)],
+    children: &[LayoutChild],
     available: Region,
     viewport: Viewport,
 ) -> Vec<WidgetPlacement> {
     // Separate docked widgets from layout widgets
     let (docked, layout_children): (Vec<_>, Vec<_>) =
-        children.iter().partition(|(_, style, _)| style.dock.is_some());
+        children.iter().partition(|child| child.style.dock.is_some());
 
     // Process docked widgets first
-    let (mut placements, dock_spacing) = arrange_docked_widgets(&docked, available);
+    let docked_vec: Vec<LayoutChild> = docked
+        .iter()
+        .map(|child| LayoutChild {
+            index: child.index,
+            style: child.style.clone(),
+            desired_size: child.desired_size,
+            node: child.node,
+        })
+        .collect();
+    let (mut placements, dock_spacing) = arrange_docked_widgets(&docked_vec, available);
 
     // Shrink available region for layout widgets
     let content_region = Region {
@@ -150,7 +194,12 @@ pub fn arrange_children_with_viewport(
     // Run normal layout on remaining widgets
     let layout_children_vec: Vec<_> = layout_children
         .iter()
-        .map(|(idx, style, size)| (*idx, style.clone(), *size))
+        .map(|child| LayoutChild {
+            index: child.index,
+            style: child.style.clone(),
+            desired_size: child.desired_size,
+            node: child.node,
+        })
         .collect();
 
     let mut layout_placements = match parent_style.layout {
@@ -200,18 +249,21 @@ struct DockSpacing {
 /// - Each docked widget is positioned relative to the full container
 /// - Space tracking accumulates to reduce available space for content
 fn arrange_docked_widgets(
-    docked: &[&(usize, ComputedStyle, Size)],
+    docked: &[LayoutChild],
     available: Region,
 ) -> (Vec<WidgetPlacement>, DockSpacing) {
     let mut placements = Vec::new();
     let mut spacing = DockSpacing::default();
 
-    for (child_index, style, size) in docked.iter().copied() {
-        let dock = style.dock.expect("docked widget must have dock property");
+    for child in docked.iter() {
+        let dock = child
+            .style
+            .dock
+            .expect("docked widget must have dock property");
 
         // Convert size to i32 for region calculations
-        let widget_width = size.width as i32;
-        let widget_height = size.height as i32;
+        let widget_width = child.desired_size.width as i32;
+        let widget_height = child.desired_size.height as i32;
 
         // Calculate region based on dock direction
         let region = match dock {
@@ -258,7 +310,7 @@ fn arrange_docked_widgets(
         };
 
         placements.push(WidgetPlacement {
-            child_index: *child_index,
+            child_index: child.index,
             region,
         });
     }
@@ -279,7 +331,7 @@ fn arrange_docked_widgets(
 pub fn arrange_children_with_pre_layout<F>(
     pre_layout: F,
     parent_style: &ComputedStyle,
-    children: &[(usize, ComputedStyle, Size)],
+    children: &[LayoutChild],
     available: Region,
 ) -> Vec<WidgetPlacement>
 where
@@ -290,10 +342,19 @@ where
 
     // Separate docked widgets from layout widgets
     let (docked, layout_children): (Vec<_>, Vec<_>) =
-        children.iter().partition(|(_, style, _)| style.dock.is_some());
+        children.iter().partition(|child| child.style.dock.is_some());
 
     // Process docked widgets first
-    let (mut placements, dock_spacing) = arrange_docked_widgets(&docked, available);
+    let docked_vec: Vec<LayoutChild> = docked
+        .iter()
+        .map(|child| LayoutChild {
+            index: child.index,
+            style: child.style.clone(),
+            desired_size: child.desired_size,
+            node: child.node,
+        })
+        .collect();
+    let (mut placements, dock_spacing) = arrange_docked_widgets(&docked_vec, available);
 
     // Shrink available region for layout widgets
     let content_region = Region {
@@ -310,7 +371,12 @@ where
     // Run normal layout on remaining widgets
     let layout_children_vec: Vec<_> = layout_children
         .iter()
-        .map(|(idx, style, size)| (*idx, style.clone(), *size))
+        .map(|child| LayoutChild {
+            index: child.index,
+            style: child.style.clone(),
+            desired_size: child.desired_size,
+            node: child.node,
+        })
         .collect();
 
     let mut layout_placements = match parent_style.layout {
@@ -436,16 +502,16 @@ fn get_placement_bounds(placements: &[WidgetPlacement]) -> Region {
 /// * `viewport` - Viewport for resolving viewport-relative units
 fn apply_offset(
     placements: &mut [WidgetPlacement],
-    children: &[(usize, ComputedStyle, Size)],
+    children: &[LayoutChild],
     viewport: Viewport,
 ) {
     use tcss::types::geometry::Unit;
 
     for placement in placements {
         // Find the style for this child
-        if let Some((_, style, _)) = children.iter().find(|(idx, _, _)| *idx == placement.child_index) {
+        if let Some(child) = children.iter().find(|child| child.index == placement.child_index) {
             // Resolve offset_x
-            let offset_x = if let Some(scalar) = &style.offset_x {
+            let offset_x = if let Some(scalar) = &child.style.offset_x {
                 match scalar.unit {
                     Unit::Cells => scalar.value as i32,
                     Unit::Percent => ((scalar.value / 100.0) * placement.region.width as f64) as i32,
@@ -460,7 +526,7 @@ fn apply_offset(
             };
 
             // Resolve offset_y
-            let offset_y = if let Some(scalar) = &style.offset_y {
+            let offset_y = if let Some(scalar) = &child.style.offset_y {
                 match scalar.unit {
                     Unit::Cells => scalar.value as i32,
                     Unit::Percent => ((scalar.value / 100.0) * placement.region.height as f64) as i32,
@@ -501,14 +567,14 @@ fn apply_offset(
 /// * `viewport` - The viewport dimensions for vw/vh unit resolution
 pub fn arrange_children_with_layers(
     parent_style: &ComputedStyle,
-    children: &[(usize, ComputedStyle, Size)],
+    children: &[LayoutChild],
     available: Region,
     viewport: Viewport,
 ) -> Vec<WidgetPlacement> {
     // Fast path: if no layers defined and no children have layer assignments,
     // use the standard arrangement to avoid overhead
     let needs_layers = parent_style.layers.is_some()
-        || children.iter().any(|(_, style, _)| style.layer.is_some());
+        || children.iter().any(|child| child.style.layer.is_some());
 
     if !needs_layers {
         return arrange_children_with_viewport(parent_style, children, available, viewport);
@@ -532,9 +598,14 @@ pub fn arrange_children_with_layers(
         }
 
         // Convert references to owned data for the layout functions
-        let children_vec: Vec<(usize, ComputedStyle, Size)> = layer_children
+        let children_vec: Vec<LayoutChild> = layer_children
             .iter()
-            .map(|(idx, style, size)| (*idx, style.clone(), *size))
+            .map(|child| LayoutChild {
+                index: child.index,
+                style: child.style.clone(),
+                desired_size: child.desired_size,
+                node: child.node,
+            })
             .collect();
 
         // Each layer gets the FULL available region - this is the key behavior!
@@ -557,17 +628,17 @@ pub fn arrange_children_with_layers(
 /// - Widgets on undefined layers (like "default" if not in layer_order) render FIRST (bottom)
 /// - Explicitly defined layers render in order (later = on top)
 fn build_layers<'a>(
-    children: &'a [(usize, ComputedStyle, Size)],
+    children: &'a [LayoutChild],
     layer_order: &[String],
-) -> Vec<(String, Vec<&'a (usize, ComputedStyle, Size)>)> {
+) -> Vec<(String, Vec<&'a LayoutChild<'a>>)> {
     use std::collections::HashMap;
 
     // Group children by their layer
-    let mut layer_map: HashMap<String, Vec<&(usize, ComputedStyle, Size)>> = HashMap::new();
+    let mut layer_map: HashMap<String, Vec<&LayoutChild>> = HashMap::new();
 
     for child in children {
         let layer_name = child
-            .1
+            .style
             .layer
             .clone()
             .unwrap_or_else(|| "default".to_string());

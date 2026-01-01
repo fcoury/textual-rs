@@ -97,7 +97,7 @@ fn test_placeholder_default_height_with_padding() {
 
 #[test]
 fn test_placeholder_auto_width_with_padding_left() {
-    // width: auto + padding-left: 3 → desired width = 20 + 3 = 23
+    // width: auto + padding-left: 3 → desired width = 4 (label) + 3 = 7
     let mut style = ComputedStyle::default();
     style.width = Some(Scalar::AUTO);
     style.padding.left = Scalar::cells(3.0);
@@ -106,15 +106,15 @@ fn test_placeholder_auto_width_with_padding_left() {
     let size = get_desired_size(&placeholder);
 
     assert_eq!(
-        size.width, 23,
-        "width: auto with padding-left: 3 should give desired width = 20 + 3 = 23, got {}",
+        size.width, 7,
+        "width: auto with padding-left: 3 should give desired width = 4 + 3 = 7, got {}",
         size.width
     );
 }
 
 #[test]
 fn test_placeholder_auto_width_with_padding_right() {
-    // width: auto + padding-right: 3 → desired width = 20 + 3 = 23
+    // width: auto + padding-right: 3 → desired width = 4 + 3 = 7
     let mut style = ComputedStyle::default();
     style.width = Some(Scalar::AUTO);
     style.padding.right = Scalar::cells(3.0);
@@ -123,15 +123,15 @@ fn test_placeholder_auto_width_with_padding_right() {
     let size = get_desired_size(&placeholder);
 
     assert_eq!(
-        size.width, 23,
-        "width: auto with padding-right: 3 should give desired width = 20 + 3 = 23, got {}",
+        size.width, 7,
+        "width: auto with padding-right: 3 should give desired width = 4 + 3 = 7, got {}",
         size.width
     );
 }
 
 #[test]
 fn test_placeholder_auto_width_with_padding_both() {
-    // width: auto + padding: 2 (left+right) → desired width = 20 + 2 + 2 = 24
+    // width: auto + padding: 2 (left+right) → desired width = 4 + 2 + 2 = 8
     let mut style = ComputedStyle::default();
     style.width = Some(Scalar::AUTO);
     style.padding.left = Scalar::cells(2.0);
@@ -141,15 +141,15 @@ fn test_placeholder_auto_width_with_padding_both() {
     let size = get_desired_size(&placeholder);
 
     assert_eq!(
-        size.width, 24,
-        "width: auto with padding 2 (left+right) should give desired width = 20 + 2 + 2 = 24, got {}",
+        size.width, 8,
+        "width: auto with padding 2 (left+right) should give desired width = 4 + 2 + 2 = 8, got {}",
         size.width
     );
 }
 
 #[test]
 fn test_placeholder_default_width_with_padding() {
-    // Default width (no explicit width) + padding-left: 5 → desired width = 20 + 5 = 25
+    // Default width (no explicit width) + padding-left: 5 → desired width = 4 + 5 = 9
     let mut style = ComputedStyle::default();
     // width is None (default)
     style.padding.left = Scalar::cells(5.0);
@@ -158,8 +158,8 @@ fn test_placeholder_default_width_with_padding() {
     let size = get_desired_size(&placeholder);
 
     assert_eq!(
-        size.width, 25,
-        "default width with padding-left: 5 should give desired width = 20 + 5 = 25, got {}",
+        size.width, 9,
+        "default width with padding-left: 5 should give desired width = 4 + 5 = 9, got {}",
         size.width
     );
 }
@@ -171,7 +171,7 @@ fn test_placeholder_default_width_with_padding() {
 #[test]
 fn test_placeholder_auto_both_with_padding() {
     // width: auto + height: auto + padding: 2 (all sides)
-    // → width = 20 + 2 + 2 = 24, height = 1 + 2 + 2 = 5
+    // → width = 4 + 2 + 2 = 8, height = 1 + 2 + 2 = 5
     let mut style = ComputedStyle::default();
     style.width = Some(Scalar::AUTO);
     style.height = Some(Scalar::AUTO);
@@ -184,8 +184,8 @@ fn test_placeholder_auto_both_with_padding() {
     let size = get_desired_size(&placeholder);
 
     assert_eq!(
-        size.width, 24,
-        "width should be 20 + 2 + 2 = 24, got {}",
+        size.width, 8,
+        "width should be 4 + 2 + 2 = 8, got {}",
         size.width
     );
     assert_eq!(

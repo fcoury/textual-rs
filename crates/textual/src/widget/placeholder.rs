@@ -270,6 +270,16 @@ Placeholder {
             return;
         }
 
+        let padding_top = self.style.padding.top.value as i32;
+        let padding_right = self.style.padding.right.value as i32;
+        let padding_bottom = self.style.padding.bottom.value as i32;
+        let padding_left = self.style.padding.left.value as i32;
+
+        let content_x = region.x + padding_left;
+        let content_y = region.y + padding_top;
+        let content_width = (region.width - padding_left - padding_right).max(0);
+        let content_height = (region.height - padding_top - padding_bottom).max(0);
+
         let bg = self.effective_background();
         let fg = self.effective_foreground();
 
@@ -284,14 +294,17 @@ Placeholder {
         let display_content = self.get_display_content(&region);
 
         if let Some(content) = &display_content {
+            if content_width <= 0 || content_height <= 0 {
+                return;
+            }
             match self.variant {
                 PlaceholderVariant::Text => {
                     // Text variant: 1-cell padding on all sides, word wrap, block-centered
                     let padding = 1;
-                    let content_x = region.x + padding;
-                    let content_y = region.y + padding;
-                    let content_width = (region.width - 2 * padding).max(1) as usize;
-                    let content_height = (region.height - 2 * padding).max(1) as usize;
+                    let content_x = content_x + padding;
+                    let content_y = content_y + padding;
+                    let content_width = (content_width - 2 * padding).max(1) as usize;
+                    let content_height = (content_height - 2 * padding).max(1) as usize;
 
                     log::info!(
                         "Placeholder Text variant='#{}' content area={}x{} at ({},{})",
@@ -335,8 +348,8 @@ Placeholder {
                 PlaceholderVariant::Size => {
                     // Size: center the label, bold text
                     let label_len = content.len() as i32;
-                    let x = region.x + (region.width - label_len).max(0) / 2;
-                    let y = region.y + (region.height - 1) / 2;
+                    let x = content_x + (content_width - label_len).max(0) / 2;
+                    let y = content_y + (content_height - 1) / 2;
 
                     canvas.put_str(
                         x,
@@ -352,7 +365,7 @@ Placeholder {
                 }
                 PlaceholderVariant::Default => {
                     // Default: center the label with word-wrapping if needed
-                    let content_width = region.width.max(1) as usize;
+                    let content_width = content_width.max(1) as usize;
 
                     // Word-wrap the label if it's wider than the container
                     let lines = Self::word_wrap(content, content_width);
@@ -363,15 +376,15 @@ Placeholder {
 
                     // Calculate vertical centering
                     // Use (height - num_lines) / 2 to center the block
-                    let y_offset = ((region.height - num_lines) / 2).max(0);
+                    let y_offset = ((content_height - num_lines) / 2).max(0);
 
                     // Calculate horizontal centering for the block
-                    let x_offset = ((region.width - max_line_len) / 2).max(0);
+                    let x_offset = ((content_width as i32 - max_line_len) / 2).max(0);
 
                     for (i, line) in lines.iter().enumerate() {
-                        let y = region.y + y_offset + i as i32;
+                        let y = content_y + y_offset + i as i32;
                         canvas.put_str(
-                            region.x + x_offset,
+                            content_x + x_offset,
                             y,
                             line,
                             Some(fg.clone()),
@@ -392,6 +405,14 @@ Placeholder {
         let padding_h = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
         let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
 
+        let content = self.get_display_content(&Region::default()).unwrap_or_default();
+        let content_width = content
+            .lines()
+            .map(|line| line.chars().count() as u16)
+            .max()
+            .unwrap_or(0);
+        let content_height = content.lines().count().max(1) as u16;
+
         // Check CSS dimensions - return u16::MAX for flexible units
         let width = if let Some(w) = &self.style.width {
             match w.unit {
@@ -399,10 +420,10 @@ Placeholder {
                 Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
                     u16::MAX // Signal "fill available space"
                 }
-                Unit::Auto => 20 + padding_h, // Content (20) + horizontal padding
+                Unit::Auto => content_width + padding_h, // Content width + horizontal padding
             }
         } else {
-            20 + padding_h // Default width + padding
+            content_width + padding_h // Default width + padding
         };
 
         // For height, match Python Textual behavior:
@@ -414,13 +435,27 @@ Placeholder {
                 Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
                     u16::MAX // Signal "fill available space"
                 }
-                Unit::Auto => 1 + padding_v, // Content (1 row) + vertical padding
+                Unit::Auto => content_height + padding_v, // Content height + vertical padding
             }
         } else {
-            1 + padding_v // Default: 1 row for label content + padding
+            content_height + padding_v // Default: content height + padding
         };
 
         Size::new(width, height)
+    }
+
+    fn intrinsic_height_for_width(&self, width: u16) -> u16 {
+        let padding_top = self.style.padding.top.value as u16;
+        let padding_bottom = self.style.padding.bottom.value as u16;
+        let padding_left = self.style.padding.left.value as u16;
+        let padding_right = self.style.padding.right.value as u16;
+
+        let content_width = width.saturating_sub(padding_left + padding_right).max(1);
+        let content = self.get_display_content(&Region::default()).unwrap_or_default();
+        let lines = Self::word_wrap(&content, content_width as usize);
+        let content_height = lines.len().max(1) as u16;
+
+        content_height + padding_top + padding_bottom
     }
 
     fn get_meta(&self) -> WidgetMeta {

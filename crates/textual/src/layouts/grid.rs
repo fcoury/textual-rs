@@ -6,12 +6,12 @@
 //! - Gutter spacing via `grid-gutter`
 //! - Column/row spanning for children via `row-span` and `column-span`
 
-use crate::canvas::{Region, Size};
+use crate::canvas::Region;
 use crate::fraction::Fraction;
 use tcss::types::{ComputedStyle, GridStyle, Scalar, Unit};
 
 use super::size_resolver::{resolve_height_with_intrinsic, resolve_width_with_intrinsic};
-use super::{Layout, Viewport, WidgetPlacement};
+use super::{Layout, LayoutChild, Viewport, WidgetPlacement};
 
 /// Pre-computed track (column or row) with offset and size.
 ///
@@ -308,7 +308,7 @@ impl GridLayout {
     /// Compute which cell each child occupies (Tetris placement) without actually placing them.
     /// Returns (row, col, row_span, col_span) for each child.
     fn compute_cell_assignments(
-        children: &[(usize, ComputedStyle, Size)],
+        children: &[LayoutChild],
         rows: usize,
         cols: usize,
     ) -> Vec<(usize, usize, usize, usize)> {
@@ -317,9 +317,9 @@ impl GridLayout {
         let mut current_col = 0;
         let mut assignments = Vec::with_capacity(children.len());
 
-        for (_child_index, child_style, _desired_size) in children {
-            let col_span = (child_style.grid_placement.column_span as usize).max(1);
-            let row_span = (child_style.grid_placement.row_span as usize).max(1);
+        for child in children {
+            let col_span = (child.style.grid_placement.column_span as usize).max(1);
+            let row_span = (child.style.grid_placement.row_span as usize).max(1);
 
             loop {
                 match occupancy.find_next_free(current_row, current_col) {
@@ -366,7 +366,7 @@ impl GridLayout {
 
     /// Compute max content sizes per track based on children.
     fn compute_content_sizes(
-        children: &[(usize, ComputedStyle, Size)],
+        children: &[LayoutChild],
         assignments: &[(usize, usize, usize, usize)],
         rows: usize,
         cols: usize,
@@ -374,7 +374,7 @@ impl GridLayout {
         let mut col_sizes = vec![0i32; cols];
         let mut row_sizes = vec![0i32; rows];
 
-        for (i, (_child_index, _child_style, desired_size)) in children.iter().enumerate() {
+        for (i, child) in children.iter().enumerate() {
             if i >= assignments.len() {
                 break;
             }
@@ -386,10 +386,10 @@ impl GridLayout {
             // For single-span cells, use content size directly
             // For multi-span cells, distribute evenly (simplified)
             if col_span == 1 {
-                col_sizes[col] = col_sizes[col].max(desired_size.width as i32);
+                col_sizes[col] = col_sizes[col].max(child.desired_size.width as i32);
             }
             if row_span == 1 {
-                row_sizes[row] = row_sizes[row].max(desired_size.height as i32);
+                row_sizes[row] = row_sizes[row].max(child.desired_size.height as i32);
             }
         }
 
@@ -403,7 +403,7 @@ impl GridLayout {
     pub fn compute_track_info(
         &self,
         parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle, Size)],
+        children: &[LayoutChild],
         available: Region,
     ) -> GridTrackInfo {
         if children.is_empty() {
@@ -464,7 +464,10 @@ impl GridLayout {
                 continue; // Didn't fit in grid
             }
             // Get the actual child_index from the children tuple
-            let actual_child_index = children.get(child_idx).map(|(idx, _, _)| *idx).unwrap_or(child_idx);
+            let actual_child_index = children
+                .get(child_idx)
+                .map(|child| child.index)
+                .unwrap_or(child_idx);
             for r in *row..(*row + *row_span).min(rows) {
                 for c in *col..(*col + *col_span).min(cols) {
                     cell_occupancy[r][c] = Some(actual_child_index);
@@ -542,7 +545,7 @@ impl Layout for GridLayout {
     fn arrange(
         &mut self,
         parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle, Size)],
+        children: &[LayoutChild],
         available: Region,
         _viewport: Viewport,
     ) -> Vec<WidgetPlacement> {
@@ -614,7 +617,10 @@ impl Layout for GridLayout {
         let mut current_col = 0;
         let mut result = Vec::new();
 
-        for (child_index, child_style, desired_size) in children {
+        for child in children {
+            let child_index = child.index;
+            let child_style = &child.style;
+            let desired_size = child.desired_size;
             // Get span values from child's computed style
             let col_span = (child_style.grid_placement.column_span as usize).max(1);
             let row_span = (child_style.grid_placement.row_span as usize).max(1);
@@ -667,7 +673,7 @@ impl Layout for GridLayout {
                             let has_h_align = !matches!(parent_style.align_horizontal, AlignHorizontal::Left);
                             let has_v_align = !matches!(parent_style.align_vertical, AlignVertical::Top);
 
-                            let child_width = if child_style.width.is_none() && has_h_align {
+                            let mut child_width = if child_style.width.is_none() && has_h_align {
                                 // No width + non-default h-align: use intrinsic size
                                 desired_size.width as i32
                             } else {
@@ -677,9 +683,19 @@ impl Layout for GridLayout {
                                     cell_region.width,
                                 )
                             };
-                            let child_height = if child_style.height.is_none() && has_v_align {
-                                // No height + non-default v-align: use intrinsic size
-                                desired_size.height as i32
+                            // Constrain width to cell width (matches Textual's constrain_width=True)
+                            if child_width > cell_region.width {
+                                child_width = cell_region.width;
+                            }
+
+                            let height_is_auto = child_style
+                                .height
+                                .as_ref()
+                                .map_or(false, |h| h.unit == Unit::Auto);
+
+                            let child_height = if (child_style.height.is_none() && has_v_align) || height_is_auto {
+                                // Auto height (or intrinsic height for aligned children) depends on width
+                                child.node.intrinsic_height_for_width(child_width as u16) as i32
                             } else {
                                 resolve_height_with_intrinsic(
                                     child_style,
@@ -727,7 +743,7 @@ impl Layout for GridLayout {
                             };
 
                             result.push(WidgetPlacement {
-                                child_index: *child_index,
+                                child_index,
                                 region: final_region,
                             });
 

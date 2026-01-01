@@ -68,12 +68,17 @@ impl<M> Grid<M> {
         viewport: layouts::Viewport,
     ) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles and desired sizes
-        let children_with_styles: Vec<_> = self
+        let children_with_styles: Vec<layouts::LayoutChild> = self
             .children
             .iter()
             .enumerate()
             .filter(|(_, c)| c.participates_in_layout())
-            .map(|(i, c)| (i, c.get_style(), c.desired_size()))
+            .map(|(i, c)| layouts::LayoutChild {
+                index: i,
+                style: c.get_style(),
+                desired_size: c.desired_size(),
+                node: c,
+            })
             .collect();
 
         // When keylines are enabled, reduce layout area by (2, 2) to make room for border
@@ -108,12 +113,17 @@ impl<M> Grid<M> {
     /// Render keylines for the grid layout.
     fn render_keylines(&self, canvas: &mut Canvas, region: Region) {
         // Collect children info for track computation
-        let children_with_styles: Vec<_> = self
+        let children_with_styles: Vec<layouts::LayoutChild> = self
             .children
             .iter()
             .enumerate()
             .filter(|(_, c)| c.participates_in_layout())
-            .map(|(i, c)| (i, c.get_style(), c.desired_size()))
+            .map(|(i, c)| layouts::LayoutChild {
+                index: i,
+                style: c.get_style(),
+                desired_size: c.desired_size(),
+                node: c,
+            })
             .collect();
 
         if children_with_styles.is_empty() {

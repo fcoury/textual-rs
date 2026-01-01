@@ -1,7 +1,19 @@
 use tcss::parser::{cascade::{compute_style, WidgetMeta, WidgetStates}, parse_stylesheet};
 use tcss::types::{Layout, Theme, Unit};
 use textual::canvas::Region;
-use textual::layouts::{HorizontalLayout, Layout as LayoutTrait};
+use textual::layouts::{HorizontalLayout, Layout as LayoutTrait, LayoutChild, LayoutNode};
+
+struct DummyNode;
+
+impl LayoutNode for DummyNode {
+    fn desired_size(&self) -> textual::canvas::Size {
+        textual::canvas::Size::new(0, 0)
+    }
+
+    fn intrinsic_height_for_width(&self, _width: u16) -> u16 {
+        0
+    }
+}
 
 #[test]
 fn test_screen_gets_horizontal_layout() {
@@ -63,15 +75,16 @@ fn test_horizontal_layout_distributes_fr_widths() {
     use textual::canvas::Size;
     use tcss::types::ComputedStyle;
     use tcss::types::geometry::Scalar;
+    let dummy = DummyNode;
 
     // Create 3 children each with width: 1fr
     let mut child_style = ComputedStyle::default();
     child_style.width = Some(Scalar::fr(1.0));
 
     let children = vec![
-        (0, child_style.clone(), Size::new(10, 3)),
-        (1, child_style.clone(), Size::new(10, 3)),
-        (2, child_style.clone(), Size::new(10, 3)),
+        LayoutChild { index: 0, style: child_style.clone(), desired_size: Size::new(10, 3), node: &dummy },
+        LayoutChild { index: 1, style: child_style.clone(), desired_size: Size::new(10, 3), node: &dummy },
+        LayoutChild { index: 2, style: child_style.clone(), desired_size: Size::new(10, 3), node: &dummy },
     ];
 
     let available = Region::new(0, 0, 120, 30);
@@ -104,6 +117,7 @@ fn test_horizontal_layout_height_100_percent() {
     use textual::canvas::Size;
     use tcss::types::ComputedStyle;
     use tcss::types::geometry::Scalar;
+    let dummy = DummyNode;
 
     // Create a child with height: 100%
     let mut child_style = ComputedStyle::default();
@@ -111,7 +125,7 @@ fn test_horizontal_layout_height_100_percent() {
     child_style.width = Some(Scalar::fr(1.0));
 
     let children = vec![
-        (0, child_style.clone(), Size::new(10, 3)),
+        LayoutChild { index: 0, style: child_style.clone(), desired_size: Size::new(10, 3), node: &dummy },
     ];
 
     let available = Region::new(0, 0, 80, 24);

@@ -5,7 +5,33 @@
 
 use tcss::types::{ComputedStyle, Scalar};
 use textual::canvas::{Region, Size};
-use textual::layouts::{HorizontalLayout, Layout};
+use textual::layouts::{HorizontalLayout, Layout, LayoutChild, LayoutNode};
+
+struct DummyNode;
+
+impl LayoutNode for DummyNode {
+    fn desired_size(&self) -> Size {
+        Size::new(0, 0)
+    }
+
+    fn intrinsic_height_for_width(&self, _width: u16) -> u16 {
+        0
+    }
+}
+
+fn make_child<'a>(
+    index: usize,
+    style: ComputedStyle,
+    size: Size,
+    node: &'a DummyNode,
+) -> LayoutChild<'a> {
+    LayoutChild {
+        index,
+        style,
+        desired_size: size,
+        node,
+    }
+}
 
 // =============================================================================
 // Tests for margin handling in HorizontalLayout
@@ -16,13 +42,14 @@ fn test_horizontal_layout_margin_left_offsets_x() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 20);
+    let dummy = DummyNode;
 
     // Create a child with margin_left = 5
     let mut child_style = ComputedStyle::default();
     child_style.margin.left = Scalar::cells(5.0);
     child_style.width = Some(Scalar::cells(20.0));
 
-    let children = vec![(0, child_style, Size::new(10, 3))];
+    let children = vec![make_child(0, child_style, Size::new(10, 3), &dummy)];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 1);
@@ -39,6 +66,7 @@ fn test_horizontal_layout_margin_right_advances_x() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 20);
+    let dummy = DummyNode;
 
     // Create two children, first with margin_right = 10
     let mut child1_style = ComputedStyle::default();
@@ -48,7 +76,10 @@ fn test_horizontal_layout_margin_right_advances_x() {
     let mut child2_style = ComputedStyle::default();
     child2_style.width = Some(Scalar::cells(15.0));
 
-    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3))];
+    let children = vec![
+        make_child(0, child1_style, Size::new(10, 3), &dummy),
+        make_child(1, child2_style, Size::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 2);
@@ -68,13 +99,14 @@ fn test_horizontal_layout_margin_top_offsets_y() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 20);
+    let dummy = DummyNode;
 
     // Create a child with margin_top = 3
     let mut child_style = ComputedStyle::default();
     child_style.margin.top = Scalar::cells(3.0);
     child_style.width = Some(Scalar::cells(20.0));
 
-    let children = vec![(0, child_style, Size::new(10, 3))];
+    let children = vec![make_child(0, child_style, Size::new(10, 3), &dummy)];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 1);
@@ -91,6 +123,7 @@ fn test_horizontal_layout_vertical_margins_reduce_height() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 20);
+    let dummy = DummyNode;
 
     // Create a child with margin_top = 3 and margin_bottom = 5
     let mut child_style = ComputedStyle::default();
@@ -99,7 +132,7 @@ fn test_horizontal_layout_vertical_margins_reduce_height() {
     child_style.width = Some(Scalar::cells(20.0));
     // Height defaults to available height (20)
 
-    let children = vec![(0, child_style, Size::new(10, 3))];
+    let children = vec![make_child(0, child_style, Size::new(10, 3), &dummy)];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 1);
@@ -116,6 +149,7 @@ fn test_horizontal_layout_all_margins() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 20);
+    let dummy = DummyNode;
 
     // Create a child with all margins
     let mut child_style = ComputedStyle::default();
@@ -125,7 +159,7 @@ fn test_horizontal_layout_all_margins() {
     child_style.margin.bottom = Scalar::cells(3.0);
     child_style.width = Some(Scalar::cells(20.0));
 
-    let children = vec![(0, child_style, Size::new(10, 3))];
+    let children = vec![make_child(0, child_style, Size::new(10, 3), &dummy)];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 1);
@@ -149,6 +183,7 @@ fn test_horizontal_layout_multiple_children_with_margins() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 20);
+    let dummy = DummyNode;
 
     // Child 1: margin_left=2, margin_right=3, width=10
     let mut child1 = ComputedStyle::default();
@@ -162,7 +197,10 @@ fn test_horizontal_layout_multiple_children_with_margins() {
     child2.margin.right = Scalar::cells(5.0);
     child2.width = Some(Scalar::cells(15.0));
 
-    let children = vec![(0, child1, Size::new(10, 3)), (1, child2, Size::new(10, 3))];
+    let children = vec![
+        make_child(0, child1, Size::new(10, 3), &dummy),
+        make_child(1, child2, Size::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 2);
@@ -196,6 +234,7 @@ fn test_horizontal_margin_collapsing_between_siblings() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     // Child 1 with margin_right = 3, width = 10
     let mut child1_style = ComputedStyle::default();
@@ -207,7 +246,10 @@ fn test_horizontal_margin_collapsing_between_siblings() {
     child2_style.width = Some(Scalar::cells(10.0));
     child2_style.margin.left = Scalar::cells(5.0);
 
-    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3))];
+    let children = vec![
+        make_child(0, child1_style, Size::new(10, 3), &dummy),
+        make_child(1, child2_style, Size::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 2);
@@ -236,6 +278,7 @@ fn test_horizontal_margin_collapsing_equal_margins() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     let mut child1_style = ComputedStyle::default();
     child1_style.width = Some(Scalar::cells(10.0));
@@ -245,7 +288,10 @@ fn test_horizontal_margin_collapsing_equal_margins() {
     child2_style.width = Some(Scalar::cells(10.0));
     child2_style.margin.left = Scalar::cells(4.0);
 
-    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3))];
+    let children = vec![
+        make_child(0, child1_style, Size::new(10, 3), &dummy),
+        make_child(1, child2_style, Size::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     // Child 2 at x = 0 + 10 + max(4,4) = 14
@@ -264,12 +310,13 @@ fn test_horizontal_margin_collapsing_first_child_keeps_left_margin() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     let mut child_style = ComputedStyle::default();
     child_style.width = Some(Scalar::cells(10.0));
     child_style.margin.left = Scalar::cells(5.0);
 
-    let children = vec![(0, child_style, Size::new(10, 3))];
+    let children = vec![make_child(0, child_style, Size::new(10, 3), &dummy)];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     // First child should start at x = 0 + 5 = 5
@@ -290,6 +337,7 @@ fn test_horizontal_margin_collapsing_three_children() {
     let mut layout = HorizontalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     let mut child1_style = ComputedStyle::default();
     child1_style.width = Some(Scalar::cells(10.0));
@@ -304,7 +352,11 @@ fn test_horizontal_margin_collapsing_three_children() {
     child3_style.width = Some(Scalar::cells(10.0));
     child3_style.margin.left = Scalar::cells(3.0);
 
-    let children = vec![(0, child1_style, Size::new(10, 3)), (1, child2_style, Size::new(10, 3)), (2, child3_style, Size::new(10, 3))];
+    let children = vec![
+        make_child(0, child1_style, Size::new(10, 3), &dummy),
+        make_child(1, child2_style, Size::new(10, 3), &dummy),
+        make_child(2, child3_style, Size::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 3);

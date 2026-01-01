@@ -174,7 +174,33 @@ fn test_desired_size_accounts_for_margins() {
 // =============================================================================
 
 use textual::canvas::Size as LayoutSize;
-use textual::layouts::{Layout, VerticalLayout};
+use textual::layouts::{Layout, LayoutChild, LayoutNode, VerticalLayout};
+
+struct DummyNode;
+
+impl LayoutNode for DummyNode {
+    fn desired_size(&self) -> LayoutSize {
+        LayoutSize::new(0, 0)
+    }
+
+    fn intrinsic_height_for_width(&self, _width: u16) -> u16 {
+        0
+    }
+}
+
+fn make_child<'a>(
+    index: usize,
+    style: ComputedStyle,
+    size: LayoutSize,
+    node: &'a DummyNode,
+) -> LayoutChild<'a> {
+    LayoutChild {
+        index,
+        style,
+        desired_size: size,
+        node,
+    }
+}
 
 #[test]
 fn test_vertical_margin_collapsing_between_siblings() {
@@ -186,6 +212,7 @@ fn test_vertical_margin_collapsing_between_siblings() {
     let mut layout = VerticalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     // Child 1 with margin_bottom = 3, height = 10
     let mut child1_style = ComputedStyle::default();
@@ -197,7 +224,10 @@ fn test_vertical_margin_collapsing_between_siblings() {
     child2_style.height = Some(Scalar::cells(10.0));
     child2_style.margin.top = Scalar::cells(5.0);
 
-    let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3))];
+    let children = vec![
+        make_child(0, child1_style, LayoutSize::new(10, 3), &dummy),
+        make_child(1, child2_style, LayoutSize::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 2);
@@ -226,6 +256,7 @@ fn test_vertical_margin_collapsing_equal_margins() {
     let mut layout = VerticalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     let mut child1_style = ComputedStyle::default();
     child1_style.height = Some(Scalar::cells(10.0));
@@ -235,7 +266,10 @@ fn test_vertical_margin_collapsing_equal_margins() {
     child2_style.height = Some(Scalar::cells(10.0));
     child2_style.margin.top = Scalar::cells(4.0);
 
-    let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3))];
+    let children = vec![
+        make_child(0, child1_style, LayoutSize::new(10, 3), &dummy),
+        make_child(1, child2_style, LayoutSize::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     // Child 2 at y = 0 + 10 + max(4,4) = 14
@@ -254,12 +288,13 @@ fn test_vertical_margin_collapsing_first_child_keeps_top_margin() {
     let mut layout = VerticalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     let mut child_style = ComputedStyle::default();
     child_style.height = Some(Scalar::cells(10.0));
     child_style.margin.top = Scalar::cells(5.0);
 
-    let children = vec![(0, child_style, LayoutSize::new(10, 3))];
+    let children = vec![make_child(0, child_style, LayoutSize::new(10, 3), &dummy)];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     // First child should start at y = 0 + 5 = 5
@@ -280,6 +315,7 @@ fn test_vertical_margin_collapsing_three_children() {
     let mut layout = VerticalLayout;
     let parent_style = ComputedStyle::default();
     let available = Region::new(0, 0, 100, 100);
+    let dummy = DummyNode;
 
     let mut child1_style = ComputedStyle::default();
     child1_style.height = Some(Scalar::cells(10.0));
@@ -294,7 +330,11 @@ fn test_vertical_margin_collapsing_three_children() {
     child3_style.height = Some(Scalar::cells(10.0));
     child3_style.margin.top = Scalar::cells(3.0);
 
-    let children = vec![(0, child1_style, LayoutSize::new(10, 3)), (1, child2_style, LayoutSize::new(10, 3)), (2, child3_style, LayoutSize::new(10, 3))];
+    let children = vec![
+        make_child(0, child1_style, LayoutSize::new(10, 3), &dummy),
+        make_child(1, child2_style, LayoutSize::new(10, 3), &dummy),
+        make_child(2, child3_style, LayoutSize::new(10, 3), &dummy),
+    ];
     let placements = layout.arrange(&parent_style, &children, available, available.into());
 
     assert_eq!(placements.len(), 3);

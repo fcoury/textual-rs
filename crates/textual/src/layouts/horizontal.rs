@@ -1,12 +1,12 @@
 //! Horizontal layout algorithm - stacks children left-to-right.
 
-use crate::canvas::{Region, Size};
+use crate::canvas::Region;
 use crate::fraction::Fraction;
 use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
 use super::size_resolver::{apply_box_sizing_height, apply_box_sizing_width};
-use super::{Layout, Viewport, WidgetPlacement};
+use super::{Layout, LayoutChild, Viewport, WidgetPlacement};
 
 /// Horizontal layout - stacks children left-to-right.
 ///
@@ -20,7 +20,7 @@ impl Layout for HorizontalLayout {
     fn arrange(
         &mut self,
         _parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle, Size)],
+        children: &[LayoutChild],
         available: Region,
         _viewport: Viewport,
     ) -> Vec<WidgetPlacement> {
@@ -32,7 +32,9 @@ impl Layout for HorizontalLayout {
         let mut total_margin: i32 = 0;
         let mut prev_margin_right: i32 = 0;
 
-        for (i, (_child_index, child_style, desired_size)) in children.iter().enumerate() {
+        for (i, child) in children.iter().enumerate() {
+            let child_style = &child.style;
+            let desired_size = child.desired_size;
             let margin_left = child_style.margin.left.value as i32;
             let margin_right = child_style.margin.right.value as i32;
 
@@ -91,7 +93,10 @@ impl Layout for HorizontalLayout {
         prev_margin_right = 0;
         let mut fr_remainder = Fraction::ZERO;
 
-        for (i, (child_index, child_style, desired_size)) in children.iter().enumerate() {
+        for (i, child) in children.iter().enumerate() {
+            let child_index = child.index;
+            let child_style = &child.style;
+            let desired_size = child.desired_size;
             // Resolve width - use Fraction for fr units to match Python Textual behavior
             // Apply box-sizing: content-box adds chrome, border-box uses CSS value as-is
             let width = if let Some(w) = &child_style.width {
@@ -255,7 +260,7 @@ impl Layout for HorizontalLayout {
             };
 
             placements.push(WidgetPlacement {
-                child_index: *child_index,
+                child_index,
                 region: Region {
                     x: current_x,
                     y: available.y + margin_top,

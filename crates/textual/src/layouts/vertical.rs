@@ -7,12 +7,12 @@
 //!
 //! This ensures proper remainder distribution across widgets.
 
-use crate::canvas::{Region, Size};
+use crate::canvas::Region;
 use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
 use super::size_resolver::{apply_box_sizing_height, resolve_width_with_intrinsic};
-use super::{Layout, Viewport, WidgetPlacement};
+use super::{Layout, LayoutChild, Viewport, WidgetPlacement};
 
 /// Vertical layout - stacks children top-to-bottom.
 ///
@@ -26,7 +26,7 @@ impl Layout for VerticalLayout {
     fn arrange(
         &mut self,
         _parent_style: &ComputedStyle,
-        children: &[(usize, ComputedStyle, Size)],
+        children: &[LayoutChild],
         available: Region,
         viewport: Viewport,
     ) -> Vec<WidgetPlacement> {
@@ -39,7 +39,9 @@ impl Layout for VerticalLayout {
         let mut total_margin: f64 = 0.0;
         let mut prev_margin_bottom: f64 = 0.0;
 
-        for (i, (_child_index, child_style, desired_size)) in children.iter().enumerate() {
+        for (i, child) in children.iter().enumerate() {
+            let child_style = &child.style;
+            let desired_size = child.desired_size;
             let margin_top = child_style.margin.top.value as f64;
             let margin_bottom = child_style.margin.bottom.value as f64;
 
@@ -111,7 +113,10 @@ impl Layout for VerticalLayout {
         let mut current_y: f64 = available.y as f64;
         prev_margin_bottom = 0.0;
 
-        for (i, (child_index, child_style, desired_size)) in children.iter().enumerate() {
+        for (i, child) in children.iter().enumerate() {
+            let child_index = child.index;
+            let child_style = &child.style;
+            let desired_size = child.desired_size;
             // Get horizontal margins
             let margin_left = child_style.margin.left.value as i32;
             let margin_right = child_style.margin.right.value as i32;
@@ -261,7 +266,7 @@ impl Layout for VerticalLayout {
             };
 
             placements.push(WidgetPlacement {
-                child_index: *child_index,
+                child_index,
                 region: new_region,
             });
 
@@ -276,7 +281,21 @@ impl Layout for VerticalLayout {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::canvas::Size;
+    use crate::layouts::LayoutNode;
     use tcss::types::geometry::{Scalar, Unit};
+
+    struct DummyNode;
+
+    impl LayoutNode for DummyNode {
+        fn desired_size(&self) -> Size {
+            Size::new(0, 0)
+        }
+
+        fn intrinsic_height_for_width(&self, _width: u16) -> u16 {
+            0
+        }
+    }
 
     fn style_with_height(value: f64, unit: Unit) -> ComputedStyle {
         let mut style = ComputedStyle::default();
@@ -303,18 +322,19 @@ mod tests {
     fn test_height_calculations_match_python() {
         let mut layout = VerticalLayout;
         let parent_style = ComputedStyle::default();
+        let dummy = DummyNode;
 
         // Create children matching the Python test
-        let children: Vec<(usize, ComputedStyle, Size)> = vec![
-            (0, style_with_height(2.0, Unit::Cells), Size::new(145, 1)),       // cells
-            (1, style_with_height(12.5, Unit::Percent), Size::new(145, 1)),    // percent
-            (2, style_with_height(5.0, Unit::Width), Size::new(145, 1)),       // w
-            (3, style_with_height(12.5, Unit::Height), Size::new(145, 1)),     // h
-            (4, style_with_height(6.25, Unit::ViewWidth), Size::new(145, 1)),  // vw
-            (5, style_with_height(12.5, Unit::ViewHeight), Size::new(145, 1)), // vh
-            (6, style_with_height(0.0, Unit::Auto), Size::new(145, 1)),        // auto (intrinsic=1)
-            (7, style_with_height(1.0, Unit::Fraction), Size::new(145, 1)),    // fr1
-            (8, style_with_height(2.0, Unit::Fraction), Size::new(145, 1)),    // fr2
+        let children: Vec<LayoutChild> = vec![
+            LayoutChild { index: 0, style: style_with_height(2.0, Unit::Cells), desired_size: Size::new(145, 1), node: &dummy },       // cells
+            LayoutChild { index: 1, style: style_with_height(12.5, Unit::Percent), desired_size: Size::new(145, 1), node: &dummy },    // percent
+            LayoutChild { index: 2, style: style_with_height(5.0, Unit::Width), desired_size: Size::new(145, 1), node: &dummy },       // w
+            LayoutChild { index: 3, style: style_with_height(12.5, Unit::Height), desired_size: Size::new(145, 1), node: &dummy },     // h
+            LayoutChild { index: 4, style: style_with_height(6.25, Unit::ViewWidth), desired_size: Size::new(145, 1), node: &dummy },  // vw
+            LayoutChild { index: 5, style: style_with_height(12.5, Unit::ViewHeight), desired_size: Size::new(145, 1), node: &dummy }, // vh
+            LayoutChild { index: 6, style: style_with_height(0.0, Unit::Auto), desired_size: Size::new(145, 1), node: &dummy },        // auto (intrinsic=1)
+            LayoutChild { index: 7, style: style_with_height(1.0, Unit::Fraction), desired_size: Size::new(145, 1), node: &dummy },    // fr1
+            LayoutChild { index: 8, style: style_with_height(2.0, Unit::Fraction), desired_size: Size::new(145, 1), node: &dummy },    // fr2
         ];
 
         let available = Region {
@@ -372,17 +392,18 @@ mod tests {
     fn test_height_calculations_80x31() {
         let mut layout = VerticalLayout;
         let parent_style = ComputedStyle::default();
+        let dummy = DummyNode;
 
-        let children: Vec<(usize, ComputedStyle, Size)> = vec![
-            (0, style_with_height(2.0, Unit::Cells), Size::new(80, 1)),
-            (1, style_with_height(12.5, Unit::Percent), Size::new(80, 1)),
-            (2, style_with_height(5.0, Unit::Width), Size::new(80, 1)),
-            (3, style_with_height(12.5, Unit::Height), Size::new(80, 1)),
-            (4, style_with_height(6.25, Unit::ViewWidth), Size::new(80, 1)),
-            (5, style_with_height(12.5, Unit::ViewHeight), Size::new(80, 1)),
-            (6, style_with_height(0.0, Unit::Auto), Size::new(80, 1)),
-            (7, style_with_height(1.0, Unit::Fraction), Size::new(80, 1)),
-            (8, style_with_height(2.0, Unit::Fraction), Size::new(80, 1)),
+        let children: Vec<LayoutChild> = vec![
+            LayoutChild { index: 0, style: style_with_height(2.0, Unit::Cells), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 1, style: style_with_height(12.5, Unit::Percent), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 2, style: style_with_height(5.0, Unit::Width), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 3, style: style_with_height(12.5, Unit::Height), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 4, style: style_with_height(6.25, Unit::ViewWidth), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 5, style: style_with_height(12.5, Unit::ViewHeight), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 6, style: style_with_height(0.0, Unit::Auto), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 7, style: style_with_height(1.0, Unit::Fraction), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild { index: 8, style: style_with_height(2.0, Unit::Fraction), desired_size: Size::new(80, 1), node: &dummy },
         ];
 
         let available = Region {
@@ -437,17 +458,18 @@ mod tests {
     fn test_height_calculations_90x17() {
         let mut layout = VerticalLayout;
         let parent_style = ComputedStyle::default();
+        let dummy = DummyNode;
 
-        let children: Vec<(usize, ComputedStyle, Size)> = vec![
-            (0, style_with_height(2.0, Unit::Cells), Size::new(90, 1)),
-            (1, style_with_height(12.5, Unit::Percent), Size::new(90, 1)),
-            (2, style_with_height(5.0, Unit::Width), Size::new(90, 1)),
-            (3, style_with_height(12.5, Unit::Height), Size::new(90, 1)),
-            (4, style_with_height(6.25, Unit::ViewWidth), Size::new(90, 1)),
-            (5, style_with_height(12.5, Unit::ViewHeight), Size::new(90, 1)),
-            (6, style_with_height(0.0, Unit::Auto), Size::new(90, 1)),
-            (7, style_with_height(1.0, Unit::Fraction), Size::new(90, 1)),
-            (8, style_with_height(2.0, Unit::Fraction), Size::new(90, 1)),
+        let children: Vec<LayoutChild> = vec![
+            LayoutChild { index: 0, style: style_with_height(2.0, Unit::Cells), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 1, style: style_with_height(12.5, Unit::Percent), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 2, style: style_with_height(5.0, Unit::Width), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 3, style: style_with_height(12.5, Unit::Height), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 4, style: style_with_height(6.25, Unit::ViewWidth), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 5, style: style_with_height(12.5, Unit::ViewHeight), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 6, style: style_with_height(0.0, Unit::Auto), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 7, style: style_with_height(1.0, Unit::Fraction), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild { index: 8, style: style_with_height(2.0, Unit::Fraction), desired_size: Size::new(90, 1), node: &dummy },
         ];
 
         let available = Region {

@@ -103,12 +103,17 @@ impl<M> ItemGrid<M> {
         viewport: layouts::Viewport,
     ) -> Vec<layouts::WidgetPlacement> {
         // Collect visible children with their styles and desired sizes
-        let children_with_styles: Vec<_> = self
+        let children_with_styles: Vec<layouts::LayoutChild> = self
             .children
             .iter()
             .enumerate()
             .filter(|(_, c)| c.participates_in_layout())
-            .map(|(i, c)| (i, c.get_style(), c.desired_size()))
+            .map(|(i, c)| layouts::LayoutChild {
+                index: i,
+                style: c.get_style(),
+                desired_size: c.desired_size(),
+                node: c,
+            })
             .collect();
 
         // Create and configure GridLayout

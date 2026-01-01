@@ -25,6 +25,14 @@ pub trait Widget<M> {
     /// Tell the parent container how much space this widget needs.
     fn desired_size(&self) -> Size;
 
+    /// Returns the intrinsic height for a given width.
+    ///
+    /// Used by layout algorithms when `height: auto` depends on the available width
+    /// (e.g., wrapped text). Defaults to `desired_size().height`.
+    fn intrinsic_height_for_width(&self, _width: u16) -> u16 {
+        self.desired_size().height
+    }
+
     /// Returns the actual content height for scroll calculations.
     ///
     /// This is used by ScrollableContainer when desired_size returns u16::MAX
@@ -506,6 +514,10 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
 
     fn desired_size(&self) -> Size {
         self.as_ref().desired_size()
+    }
+
+    fn intrinsic_height_for_width(&self, width: u16) -> u16 {
+        self.as_ref().intrinsic_height_for_width(width)
     }
 
     fn content_height_for_scroll(&self, available_height: u16) -> u16 {
