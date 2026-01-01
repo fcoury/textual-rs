@@ -5,7 +5,7 @@
 
 use insta::assert_snapshot;
 use textual::testing::render_to_canvas;
-use textual::{Compose, Label, Widget, ui};
+use textual::{Compose, Grid, Label, Widget, ui};
 
 // ============================================================================
 // Border Example
@@ -2353,4 +2353,131 @@ fn debug_opacity_border_color() {
     } else {
         panic!("Expected foreground color to be set for border");
     }
+}
+
+// ============================================================================
+// Outline All Example
+// ============================================================================
+
+mod outline_all_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct OutlineAllApp;
+
+    impl Compose for OutlineAllApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Grid {
+                    Label("ascii", id: "ascii")
+                    Label("blank", id: "blank")
+                    Label("dashed", id: "dashed")
+                    Label("double", id: "double")
+                    Label("heavy", id: "heavy")
+                    Label("hidden/none", id: "hidden")
+                    Label("hkey", id: "hkey")
+                    Label("inner", id: "inner")
+                    Label("none", id: "none")
+                    Label("outer", id: "outer")
+                    Label("round", id: "round")
+                    Label("solid", id: "solid")
+                    Label("tall", id: "tall")
+                    Label("vkey", id: "vkey")
+                    Label("wide", id: "wide")
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#ascii {
+    outline: ascii $accent;
+}
+
+#blank {
+    outline: blank $accent;
+}
+
+#dashed {
+    outline: dashed $accent;
+}
+
+#double {
+    outline: double $accent;
+}
+
+#heavy {
+    outline: heavy $accent;
+}
+
+#hidden {
+    outline: hidden $accent;
+}
+
+#hkey {
+    outline: hkey $accent;
+}
+
+#inner {
+    outline: inner $accent;
+}
+
+#none {
+    outline: none $accent;
+}
+
+#outer {
+    outline: outer $accent;
+}
+
+#round {
+    outline: round $accent;
+}
+
+#solid {
+    outline: solid $accent;
+}
+
+#tall {
+    outline: tall $accent;
+}
+
+#vkey {
+    outline: vkey $accent;
+}
+
+#wide {
+    outline: wide $accent;
+}
+
+Grid {
+    grid-size: 3 5;
+    align: center middle;
+    grid-gutter: 1 2;
+}
+
+Label {
+    width: 20;
+    height: 3;
+    content-align: center middle;
+}
+"#;
+}
+
+#[test]
+fn snapshot_outline_all_example() {
+    let app = outline_all_example::OutlineAllApp;
+    let canvas = render_to_canvas(&app, outline_all_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+#[test]
+fn snapshot_outline_all_example_ansi() {
+    let app = outline_all_example::OutlineAllApp;
+    let canvas = render_to_canvas(&app, outline_all_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
 }
