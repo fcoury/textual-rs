@@ -298,13 +298,35 @@ impl<M> Static<M> {
 
         let h_align = self.style.content_align_horizontal;
         let v_align = self.style.content_align_vertical;
+        let text_align = self.style.text_align;
 
-        // Calculate vertical offset
+        // Calculate vertical offset for the content block
         let content_height = lines.len();
         let v_offset = match v_align {
             AlignVertical::Top => 0,
             AlignVertical::Middle => height.saturating_sub(content_height) / 2,
             AlignVertical::Bottom => height.saturating_sub(content_height),
+        };
+
+        // Determine content block width (max line length)
+        let max_line_len = lines.iter().map(|line| line.cell_length()).max().unwrap_or(0);
+        let block_width = width.min(max_line_len);
+
+        // Calculate horizontal offset for the content block
+        let h_offset = match h_align {
+            AlignHorizontal::Left => 0,
+            AlignHorizontal::Center => width.saturating_sub(block_width) / 2,
+            AlignHorizontal::Right => width.saturating_sub(block_width),
+        };
+
+        // Map text-align to horizontal alignment for line-level padding
+        let line_align = match text_align {
+            tcss::types::text::TextAlign::Start => AlignHorizontal::Left,
+            tcss::types::text::TextAlign::End => AlignHorizontal::Right,
+            tcss::types::text::TextAlign::Left => AlignHorizontal::Left,
+            tcss::types::text::TextAlign::Center => AlignHorizontal::Center,
+            tcss::types::text::TextAlign::Right => AlignHorizontal::Right,
+            tcss::types::text::TextAlign::Justify => AlignHorizontal::Left,
         };
 
         // Build aligned lines with vertical padding
@@ -316,34 +338,16 @@ impl<M> Static<M> {
             result.push(Strip::blank(width, pad_style.clone()));
         }
 
-        // Add content lines with horizontal alignment
+        // Add content lines: align text within the block, then place the block
         for line in lines.iter().take(height - v_offset) {
-            let aligned = match h_align {
-                AlignHorizontal::Left => line.adjust_cell_length(width, pad_style.clone()),
-                AlignHorizontal::Center => {
-                    let line_len = line.cell_length();
-                    let left_pad = width.saturating_sub(line_len) / 2;
-                    if left_pad > 0 {
-                        let left = Strip::blank(left_pad, pad_style.clone());
-                        Strip::join(vec![left, line.clone()])
-                            .adjust_cell_length(width, pad_style.clone())
-                    } else {
-                        line.adjust_cell_length(width, pad_style.clone())
-                    }
-                }
-                AlignHorizontal::Right => {
-                    let line_len = line.cell_length();
-                    let left_pad = width.saturating_sub(line_len);
-                    if left_pad > 0 {
-                        let left = Strip::blank(left_pad, pad_style.clone());
-                        Strip::join(vec![left, line.clone()])
-                            .adjust_cell_length(width, pad_style.clone())
-                    } else {
-                        line.adjust_cell_length(width, pad_style.clone())
-                    }
-                }
+            let aligned_line = line.text_align(line_align, block_width, pad_style.clone());
+            let with_offset = if h_offset > 0 {
+                let left = Strip::blank(h_offset, pad_style.clone());
+                Strip::join(vec![left, aligned_line])
+            } else {
+                aligned_line
             };
-            result.push(aligned);
+            result.push(with_offset.adjust_cell_length(width, pad_style.clone()));
         }
 
         // Add bottom padding
