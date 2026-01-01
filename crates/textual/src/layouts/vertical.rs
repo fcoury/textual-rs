@@ -190,6 +190,22 @@ impl Layout for VerticalLayout {
                 box_height
             };
 
+            // Apply min-height constraint (floor)
+            let box_height = if let Some(min_h) = &child_style.min_height {
+                let min_height_value = match min_h.unit {
+                    Unit::Cells => min_h.value,
+                    Unit::Percent => (min_h.value / 100.0) * available.height as f64,
+                    Unit::Width => (min_h.value / 100.0) * available.width as f64,
+                    Unit::Height => (min_h.value / 100.0) * available.height as f64,
+                    Unit::ViewWidth => (min_h.value / 100.0) * viewport.width as f64,
+                    Unit::ViewHeight => (min_h.value / 100.0) * viewport.height as f64,
+                    _ => min_h.value,
+                };
+                box_height.max(min_height_value)
+            } else {
+                box_height
+            };
+
             // Get vertical margins
             let margin_top = child_style.margin.top.value as f64;
             let margin_bottom = child_style.margin.bottom.value as f64;

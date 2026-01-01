@@ -622,6 +622,17 @@ fn test_property_max_width() {
     }
 }
 
+#[test]
+fn test_property_min_height() {
+    let decl = parse_first_declaration("Button { min-height: 100; }");
+    if let Declaration::MinHeight(s) = decl {
+        assert_eq!(s.value, 100.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected MinHeight declaration, got {:?}", decl);
+    }
+}
+
 // ============================================================================
 // SCROLLBAR PROPERTIES
 // ============================================================================

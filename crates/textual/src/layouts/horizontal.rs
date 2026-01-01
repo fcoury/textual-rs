@@ -201,6 +201,20 @@ impl Layout for HorizontalLayout {
                 height
             };
 
+            // Apply min-height constraint (floor)
+            let height = if let Some(min_h) = &child_style.min_height {
+                let min_height_value = match min_h.unit {
+                    Unit::Cells => min_h.value as i32,
+                    Unit::Percent => ((min_h.value / 100.0) * available.height as f64) as i32,
+                    Unit::Width => ((min_h.value / 100.0) * available.width as f64) as i32,
+                    Unit::Height => ((min_h.value / 100.0) * available.height as f64) as i32,
+                    _ => min_h.value as i32,
+                };
+                height.max(min_height_value)
+            } else {
+                height
+            };
+
             // Get margins for positioning
             let margin_left = child_style.margin.left.value as i32;
             let margin_right = child_style.margin.right.value as i32;

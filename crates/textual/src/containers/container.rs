@@ -7,6 +7,9 @@ use std::cell::RefCell;
 
 use tcss::types::keyline::KeylineStyle;
 use tcss::types::Layout as LayoutDirection;
+use tcss::types::Overflow;
+use tcss::types::RgbaColor;
+use tcss::types::ScrollbarGutter;
 use tcss::types::Visibility;
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
@@ -15,9 +18,11 @@ use crate::content::Content;
 use crate::keyline_canvas::KeylineCanvas;
 use crate::layouts::{self, Layout, Viewport, WidgetPlacement};
 use crate::render_cache::RenderCache;
+use crate::scroll::ScrollState;
+use crate::scrollbar::ScrollBarRender;
 use crate::segment::Style;
 use crate::widget::Widget;
-use crate::{KeyCode, MouseEvent};
+use crate::{KeyCode, MouseEvent, MouseEventKind};
 
 /// Cached layout computation result.
 /// Stores the computed placements along with the region/viewport they were computed for.
@@ -60,6 +65,13 @@ pub struct Container<M> {
     /// Cached layout placements to avoid recomputing on every render.
     /// Uses RefCell for interior mutability since render takes &self.
     cached_layout: RefCell<Option<CachedLayout>>,
+    /// Scroll state for overflow scrolling.
+    /// Uses RefCell for interior mutability since render takes &self.
+    scroll: RefCell<ScrollState>,
+    /// Which scrollbar is being hovered (Some(true) = vertical, Some(false) = horizontal).
+    scrollbar_hover: Option<bool>,
+    /// Scrollbar drag state: (is_vertical, grab_offset).
+    scrollbar_drag: Option<(bool, i32)>,
 }
 
 impl<M> Container<M> {
@@ -76,6 +88,9 @@ impl<M> Container<M> {
             layout_override: None,
             viewport: Size::new(80, 24), // Default until on_resize is called
             cached_layout: RefCell::new(None),
+            scroll: RefCell::new(ScrollState::default()),
+            scrollbar_hover: None,
+            scrollbar_drag: None,
         }
     }
 
@@ -143,6 +158,89 @@ impl<M> Container<M> {
         self.layout_override.unwrap_or(self.style.layout)
     }
 
+    /// Check if vertical scrollbar should be shown based on overflow-y and content.
+    fn show_vertical_scrollbar(&self) -> bool {
+        match self.style.overflow_y {
+            Overflow::Scroll => true,
+            Overflow::Auto => {
+                let scroll = self.scroll.borrow();
+                scroll.can_scroll_y()
+            }
+            Overflow::Hidden => false,
+        }
+    }
+
+    /// Check if horizontal scrollbar should be shown based on overflow-x and content.
+    fn show_horizontal_scrollbar(&self) -> bool {
+        match self.style.overflow_x {
+            Overflow::Scroll => true,
+            Overflow::Auto => {
+                let scroll = self.scroll.borrow();
+                scroll.can_scroll_x()
+            }
+            Overflow::Hidden => false,
+        }
+    }
+
+    /// Get scrollbar sizes from style.
+    fn scrollbar_size(&self) -> (u16, u16) {
+        (
+            self.style.scrollbar.size.vertical,
+            self.style.scrollbar.size.horizontal,
+        )
+    }
+
+    /// Calculate content region with scrollbar space subtracted.
+    fn content_region_for_scroll(&self, region: Region) -> Region {
+        let style = &self.style.scrollbar;
+        let v_size = if self.show_vertical_scrollbar() || style.gutter == ScrollbarGutter::Stable {
+            style.size.vertical as i32
+        } else {
+            0
+        };
+        let h_size = if self.show_horizontal_scrollbar() || style.gutter == ScrollbarGutter::Stable {
+            style.size.horizontal as i32
+        } else {
+            0
+        };
+
+        Region {
+            x: region.x,
+            y: region.y,
+            width: (region.width - v_size).max(0),
+            height: (region.height - h_size).max(0),
+        }
+    }
+
+    /// Calculate the vertical scrollbar region.
+    fn vertical_scrollbar_region(&self, region: Region) -> Region {
+        let style = &self.style.scrollbar;
+        let h_size = if self.show_horizontal_scrollbar() {
+            style.size.horizontal as i32
+        } else {
+            0
+        };
+
+        Region {
+            x: region.x + region.width - style.size.vertical as i32,
+            y: region.y,
+            width: style.size.vertical as i32,
+            height: (region.height - h_size).max(0),
+        }
+    }
+
+    /// Get colors for vertical scrollbar based on hover/drag state.
+    fn vertical_colors(&self) -> (RgbaColor, RgbaColor) {
+        let style = &self.style.scrollbar;
+        if self.scrollbar_drag.map(|(v, _)| v).unwrap_or(false) {
+            (style.effective_color_active(), style.effective_background_active())
+        } else if self.scrollbar_hover == Some(true) {
+            (style.effective_color_hover(), style.effective_background_hover())
+        } else {
+            (style.effective_color(), style.effective_background())
+        }
+    }
+
     /// Compute child placements using the appropriate layout algorithm.
     /// Uses caching to avoid recomputation when region/viewport haven't changed.
     fn compute_child_placements(
@@ -173,9 +271,9 @@ impl<M> Container<M> {
         let mut effective_style = self.style.clone();
         effective_style.layout = self.effective_layout();
 
-        // Dispatch to layout based on effective layout, using the propagated viewport
+        // Dispatch to layout (handles layers internally when needed)
         let placements =
-            layouts::arrange_children_with_viewport(&effective_style, &children_with_styles, region, viewport);
+            layouts::arrange_children_with_layers(&effective_style, &children_with_styles, region, viewport);
 
         // Store in cache
         *self.cached_layout.borrow_mut() = Some(CachedLayout {
@@ -549,26 +647,107 @@ Container {
             inner_height as i32,
         );
 
-        // 5. Render children in inner region using the canvas viewport
+        // 5. Update scroll state and compute content region
         let viewport = canvas.viewport();
-        let placements = self.compute_child_placements(inner_region, viewport);
 
-        canvas.push_clip(inner_region);
+        // First compute placements to determine virtual content height
+        let initial_placements = self.compute_child_placements(inner_region, viewport);
+
+        // Calculate virtual content height from placements (max y + height relative to inner_region)
+        let virtual_height = initial_placements
+            .iter()
+            .map(|p| (p.region.y - inner_region.y) + p.region.height)
+            .max()
+            .unwrap_or(0);
+
+        // Update scroll state with virtual size and viewport
+        {
+            let mut scroll = self.scroll.borrow_mut();
+            scroll.set_virtual_size(inner_region.width, virtual_height);
+            scroll.set_viewport(inner_region.width, inner_region.height);
+        }
+
+        // Determine if we need scrollbars and adjust content region
+        let show_v_scrollbar = self.show_vertical_scrollbar();
+        let content_region = self.content_region_for_scroll(inner_region);
+
+        // If scrollbar visibility changed the content width, we need to recompute placements
+        // and update virtual_height (important for width-based units like `w` in min-height: 40w)
+        let placements = if show_v_scrollbar && content_region.width < inner_region.width {
+            // Invalidate cache since we need to recalculate with smaller width
+            *self.cached_layout.borrow_mut() = None;
+            let new_placements = self.compute_child_placements(content_region, viewport);
+
+            // Recalculate virtual_height with the new placements (content_region based)
+            let new_virtual_height = new_placements
+                .iter()
+                .map(|p| (p.region.y - content_region.y) + p.region.height)
+                .max()
+                .unwrap_or(0);
+
+            // Update scroll state with corrected virtual height
+            {
+                let mut scroll = self.scroll.borrow_mut();
+                scroll.set_virtual_size(content_region.width, new_virtual_height);
+                scroll.set_viewport(content_region.width, content_region.height);
+            }
+
+            new_placements
+        } else {
+            initial_placements
+        };
+
+        // Get scroll offset for rendering
+        let offset_y = self.scroll.borrow().offset_y;
+
+        // 6. Render children with scroll offset applied
+        canvas.push_clip(content_region);
         for placement in &placements {
             let child = &self.children[placement.child_index];
             // Skip rendering if visibility is hidden (but widget still occupies space)
             if child.get_style().visibility == Visibility::Hidden {
                 continue;
             }
-            child.render(canvas, placement.region);
+
+            // Apply scroll offset to child region
+            let scrolled_region = Region {
+                x: placement.region.x,
+                y: placement.region.y - offset_y,
+                width: placement.region.width,
+                height: placement.region.height,
+            };
+
+            // Only render if at least partially visible
+            if scrolled_region.y + scrolled_region.height > content_region.y
+                && scrolled_region.y < content_region.y + content_region.height
+            {
+                child.render(canvas, scrolled_region);
+            }
         }
 
-        // 6. Render keylines on top of children (if enabled)
+        // 7. Render keylines on top of children (if enabled)
         if self.style.keyline.style != KeylineStyle::None {
-            self.render_keylines(canvas, inner_region, &placements);
+            self.render_keylines(canvas, content_region, &placements);
         }
 
         canvas.pop_clip();
+
+        // 8. Render vertical scrollbar if needed
+        if show_v_scrollbar {
+            let v_region = self.vertical_scrollbar_region(inner_region);
+            let (thumb_color, track_color) = self.vertical_colors();
+            let scroll = self.scroll.borrow();
+
+            ScrollBarRender::render_vertical(
+                canvas,
+                v_region,
+                scroll.virtual_height as f32,
+                content_region.height as f32,
+                scroll.offset_y as f32,
+                thumb_color,
+                track_color,
+            );
+        }
     }
 
     fn desired_size(&self) -> Size {
@@ -767,14 +946,46 @@ Container {
             return None;
         }
 
+        // Handle mouse wheel for scrolling
+        const SCROLL_AMOUNT: i32 = 3; // Scroll 3 lines per wheel event
+
+        match event.kind {
+            MouseEventKind::ScrollDown => {
+                if self.show_vertical_scrollbar() || self.style.overflow_y == Overflow::Auto {
+                    self.scroll.borrow_mut().scroll_down(SCROLL_AMOUNT);
+                    self.dirty = true;
+                    return None;
+                }
+            }
+            MouseEventKind::ScrollUp => {
+                if self.show_vertical_scrollbar() || self.style.overflow_y == Overflow::Auto {
+                    self.scroll.borrow_mut().scroll_up(SCROLL_AMOUNT);
+                    self.dirty = true;
+                    return None;
+                }
+            }
+            _ => {}
+        }
+
         // Compute placements and dispatch mouse events
         // For mouse handling, approximate viewport as region (only available during render)
         let viewport = layouts::Viewport::from(region);
         let placements = self.compute_child_placements(region, viewport);
 
+        // Get scroll offset to adjust mouse coordinates for children
+        let offset_y = self.scroll.borrow().offset_y;
+
         for placement in placements {
-            if placement.region.contains_point(mx, my) {
-                if let Some(msg) = self.children[placement.child_index].on_mouse(event, placement.region) {
+            // Adjust placement for scroll offset when checking hit
+            let scrolled_placement = Region {
+                x: placement.region.x,
+                y: placement.region.y - offset_y,
+                width: placement.region.width,
+                height: placement.region.height,
+            };
+
+            if scrolled_placement.contains_point(mx, my) {
+                if let Some(msg) = self.children[placement.child_index].on_mouse(event, scrolled_placement) {
                     return Some(msg);
                 }
             }

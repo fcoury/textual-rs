@@ -136,7 +136,7 @@ pub trait Widget<M> {
             scrollbar-color-hover: $scrollbar-hover;
             scrollbar-color-active: $scrollbar-active;
             scrollbar-corner-color: $scrollbar-corner-color;
-            scrollbar-size-vertical: 1;
+            scrollbar-size-vertical: 2;
             scrollbar-size-horizontal: 1;
             link-background: $link-background;
             link-background-hover: $link-background-hover;

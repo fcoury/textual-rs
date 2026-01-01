@@ -12,10 +12,10 @@ pub struct ScrollbarSize {
 }
 
 impl ScrollbarSize {
-    /// Default scrollbar size (1 cell for both directions).
+    /// Default scrollbar size (matches Python Textual: vertical=2, horizontal=1).
     pub const DEFAULT: Self = Self {
         horizontal: 1,
-        vertical: 1,
+        vertical: 2,
     };
 }
 
