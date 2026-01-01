@@ -387,6 +387,11 @@ Placeholder {
     fn desired_size(&self) -> Size {
         use tcss::types::Unit;
 
+        // Calculate chrome (padding) for auto sizing
+        // When height/width is auto, the widget should include padding in its desired size
+        let padding_h = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+        let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+
         // Check CSS dimensions - return u16::MAX for flexible units
         let width = if let Some(w) = &self.style.width {
             match w.unit {
@@ -394,14 +399,14 @@ Placeholder {
                 Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
                     u16::MAX // Signal "fill available space"
                 }
-                Unit::Auto => 20, // Default width for auto
+                Unit::Auto => 20 + padding_h, // Content (20) + horizontal padding
             }
         } else {
-            20 // Default width
+            20 + padding_h // Default width + padding
         };
 
         // For height, match Python Textual behavior:
-        // - auto returns content height (1 for label, more for text variant)
+        // - auto returns content height (1 for label) + padding
         // - This allows vertical layout to size based on actual content
         let height = if let Some(h) = &self.style.height {
             match h.unit {
@@ -409,10 +414,10 @@ Placeholder {
                 Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
                     u16::MAX // Signal "fill available space"
                 }
-                Unit::Auto => 1, // Content height: 1 row for label (matching Python)
+                Unit::Auto => 1 + padding_v, // Content (1 row) + vertical padding
             }
         } else {
-            1 // Default: 1 row for label content
+            1 + padding_v // Default: 1 row for label content + padding
         };
 
         Size::new(width, height)
