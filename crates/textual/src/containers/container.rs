@@ -951,13 +951,31 @@ Container {
 
         // Accumulate heights as f64 using the same floor arithmetic as vertical layout
         let mut current_y: f64 = 0.0;
+        // Track previous margin bottom for CSS margin collapsing
+        let mut prev_margin_bottom: f64 = 0.0;
 
-        for child in &self.children {
+        for (i, child) in self.children.iter().enumerate() {
             if !child.participates_in_layout() {
                 continue;
             }
             let child_style = child.get_style();
             let child_desired = child.desired_size();
+
+            // Get vertical margins from child style
+            let margin_top = child_style.margin.top.value as f64;
+            let margin_bottom = child_style.margin.bottom.value as f64;
+
+            // CSS margin collapsing: adjacent margins collapse to the larger value
+            // For the first child, use full top margin
+            // For subsequent children, use max(current_top, prev_bottom) - prev_bottom
+            let effective_top_margin = if i == 0 {
+                margin_top
+            } else {
+                (margin_top - prev_margin_bottom).max(0.0)
+            };
+
+            // Apply top margin
+            current_y += effective_top_margin;
 
             // Calculate child height based on its CSS height property (as f64)
             // Use viewport dimensions to match layout (Python uses parent.app.size for all)
@@ -999,7 +1017,10 @@ Container {
             // region.height = floor(next_y) - floor(y)
             let next_y = current_y + box_height;
             let _region_height = (next_y.floor() as i32 - current_y.floor() as i32).max(0);
-            current_y = next_y;
+
+            // Apply bottom margin and track for next iteration
+            current_y = next_y + margin_bottom;
+            prev_margin_bottom = margin_bottom;
         }
 
         // Total height is floor of final Y position

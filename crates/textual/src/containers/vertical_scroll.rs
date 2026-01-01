@@ -31,6 +31,10 @@ use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 /// ```
 pub struct VerticalScroll<M: 'static> {
     inner: ScrollableContainer<M>,
+    /// Widget ID for CSS targeting.
+    id: Option<String>,
+    /// CSS classes for styling.
+    classes: Vec<String>,
 }
 
 impl<M: 'static> VerticalScroll<M> {
@@ -39,25 +43,22 @@ impl<M: 'static> VerticalScroll<M> {
         let vertical = Box::new(Vertical::new(children)) as Box<dyn Widget<M>>;
         Self {
             inner: ScrollableContainer::from_child(vertical),
+            id: None,
+            classes: Vec::new(),
         }
     }
 
     /// Set the widget ID for CSS targeting.
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
-        // Get the inner Vertical and set its ID
-        if let Some(child) = self.inner.get_child_mut(0) {
-            child.add_class(&format!("#{}", id.into()));
-        }
+        self.id = Some(id.into());
         self
     }
 
     /// Set CSS classes.
     pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
         let classes_str: String = classes.into();
-        if let Some(child) = self.inner.get_child_mut(0) {
-            for class in classes_str.split_whitespace() {
-                child.add_class(class);
-            }
+        for class in classes_str.split_whitespace() {
+            self.classes.push(class.to_string());
         }
         self
     }
@@ -99,9 +100,12 @@ VerticalScroll {
     }
 
     fn get_meta(&self) -> WidgetMeta {
-        let mut meta = self.inner.get_meta();
-        meta.type_name = "VerticalScroll";
-        meta
+        WidgetMeta {
+            type_name: "VerticalScroll",
+            id: self.id.clone(),
+            classes: self.classes.clone(),
+            states: self.inner.get_state(),
+        }
     }
 
     fn get_state(&self) -> WidgetStates {
@@ -209,7 +213,7 @@ VerticalScroll {
     }
 
     fn id(&self) -> Option<&str> {
-        self.inner.id()
+        self.id.as_deref()
     }
 
     fn type_name(&self) -> &'static str {
