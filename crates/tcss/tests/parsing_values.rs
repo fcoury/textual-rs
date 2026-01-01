@@ -435,6 +435,15 @@ fn test_border_inner() {
 fn test_border_outer() {
     let (_, border) = parse_border_edge("outer cyan").unwrap();
     assert_eq!(border.kind, BorderKind::Outer);
+    assert_eq!(border.color, Some(RgbaColor::rgb(0, 255, 255)));
+}
+
+#[test]
+fn test_border_outer_dodgerblue() {
+    let (_, border) = parse_border_edge("outer dodgerblue").unwrap();
+    assert_eq!(border.kind, BorderKind::Outer);
+    // dodgerblue is RGB(30, 144, 255)
+    assert_eq!(border.color, Some(RgbaColor::rgb(30, 144, 255)));
 }
 
 #[test]

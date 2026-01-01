@@ -630,20 +630,32 @@ Container {
         // 1. border_title_color / border_subtitle_color if explicitly set
         // 2. border.top.color / border.bottom.color (border color)
         // 3. style.color (text color) as fallback
-        let title_fg = self
+        // Apply opacity by blending toward inherited background
+        let base_title_fg = self
             .style
             .border_title_color
             .clone()
             .or_else(|| self.style.border.top.color.clone())
             .or_else(|| self.style.color.clone());
-        let subtitle_fg = self
+        let title_fg = match (&base_title_fg, &self.style.inherited_background) {
+            (Some(color), Some(bg)) => Some(color.blend_toward(bg, self.style.opacity)),
+            (Some(color), None) => Some(color.with_opacity(self.style.opacity)),
+            _ => None,
+        };
+        let base_subtitle_fg = self
             .style
             .border_subtitle_color
             .clone()
             .or_else(|| self.style.border.bottom.color.clone())
             .or_else(|| self.style.color.clone());
+        let subtitle_fg = match (&base_subtitle_fg, &self.style.inherited_background) {
+            (Some(color), Some(bg)) => Some(color.blend_toward(bg, self.style.opacity)),
+            (Some(color), None) => Some(color.with_opacity(self.style.opacity)),
+            _ => None,
+        };
 
         // Use border-title-background if set, otherwise fall back to widget background
+        // Note: Background opacity is already handled through effective_background()
         let title_bg = self
             .style
             .border_title_background

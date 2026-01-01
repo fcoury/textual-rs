@@ -264,6 +264,9 @@ pub enum Declaration {
     Display(Display),
     /// The `visibility` property (visible or hidden).
     Visibility(Visibility),
+    /// The `opacity` property (0.0 to 1.0, or 0% to 100%).
+    /// Controls how the widget's background blends with the parent background.
+    Opacity(f64),
 
     // Overflow properties
     /// The `overflow-x` property for horizontal overflow behavior.

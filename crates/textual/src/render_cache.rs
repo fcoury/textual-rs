@@ -47,36 +47,23 @@ impl RenderCache {
         // Use top border kind as the primary style (for box character selection)
         let border_kind = style.border.top.kind;
 
-        // Compute effective background (with alpha compositing and tint applied)
-        // If the background has alpha < 1.0, composite it over the inherited background
-        let effective_bg = match (&style.background, &style.inherited_background) {
-            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
-                // Composite semi-transparent background over inherited
-                let composited = bg.blend_over(inherited);
-                // Then apply tint if present
-                match &style.background_tint {
-                    Some(tint) => Some(composited.tint(tint)),
-                    None => Some(composited),
-                }
-            }
-            (Some(bg), _) => {
-                // Opaque background or no inherited - just apply tint
-                match &style.background_tint {
-                    Some(tint) => Some(bg.tint(tint)),
-                    None => Some(bg.clone()),
-                }
-            }
-            (None, Some(inherited)) => {
-                // No background specified, inherit from parent
-                Some(inherited.clone())
-            }
-            (None, None) => None,
-        };
+        // Use the centralized effective_background from ComputedStyle
+        let effective_bg = style.effective_background();
 
         let border_box = if has_border {
             let border_type = border_kind_to_str(border_kind);
             // Use border color for the foreground, falling back to text color
-            let border_color = style.border.top.color.clone().or_else(|| style.color.clone());
+            // Apply opacity SQUARED to border color to match Python Textual's behavior.
+            // Python applies opacity twice: once in multiply_alpha when computing border_color,
+            // then again in _apply_opacity (post-processing) which blends ALL segments.
+            // Two sequential blends at factor f equals one blend at f².
+            let base_border_color = style.border.top.color.clone().or_else(|| style.color.clone());
+            let effective_opacity = style.opacity * style.opacity;
+            let border_color = match (&base_border_color, &style.inherited_background) {
+                (Some(color), Some(bg)) => Some(color.blend_toward(bg, effective_opacity)),
+                (Some(color), None) => Some(color.with_opacity(effective_opacity)),
+                _ => None,
+            };
             let inner_style = Style {
                 fg: border_color.clone(),
                 bg: effective_bg.clone(),
@@ -437,36 +424,10 @@ impl RenderCache {
 
     /// Returns the padding style for blank areas.
     fn pad_style(&self) -> Option<Style> {
-        self.effective_background()
+        self.style
+            .effective_background()
             .as_ref()
             .map(|bg| Style::with_bg(bg.clone()))
-    }
-
-    /// Returns the background color with alpha compositing and background-tint applied.
-    fn effective_background(&self) -> Option<tcss::types::RgbaColor> {
-        match (&self.style.background, &self.style.inherited_background) {
-            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
-                // Composite semi-transparent background over inherited
-                let composited = bg.blend_over(inherited);
-                // Then apply tint if present
-                match &self.style.background_tint {
-                    Some(tint) => Some(composited.tint(tint)),
-                    None => Some(composited),
-                }
-            }
-            (Some(bg), _) => {
-                // Opaque background or no inherited - just apply tint
-                match &self.style.background_tint {
-                    Some(tint) => Some(bg.tint(tint)),
-                    None => Some(bg.clone()),
-                }
-            }
-            (None, Some(inherited)) => {
-                // No background specified, inherit from parent
-                Some(inherited.clone())
-            }
-            (None, None) => None,
-        }
     }
 }
 
@@ -543,6 +504,38 @@ mod tests {
         let cache = RenderCache::new(&style);
         let line = cache.render_line(0, 3, 10, None, None, None);
         assert_eq!(line.text(), "╭────────╮");
+    }
+
+    #[test]
+    fn border_color_is_used_in_render() {
+        let dodgerblue = RgbaColor::rgb(30, 144, 255);
+        let mut style = ComputedStyle::default();
+        style.border = Border::all(BorderEdge {
+            kind: BorderKind::Outer, // Using outer border like the opacity example
+            color: Some(dodgerblue.clone()),
+        });
+        style.background = Some(RgbaColor::rgb(32, 178, 170)); // lightseagreen
+
+        let cache = RenderCache::new(&style);
+        let line = cache.render_line(0, 3, 10, None, None, None);
+
+        // Check that the first segment (border corner) has dodgerblue foreground
+        let segments = line.segments();
+        assert!(!segments.is_empty(), "Should have segments");
+
+        let first_seg = &segments[0];
+        let seg_style = first_seg.style();
+        assert!(seg_style.is_some(), "Border segment should have style");
+
+        let style_ref = seg_style.unwrap();
+        let fg = style_ref.fg.as_ref();
+        assert!(fg.is_some(), "Border should have foreground color");
+
+        let fg_color = fg.unwrap();
+        // dodgerblue is RGB(30, 144, 255)
+        assert_eq!(fg_color.r, 30, "Red channel should be 30, got {}", fg_color.r);
+        assert_eq!(fg_color.g, 144, "Green channel should be 144, got {}", fg_color.g);
+        assert_eq!(fg_color.b, 255, "Blue channel should be 255, got {}", fg_color.b);
     }
 
     #[test]

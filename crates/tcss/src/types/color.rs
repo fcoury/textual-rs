@@ -134,6 +134,28 @@ impl RgbaColor {
         }
     }
 
+    /// Returns a copy of this color with opacity applied by multiplying the alpha channel.
+    ///
+    /// This is used when applying CSS `opacity` to colors - the opacity value (0.0-1.0)
+    /// is multiplied with the existing alpha to create the final transparency.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tcss::types::RgbaColor;
+    ///
+    /// let color = RgbaColor::rgb(255, 0, 0);  // Opaque red
+    /// let faded = color.with_opacity(0.5);    // 50% opacity
+    /// assert!((faded.a - 0.5).abs() < 0.01);
+    /// ```
+    pub fn with_opacity(&self, opacity: f64) -> Self {
+        if opacity >= 1.0 {
+            self.clone()
+        } else {
+            self.with_alpha(self.a * opacity as f32)
+        }
+    }
+
     /// Calculates the relative luminance of this color.
     ///
     /// Uses the sRGB luminance formula (ITU-R BT.709).
@@ -315,6 +337,53 @@ impl RgbaColor {
         }
         // Use tint: composite self (as overlay) onto background
         background.tint(self)
+    }
+
+    /// Blend this color toward a destination color by the given factor.
+    ///
+    /// This is used to apply CSS `opacity` to colors - instead of making them
+    /// transparent (which would get composited against black), we blend the
+    /// color toward the inherited background color.
+    ///
+    /// - `factor=0.0`: returns `destination` (completely faded)
+    /// - `factor=1.0`: returns `self` (fully visible)
+    ///
+    /// This matches Python Textual's opacity implementation where colors
+    /// fade toward the base background rather than becoming transparent.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tcss::types::RgbaColor;
+    ///
+    /// let blue = RgbaColor::rgb(30, 144, 255);  // dodgerblue
+    /// let black = RgbaColor::rgb(0, 0, 0);       // background
+    ///
+    /// let faded = blue.blend_toward(&black, 0.5);  // 50% opacity
+    /// assert_eq!(faded.r, 15);   // halfway between 30 and 0
+    /// assert_eq!(faded.g, 72);   // halfway between 144 and 0
+    /// assert_eq!(faded.b, 128);  // halfway between 255 and 0 (rounded)
+    /// ```
+    pub fn blend_toward(&self, destination: &RgbaColor, factor: f64) -> Self {
+        if factor >= 1.0 {
+            return self.clone();
+        }
+        if factor <= 0.0 {
+            return destination.clone();
+        }
+
+        // Linear interpolation: destination + (self - destination) * factor
+        let factor = factor as f32;
+        let out_r = destination.r as f32 + (self.r as f32 - destination.r as f32) * factor;
+        let out_g = destination.g as f32 + (self.g as f32 - destination.g as f32) * factor;
+        let out_b = destination.b as f32 + (self.b as f32 - destination.b as f32) * factor;
+
+        Self::rgba(
+            out_r.round().clamp(0.0, 255.0) as u8,
+            out_g.round().clamp(0.0, 255.0) as u8,
+            out_b.round().clamp(0.0, 255.0) as u8,
+            self.a, // Keep original alpha
+        )
     }
 
     /// Parse a color string in various formats.

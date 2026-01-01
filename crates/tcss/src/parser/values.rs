@@ -610,3 +610,38 @@ pub fn parse_keyline(input: &str) -> IResult<&str, crate::types::Keyline> {
 
     Ok((input, Keyline::new(style, color)))
 }
+
+/// Parse opacity value: accepts 0.0-1.0 or 0%-100%.
+///
+/// The value is clamped to the range [0.0, 1.0].
+///
+/// # Examples
+///
+/// - `opacity: 0.5` → 0.5
+/// - `opacity: 50%` → 0.5
+/// - `opacity: 0%` → 0.0
+/// - `opacity: 100%` → 1.0
+pub fn parse_opacity(input: &str) -> IResult<&str, f64> {
+    use super::units;
+    use crate::types::geometry::Unit;
+
+    let input = input.trim_start();
+
+    // Try to parse as a scalar (handles both plain numbers and percentages)
+    if let Ok((remaining, scalar)) = units::parse_scalar(input) {
+        let value = if scalar.unit == Unit::Percent {
+            scalar.value / 100.0
+        } else {
+            scalar.value
+        };
+        return Ok((remaining, value.clamp(0.0, 1.0)));
+    }
+
+    // Fallback: try parsing just a number without units
+    let (remaining, value_str) = take_while1(|c: char| c.is_ascii_digit() || c == '.' || c == '-')(input)?;
+    let value: f64 = value_str.parse().map_err(|_| {
+        nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Float))
+    })?;
+
+    Ok((remaining, value.clamp(0.0, 1.0)))
+}

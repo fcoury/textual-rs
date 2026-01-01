@@ -377,6 +377,9 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Visibility(v) => {
             style.visibility = *v;
         }
+        Declaration::Opacity(val) => {
+            style.opacity = *val;
+        }
 
         // Overflow properties
         Declaration::OverflowX(o) => {
@@ -590,6 +593,153 @@ Container {
             crate::types::geometry::Unit::Auto,
             "height should be 'auto', got {:?}",
             height
+        );
+    }
+
+    #[test]
+    fn test_border_outer_dodgerblue_color_is_set() {
+        let css = r#"
+Label {
+    border: outer dodgerblue;
+}
+"#;
+
+        let stylesheet = parse_stylesheet(css).expect("Failed to parse CSS");
+        let theme = Theme::new("test", false);
+
+        let widget = WidgetMeta {
+            type_name: "Label",
+            id: None,
+            classes: vec![],
+            states: WidgetStates::empty(),
+        };
+
+        let ancestors = vec![];
+        let style = compute_style(&widget, &ancestors, &stylesheet, &theme);
+
+        // Check that border color is set - dodgerblue is RGB(30, 144, 255)
+        assert!(style.border.top.color.is_some(), "Border color should be set");
+        let color = style.border.top.color.as_ref().unwrap();
+        assert_eq!(color.r, 30, "Red channel should be 30");
+        assert_eq!(color.g, 144, "Green channel should be 144");
+        assert_eq!(color.b, 255, "Blue channel should be 255");
+    }
+
+    #[test]
+    fn test_border_color_preserved_with_id_selector() {
+        // This tests the exact CSS structure from the opacity example:
+        // An ID selector sets opacity, type selector sets border
+        let css = r#"
+#zero-opacity {
+    opacity: 0%;
+}
+
+Label {
+    width: 100%;
+    height: 1fr;
+    border: outer dodgerblue;
+    background: lightseagreen;
+}
+"#;
+
+        let stylesheet = parse_stylesheet(css).expect("Failed to parse CSS");
+        let theme = Theme::new("test", false);
+
+        let widget = WidgetMeta {
+            type_name: "Label",
+            id: Some("zero-opacity".to_string()),
+            classes: vec![],
+            states: WidgetStates::empty(),
+        };
+
+        let ancestors = vec![];
+        let style = compute_style(&widget, &ancestors, &stylesheet, &theme);
+
+        // Check that border color is set - dodgerblue is RGB(30, 144, 255)
+        // The ID selector should NOT clear the border color from the type selector
+        assert!(
+            style.border.top.color.is_some(),
+            "Border color should be preserved from type selector despite ID selector"
+        );
+        let color = style.border.top.color.as_ref().unwrap();
+        assert_eq!(
+            color.r, 30,
+            "Red channel should be 30, got {}",
+            color.r
+        );
+        assert_eq!(
+            color.g, 144,
+            "Green channel should be 144, got {}",
+            color.g
+        );
+        assert_eq!(
+            color.b, 255,
+            "Blue channel should be 255, got {}",
+            color.b
+        );
+    }
+
+    #[test]
+    fn test_border_color_with_default_css_prepended() {
+        // This tests the exact CSS order from render_to_canvas:
+        // Widget defaults are prepended, app CSS is appended
+        let css = r#"
+Label {
+    width: auto;
+    height: auto;
+}
+
+Screen {
+    layout: vertical;
+    overflow-y: auto;
+    background: black;
+}
+
+#zero-opacity {
+    opacity: 0%;
+}
+
+Label {
+    width: 100%;
+    height: 1fr;
+    border: outer dodgerblue;
+    background: lightseagreen;
+}
+"#;
+
+        let stylesheet = parse_stylesheet(css).expect("Failed to parse CSS");
+        let theme = Theme::new("test", false);
+
+        let widget = WidgetMeta {
+            type_name: "Label",
+            id: Some("zero-opacity".to_string()),
+            classes: vec![],
+            states: WidgetStates::empty(),
+        };
+
+        let ancestors = vec![];
+        let style = compute_style(&widget, &ancestors, &stylesheet, &theme);
+
+        // The second Label rule should set the border
+        assert!(
+            style.border.top.color.is_some(),
+            "Border color should be set from second Label rule"
+        );
+        let color = style.border.top.color.as_ref().unwrap();
+        assert_eq!(
+            color.r, 30,
+            "Red channel should be 30 (dodgerblue), got {}",
+            color.r
+        );
+        assert_eq!(
+            color.g, 144,
+            "Green channel should be 144 (dodgerblue), got {}",
+            color.g
+        );
+        assert_eq!(
+            color.b, 255,
+            "Blue channel should be 255 (dodgerblue), got {}",
+            color.b
         );
     }
 }

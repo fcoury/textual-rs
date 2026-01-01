@@ -208,3 +208,48 @@ impl Default for ComputedStyle {
         }
     }
 }
+
+impl ComputedStyle {
+    /// Get the effective background color with opacity, alpha compositing, and background-tint applied.
+    /// Falls back to inherited background from parent if this widget has no background.
+    ///
+    /// This method applies opacity SQUARED to match Python Textual's behavior where
+    /// `_apply_opacity` post-processes ALL segments (blending colors toward base_background).
+    /// Two sequential blends at factor `f` equals one blend at `f²`.
+    pub fn effective_background(&self) -> Option<RgbaColor> {
+        // First compute the base background (with alpha compositing and tint)
+        let base_bg = match (&self.background, &self.inherited_background) {
+            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
+                // Composite semi-transparent background over inherited
+                let composited = bg.blend_over(inherited);
+                // Then apply tint if present
+                match &self.background_tint {
+                    Some(tint) => Some(composited.tint(tint)),
+                    None => Some(composited),
+                }
+            }
+            (Some(bg), _) => {
+                // Opaque background or no inherited - just apply tint
+                match &self.background_tint {
+                    Some(tint) => Some(bg.tint(tint)),
+                    None => Some(bg.clone()),
+                }
+            }
+            (None, Some(inherited)) => {
+                // No background specified, inherit from parent
+                Some(inherited.clone())
+            }
+            (None, None) => None,
+        };
+
+        // Apply opacity SQUARED by blending toward inherited_background
+        // This matches Python Textual's behavior where _apply_opacity post-processes ALL segments
+        let effective_opacity = self.opacity * self.opacity;
+        match (&base_bg, &self.inherited_background) {
+            (Some(bg), Some(inherited)) if self.opacity < 1.0 => {
+                Some(bg.blend_toward(inherited, effective_opacity))
+            }
+            _ => base_bg,
+        }
+    }
+}

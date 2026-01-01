@@ -2203,3 +2203,154 @@ fn snapshot_link_color_hover_example_svg() {
     let canvas = render_to_canvas(&app, link_color_hover_example::CSS, 80, 24);
     assert_snapshot!(canvas.to_svg(Some("Link Color Hover Example")));
 }
+
+// ============================================================================
+// Opacity Example
+// ============================================================================
+
+mod opacity_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct OpacityApp;
+
+    impl Compose for OpacityApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("opacity: 0%", id: "zero-opacity")
+                Label("opacity: 25%", id: "quarter-opacity")
+                Label("opacity: 50%", id: "half-opacity")
+                Label("opacity: 75%", id: "three-quarter-opacity")
+                Label("opacity: 100%", id: "full-opacity")
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+#zero-opacity {
+    opacity: 0%;
+}
+
+#quarter-opacity {
+    opacity: 25%;
+}
+
+#half-opacity {
+    opacity: 50%;
+}
+
+#three-quarter-opacity {
+    opacity: 75%;
+}
+
+#full-opacity {
+    opacity: 100%;
+}
+
+Screen {
+    background: black;
+}
+
+Label {
+    width: 100%;
+    height: 1fr;
+    border: outer dodgerblue;
+    background: lightseagreen;
+    content-align: center middle;
+    text-style: bold;
+}
+"#;
+}
+
+#[test]
+fn snapshot_opacity_example() {
+    let app = opacity_example::OpacityApp;
+    let canvas = render_to_canvas(&app, opacity_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_snapshot());
+}
+
+#[test]
+fn snapshot_opacity_example_ansi() {
+    let app = opacity_example::OpacityApp;
+    let canvas = render_to_canvas(&app, opacity_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+#[test]
+fn debug_opacity_border_color() {
+    use textual::tree::WidgetTree;
+    use textual::widget::screen::Screen;
+    use textual::style_resolver::resolve_styles;
+    use std::collections::VecDeque;
+    use textual::testing::build_combined_css;
+
+    let themes = tcss::types::Theme::standard_themes();
+    let theme = themes.get("textual-dark").cloned()
+        .unwrap_or_else(|| tcss::types::Theme::new("default", true));
+
+    // Build widget tree
+    let root = Box::new(Screen::new(opacity_example::OpacityApp.compose()));
+    let mut tree = WidgetTree::new(root);
+
+    // Initialize Screen
+    tree.root_mut().on_resize(textual::Size::new(80, 24));
+
+    // Build combined CSS
+    let combined_css = build_combined_css(tree.root_mut(), opacity_example::CSS);
+    eprintln!("=== COMBINED CSS ===\n{}", combined_css);
+
+    let stylesheet = tcss::parser::parse_stylesheet(&combined_css).expect("CSS parsing failed");
+
+    // Resolve styles
+    let mut ancestors = VecDeque::new();
+    resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
+
+    // Check the first Label's style
+    let first_label_style = {
+        let mut found_style = None;
+        tree.root_mut().for_each_child(&mut |child| {
+            if child.type_name() == "Label" && found_style.is_none() {
+                let style = child.get_style();
+                found_style = Some(style);
+            }
+        });
+        found_style.unwrap_or_default()
+    };
+
+    eprintln!("=== FIRST LABEL STYLE ===");
+    eprintln!("  border.top.kind: {:?}", first_label_style.border.top.kind);
+    eprintln!("  border.top.color: {:?}", first_label_style.border.top.color);
+    eprintln!("  background: {:?}", first_label_style.background);
+    eprintln!("  inherited_background: {:?}", first_label_style.inherited_background);
+    eprintln!("  opacity: {}", first_label_style.opacity);
+
+    // Now render and check canvas
+    let canvas = render_to_canvas(&opacity_example::OpacityApp, opacity_example::CSS, 80, 24);
+
+    // Check the first cell on row 0 - should be the border corner (▛)
+    let first_cell = canvas.cell_at(0);
+    eprintln!("=== CANVAS OUTPUT ===");
+    eprintln!("Cell at (0,0): symbol='{}', fg={:?}, bg={:?}",
+        first_cell.symbol, first_cell.fg, first_cell.bg);
+
+    // At 0% opacity, the border should blend to match the inherited background (black)
+    // This is the correct behavior - borders fade with the widget
+    if let Some(fg) = &first_cell.fg {
+        match fg {
+            crossterm::style::Color::Rgb { r, g, b } => {
+                eprintln!("  -> foreground RGB: r={}, g={}, b={}", r, g, b);
+                // At 0% opacity, dodgerblue should blend to black (inherited background)
+                assert_eq!(*r, 0, "Expected red=0 (blended to black at 0% opacity), got {}", r);
+                assert_eq!(*g, 0, "Expected green=0 (blended to black at 0% opacity), got {}", g);
+                assert_eq!(*b, 0, "Expected blue=0 (blended to black at 0% opacity), got {}", b);
+            }
+            _ => panic!("Expected RGB color, got {:?}", fg),
+        }
+    } else {
+        panic!("Expected foreground color to be set for border");
+    }
+}

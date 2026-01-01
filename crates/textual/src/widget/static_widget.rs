@@ -238,55 +238,49 @@ impl<M> Static<M> {
 
     /// Convert ComputedStyle to rendering Style.
     fn rendering_style(&self) -> Style {
-        // Compute effective foreground color
+        // Compute effective foreground color with opacity applied
+        // We blend toward the inherited background, not just make it transparent
+        // Note: Text uses single opacity (not squared) because Python's _apply_opacity
+        // only processes text once. Borders use opacity² because they go through
+        // multiply_alpha AND _apply_opacity, but text content only goes through _apply_opacity.
         let fg = if self.style.auto_color {
             // For auto color, compute contrasting color against effective background
-            self.effective_background().map(|bg| {
+            self.style.effective_background().map(|bg| {
                 // Get contrast ratio from the color's alpha (e.g., "auto 90%" has a=0.9)
                 let ratio = self.style.color.as_ref().map(|c| c.a).unwrap_or(1.0);
-                bg.get_contrasting_color(ratio)
+                let contrasting = bg.get_contrasting_color(ratio);
+                // Apply opacity by blending toward inherited background
+                match &self.style.inherited_background {
+                    Some(inherited_bg) => contrasting.blend_toward(inherited_bg, self.style.opacity),
+                    None => contrasting.with_opacity(self.style.opacity),
+                }
             })
         } else {
-            self.style.color.clone()
+            // Apply opacity to foreground color
+            // When no explicit color is set and opacity < 1.0, we need to provide a default
+            // (white) so it can be blended toward the inherited background.
+            // This matches Python Textual's behavior where visual_style always has a color.
+            match (&self.style.color, &self.style.inherited_background) {
+                (Some(color), Some(bg)) => Some(color.blend_toward(bg, self.style.opacity)),
+                (Some(color), None) => Some(color.with_opacity(self.style.opacity)),
+                // No explicit color - use white default and blend toward inherited background
+                (None, Some(bg)) if self.style.opacity < 1.0 => {
+                    let white = tcss::types::RgbaColor::rgba(255, 255, 255, 1.0);
+                    Some(white.blend_toward(bg, self.style.opacity))
+                }
+                _ => None, // No color and full opacity - use terminal default
+            }
         };
 
         Style {
             fg,
-            bg: self.effective_background(),
+            bg: self.style.effective_background(),
             bold: self.style.text_style.bold,
             dim: self.style.text_style.dim,
             italic: self.style.text_style.italic,
             underline: self.style.text_style.underline,
             strike: self.style.text_style.strike,
             reverse: self.style.text_style.reverse,
-        }
-    }
-
-    /// Get the effective background color (with alpha compositing and background-tint applied).
-    /// Falls back to inherited background from parent if this widget is transparent.
-    fn effective_background(&self) -> Option<tcss::types::RgbaColor> {
-        match (&self.style.background, &self.style.inherited_background) {
-            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
-                // Composite semi-transparent background over inherited
-                let composited = bg.blend_over(inherited);
-                // Then apply tint if present
-                match &self.style.background_tint {
-                    Some(tint) => Some(composited.tint(tint)),
-                    None => Some(composited),
-                }
-            }
-            (Some(bg), _) => {
-                // Opaque background or no inherited - just apply tint
-                match &self.style.background_tint {
-                    Some(tint) => Some(bg.tint(tint)),
-                    None => Some(bg.clone()),
-                }
-            }
-            (None, Some(inherited)) => {
-                // No background specified, inherit from parent
-                Some(inherited.clone())
-            }
-            (None, None) => None,
         }
     }
 
@@ -479,14 +473,26 @@ Static {
         // 1. border_title_color / border_subtitle_color if explicitly set
         // 2. border.top.color / border.bottom.color (border color)
         // 3. style.color (text color) as fallback
-        let title_fg = self.style.border_title_color.clone()
+        // Apply opacity by blending toward inherited background
+        let base_title_fg = self.style.border_title_color.clone()
             .or_else(|| self.style.border.top.color.clone())
             .or_else(|| self.style.color.clone());
-        let subtitle_fg = self.style.border_subtitle_color.clone()
+        let title_fg = match (&base_title_fg, &self.style.inherited_background) {
+            (Some(color), Some(bg)) => Some(color.blend_toward(bg, self.style.opacity)),
+            (Some(color), None) => Some(color.with_opacity(self.style.opacity)),
+            _ => None,
+        };
+        let base_subtitle_fg = self.style.border_subtitle_color.clone()
             .or_else(|| self.style.border.bottom.color.clone())
             .or_else(|| self.style.color.clone());
+        let subtitle_fg = match (&base_subtitle_fg, &self.style.inherited_background) {
+            (Some(color), Some(bg)) => Some(color.blend_toward(bg, self.style.opacity)),
+            (Some(color), None) => Some(color.with_opacity(self.style.opacity)),
+            _ => None,
+        };
 
         // Use border-title-background if set, otherwise fall back to widget background
+        // Note: Background opacity is already handled through effective_background()
         let title_bg = self.style.border_title_background.clone()
             .or_else(|| self.style.background.clone());
         let subtitle_bg = self.style.border_subtitle_background.clone()
