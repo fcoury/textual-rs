@@ -18,15 +18,15 @@ impl Compose for BorderTitleAlignApp {
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
-            Label("My subtitle is on the left.", id:"label1", border_title: "< Left")
-            Label("My subtitle is centered", id:"label2", border_title: "Centered!")
-            Label("My subtitle is on the right", id:"label3", border_title: "Right >")
+            Label("My title is on the left.", id:"label1", border_title: "< Left")
+            Label("My title is centered", id:"label2", border_title: "Centered!")
+            Label("My title is on the right", id:"label3", border_title: "Right >")
         }
     }
 }
 
 impl App for BorderTitleAlignApp {
-    const CSS: &'static str = include_str!("border_subtitle_align.tcss");
+    const CSS: &'static str = include_str!("border_title_align.tcss");
 
     fn on_key(&mut self, key: textual::KeyCode) {
         if key == KeyCode::Char('q') || key == KeyCode::Esc {
