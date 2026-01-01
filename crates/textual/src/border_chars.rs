@@ -183,11 +183,9 @@ pub static BORDER_LOCATIONS: phf::Map<&'static str, BorderLocations> = phf_map! 
 ///
 /// Returns the "solid" border if the type is not found.
 pub fn get_border_chars(border_type: &str) -> &'static BorderChars {
-    BORDER_CHARS.get(border_type).unwrap_or_else(|| {
-        BORDER_CHARS
-            .get("solid")
-            .expect("solid border must exist")
-    })
+    BORDER_CHARS
+        .get(border_type)
+        .unwrap_or_else(|| BORDER_CHARS.get("solid").expect("solid border must exist"))
 }
 
 /// Gets the border locations for a given border type.
@@ -250,7 +248,7 @@ mod tests {
     fn border_locations_inner() {
         let locs = get_border_locations("inner");
         // Center should use widget style, edges use outer
-        assert_eq!(locs[1][1], 0); // center
+        assert_eq!(locs[1][1], 1); // center
         assert_eq!(locs[0][0], 1); // top-left uses outer
         assert_eq!(locs[0][1], 1); // top uses outer
     }

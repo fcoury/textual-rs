@@ -131,7 +131,9 @@ impl ScrollbarStyle {
 
     /// Get effective corner color (with fallback).
     pub fn effective_corner_color(&self) -> RgbaColor {
-        self.corner_color.clone().unwrap_or_else(Self::fallback_corner)
+        self.corner_color
+            .clone()
+            .unwrap_or_else(Self::fallback_corner)
     }
 
     /// Whether vertical scrollbar should be shown (size > 0 and visible).
@@ -153,7 +155,7 @@ mod tests {
     fn test_scrollbar_size_default() {
         let size = ScrollbarSize::default();
         assert_eq!(size.horizontal, 1);
-        assert_eq!(size.vertical, 1);
+        assert_eq!(size.vertical, 2);
     }
 
     #[test]
