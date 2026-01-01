@@ -687,6 +687,47 @@ Static {
         Size::new(width, height)
     }
 
+    fn intrinsic_height_for_width(&self, width: u16) -> u16 {
+        use tcss::types::border::BorderKind;
+
+        // Calculate border contribution (each visible edge adds 1 cell)
+        let has_top = !matches!(self.style.border.top.kind, BorderKind::None | BorderKind::Hidden);
+        let has_bottom =
+            !matches!(self.style.border.bottom.kind, BorderKind::None | BorderKind::Hidden);
+        let has_left =
+            !matches!(self.style.border.left.kind, BorderKind::None | BorderKind::Hidden);
+        let has_right =
+            !matches!(self.style.border.right.kind, BorderKind::None | BorderKind::Hidden);
+
+        let border_width = (if has_left { 1 } else { 0 }) + (if has_right { 1 } else { 0 });
+        let border_height = (if has_top { 1 } else { 0 }) + (if has_bottom { 1 } else { 0 });
+
+        // Calculate padding contribution
+        let padding_width = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+        let padding_height =
+            self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+
+        let chrome_width = border_width + padding_width;
+        let chrome_height = border_height + padding_height;
+
+        let content_width = width.saturating_sub(chrome_width).max(1) as usize;
+
+        // Build content and wrap to the available content width
+        let content = if self.markup {
+            Content::from_markup(self.text()).unwrap_or_else(|_| Content::new(self.text()))
+        } else {
+            Content::new(self.text())
+        };
+        let lines = if content_width > 0 {
+            content.wrap(content_width)
+        } else {
+            Vec::new()
+        };
+
+        let content_height = lines.len().max(1) as u16;
+        content_height + chrome_height
+    }
+
     fn get_meta(&self) -> WidgetMeta {
         let mut states = WidgetStates::empty();
         if self.disabled {

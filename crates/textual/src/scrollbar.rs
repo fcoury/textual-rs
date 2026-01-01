@@ -17,11 +17,11 @@ pub struct ScrollbarGlyphs;
 impl ScrollbarGlyphs {
     /// Vertical scrollbar gradient (bottom-to-top fill progression).
     /// Used for top/bottom edge rendering.
-    pub const VERTICAL: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    pub const VERTICAL: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', ' '];
 
     /// Horizontal scrollbar gradient (right-to-left fill progression).
     /// Used for left/right edge rendering.
-    pub const HORIZONTAL: [char; 8] = ['▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'];
+    pub const HORIZONTAL: [char; 8] = ['▉', '▊', '▋', '▌', '▍', '▎', '▏', ' '];
 
     /// Body glyph (space with background color).
     pub const BODY: char = ' ';
@@ -80,7 +80,7 @@ impl ScrollBarRender {
             return;
         }
 
-        let len_bars = ScrollbarGlyphs::VERTICAL.len() as f32;
+        let len_bars = ScrollbarGlyphs::VERTICAL.len() as i32;
 
         // Calculate thumb size and position (Textual's algorithm)
         let bar_ratio = virtual_size / size;
@@ -91,45 +91,68 @@ impl ScrollBarRender {
         let thumb_position = (size - thumb_size) * position_ratio;
 
         // Convert to sub-cell precision for gradient glyphs
-        let start = (thumb_position * len_bars) as i32;
-        let end = start + (thumb_size * len_bars).ceil() as i32;
+        let start = (thumb_position * len_bars as f32) as i32;
+        let end = start + (thumb_size * len_bars as f32).ceil() as i32;
 
-        let start_index = (start as f32 / len_bars).floor() as i32;
-        let start_bar = (start % len_bars as i32).max(0) as usize;
-        let end_index = (end as f32 / len_bars).floor() as i32;
-        let end_bar = (end % len_bars as i32).max(0) as usize;
+        let start = start.max(0);
+        let end = end.max(0);
+        let start_index = start / len_bars;
+        let start_bar = (start % len_bars) as usize;
+        let end_index = end / len_bars;
+        let end_bar = (end % len_bars) as usize;
 
-        // Draw thumb body with gradient edges
-        for y_offset in start_index..=end_index.min(region.height - 1) {
+        let body_start = start_index.max(0).min(region.height);
+        let body_end = end_index.max(0).min(region.height);
+
+        // Draw thumb body (full cells)
+        for y_offset in body_start..body_end {
             let screen_y = region.y + y_offset;
-            if screen_y < region.y || screen_y >= region.y + region.height {
-                continue;
-            }
-
             for x in 0..thickness {
                 let screen_x = region.x + x;
+                canvas.put_char(
+                    screen_x,
+                    screen_y,
+                    ScrollbarGlyphs::BODY,
+                    Some(thumb_color.clone()),
+                    Some(thumb_color.clone()),
+                    TextAttributes::default(),
+                );
+            }
+        }
 
-                // Determine glyph and colors based on position
-                let (glyph, fg, bg) = if y_offset == start_index && start_bar > 0 {
-                    // Top edge with gradient - character partially filled from bottom
-                    let bar_char = ScrollbarGlyphs::VERTICAL[start_bar];
-                    (bar_char, Some(thumb_color.clone()), Some(track_color.clone()))
-                } else if y_offset == end_index && end_bar > 0 && y_offset > start_index {
-                    // Bottom edge with gradient - character partially filled from top
-                    // Use inverse: the unfilled part is at bottom
-                    let inverse_bar = (len_bars as usize) - end_bar;
-                    if inverse_bar < ScrollbarGlyphs::VERTICAL.len() {
-                        let bar_char = ScrollbarGlyphs::VERTICAL[inverse_bar];
-                        (bar_char, Some(track_color.clone()), Some(thumb_color.clone()))
-                    } else {
-                        (ScrollbarGlyphs::BODY, Some(thumb_color.clone()), Some(thumb_color.clone()))
-                    }
-                } else {
-                    // Solid thumb body
-                    (ScrollbarGlyphs::BODY, Some(thumb_color.clone()), Some(thumb_color.clone()))
-                };
-
-                canvas.put_char(screen_x, screen_y, glyph, fg, bg, TextAttributes::default());
+        // Apply gradient glyphs to head and tail (Textual's algorithm)
+        if start_index >= 0 && start_index < region.height {
+            let bar_char = ScrollbarGlyphs::VERTICAL[len_bars as usize - 1 - start_bar];
+            if bar_char != ScrollbarGlyphs::BODY {
+                let screen_y = region.y + start_index;
+                for x in 0..thickness {
+                    let screen_x = region.x + x;
+                    canvas.put_char(
+                        screen_x,
+                        screen_y,
+                        bar_char,
+                        Some(thumb_color.clone()),
+                        Some(track_color.clone()),
+                        TextAttributes::default(),
+                    );
+                }
+            }
+        }
+        if end_index >= 0 && end_index < region.height {
+            let bar_char = ScrollbarGlyphs::VERTICAL[len_bars as usize - 1 - end_bar];
+            if bar_char != ScrollbarGlyphs::BODY {
+                let screen_y = region.y + end_index;
+                for x in 0..thickness {
+                    let screen_x = region.x + x;
+                    canvas.put_char(
+                        screen_x,
+                        screen_y,
+                        bar_char,
+                        Some(track_color.clone()),
+                        Some(thumb_color.clone()),
+                        TextAttributes::default(),
+                    );
+                }
             }
         }
     }
@@ -180,7 +203,7 @@ impl ScrollBarRender {
             return;
         }
 
-        let len_bars = ScrollbarGlyphs::HORIZONTAL.len() as f32;
+        let len_bars = ScrollbarGlyphs::HORIZONTAL.len() as i32;
 
         // Calculate thumb size and position
         let bar_ratio = virtual_size / size;
@@ -191,44 +214,68 @@ impl ScrollBarRender {
         let thumb_position = (size - thumb_size) * position_ratio;
 
         // Convert to sub-cell precision
-        let start = (thumb_position * len_bars) as i32;
-        let end = start + (thumb_size * len_bars).ceil() as i32;
+        let start = (thumb_position * len_bars as f32) as i32;
+        let end = start + (thumb_size * len_bars as f32).ceil() as i32;
 
-        let start_index = (start as f32 / len_bars).floor() as i32;
-        let start_bar = (start % len_bars as i32).max(0) as usize;
-        let end_index = (end as f32 / len_bars).floor() as i32;
-        let end_bar = (end % len_bars as i32).max(0) as usize;
+        let start = start.max(0);
+        let end = end.max(0);
+        let start_index = start / len_bars;
+        let start_bar = (start % len_bars) as usize;
+        let end_index = end / len_bars;
+        let end_bar = (end % len_bars) as usize;
 
-        // Draw thumb body with gradient edges
-        for x_offset in start_index..=end_index.min(region.width - 1) {
+        let body_start = start_index.max(0).min(region.width);
+        let body_end = end_index.max(0).min(region.width);
+
+        // Draw thumb body (full cells)
+        for x_offset in body_start..body_end {
             let screen_x = region.x + x_offset;
-            if screen_x < region.x || screen_x >= region.x + region.width {
-                continue;
-            }
-
             for y in 0..thickness {
                 let screen_y = region.y + y;
+                canvas.put_char(
+                    screen_x,
+                    screen_y,
+                    ScrollbarGlyphs::BODY,
+                    Some(thumb_color.clone()),
+                    Some(thumb_color.clone()),
+                    TextAttributes::default(),
+                );
+            }
+        }
 
-                // Determine glyph and colors based on position
-                let (glyph, fg, bg) = if x_offset == start_index && start_bar > 0 {
-                    // Left edge with gradient - fg=track (left part), bg=thumb (right part)
-                    let bar_char = ScrollbarGlyphs::HORIZONTAL[start_bar];
-                    (bar_char, Some(track_color.clone()), Some(thumb_color.clone()))
-                } else if x_offset == end_index && end_bar > 0 && x_offset > start_index {
-                    // Right edge with gradient - fg=thumb (left part), bg=track (right part)
-                    let inverse_bar = (len_bars as usize) - end_bar;
-                    if inverse_bar < ScrollbarGlyphs::HORIZONTAL.len() {
-                        let bar_char = ScrollbarGlyphs::HORIZONTAL[inverse_bar];
-                        (bar_char, Some(thumb_color.clone()), Some(track_color.clone()))
-                    } else {
-                        (ScrollbarGlyphs::BODY, Some(thumb_color.clone()), Some(thumb_color.clone()))
-                    }
-                } else {
-                    // Solid thumb body
-                    (ScrollbarGlyphs::BODY, Some(thumb_color.clone()), Some(thumb_color.clone()))
-                };
-
-                canvas.put_char(screen_x, screen_y, glyph, fg, bg, TextAttributes::default());
+        // Apply gradient glyphs to head and tail (Textual's algorithm)
+        if start_index >= 0 && start_index < region.width {
+            let bar_char = ScrollbarGlyphs::HORIZONTAL[len_bars as usize - 1 - start_bar];
+            if bar_char != ScrollbarGlyphs::BODY {
+                let screen_x = region.x + start_index;
+                for y in 0..thickness {
+                    let screen_y = region.y + y;
+                    canvas.put_char(
+                        screen_x,
+                        screen_y,
+                        bar_char,
+                        Some(track_color.clone()),
+                        Some(thumb_color.clone()),
+                        TextAttributes::default(),
+                    );
+                }
+            }
+        }
+        if end_index >= 0 && end_index < region.width {
+            let bar_char = ScrollbarGlyphs::HORIZONTAL[len_bars as usize - 1 - end_bar];
+            if bar_char != ScrollbarGlyphs::BODY {
+                let screen_x = region.x + end_index;
+                for y in 0..thickness {
+                    let screen_y = region.y + y;
+                    canvas.put_char(
+                        screen_x,
+                        screen_y,
+                        bar_char,
+                        Some(thumb_color.clone()),
+                        Some(track_color.clone()),
+                        TextAttributes::default(),
+                    );
+                }
             }
         }
     }

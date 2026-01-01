@@ -40,7 +40,7 @@ pub trait Widget<M> {
     /// but containers with flexible children should calculate actual content height.
     ///
     /// `available_height` is the viewport height that would be available.
-    fn content_height_for_scroll(&self, available_height: u16) -> u16 {
+    fn content_height_for_scroll(&self, _available_width: u16, available_height: u16) -> u16 {
         let size = self.desired_size();
         if size.height == u16::MAX {
             available_height
@@ -520,8 +520,9 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
         self.as_ref().intrinsic_height_for_width(width)
     }
 
-    fn content_height_for_scroll(&self, available_height: u16) -> u16 {
-        self.as_ref().content_height_for_scroll(available_height)
+    fn content_height_for_scroll(&self, available_width: u16, available_height: u16) -> u16 {
+        self.as_ref()
+            .content_height_for_scroll(available_width, available_height)
     }
 
     fn content_width_for_scroll(&self, available_width: u16) -> u16 {

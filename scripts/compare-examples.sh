@@ -17,6 +17,7 @@ Options:
   --ansi                Capture with ANSI escape codes
   --no-clear            Do not clear panes before running
   --no-quit             Do not send q / Ctrl-C after capture
+  --no-build            Skip pre-building Rust examples
   --keep                Keep tmux session after finishing
   --show-diff           Print diff to stdout on mismatch
   -h, --help            Show this help
@@ -44,6 +45,7 @@ DO_CLEAR=1
 DO_QUIT=1
 KEEP_SESSION=0
 SHOW_DIFF=0
+SKIP_BUILD=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --width) WIDTH="$2"; shift 2 ;;
@@ -54,6 +56,7 @@ while [[ $# -gt 0 ]]; do
     --ansi) CAPTURE_ANSI=1; shift ;;
     --no-clear) DO_CLEAR=0; shift ;;
     --no-quit) DO_QUIT=0; shift ;;
+    --no-build) SKIP_BUILD=1; shift ;;
     --keep) KEEP_SESSION=1; shift ;;
     --show-diff) SHOW_DIFF=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -75,6 +78,10 @@ fi
 if [[ ! -d "$TEXTUAL_DIR" ]]; then
   echo "TEXTUAL_DIR not found: $TEXTUAL_DIR" >&2
   exit 1
+fi
+
+if [[ $SKIP_BUILD -eq 0 ]]; then
+  (cd "$TEXRS_DIR" && cargo build --quiet --examples)
 fi
 
 PY_ACTIVATE_DEFAULT=""

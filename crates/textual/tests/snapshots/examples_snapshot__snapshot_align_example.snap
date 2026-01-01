@@ -1,5 +1,6 @@
 ---
 source: crates/textual/tests/examples_snapshot.rs
+assertion_line: 133
 expression: canvas.to_snapshot()
 ---
 
@@ -8,15 +9,14 @@ expression: canvas.to_snapshot()
 
 
 
+                    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                    ┃                                      ┃
+                    ┃ Vertical alignment with Textual      ┃
+                    ┃                                      ┃
+                    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                      ┃                                    ┃
-                      ┃ Vertical alignment with Textual    ┃
-                      ┃                                    ┃
-                      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-
-                      ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-                      ┃                                    ┃
-                      ┃ Take note, browsers.               ┃
-                      ┃                                    ┃
-                      ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+                    ┃                                      ┃
+                    ┃ Take note, browsers.                 ┃
+                    ┃                                      ┃
+                    ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛

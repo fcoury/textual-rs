@@ -251,7 +251,8 @@ impl<M> ScrollableContainer<M> {
 
         let effective_height = if content_size.height == u16::MAX {
             self.content()
-                .content_height_for_scroll(content_region.height as u16) as i32
+                .content_height_for_scroll(content_region.width as u16, content_region.height as u16)
+                as i32
         } else {
             content_size.height as i32
         };
@@ -328,52 +329,90 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 
         let style = self.scrollbar_style();
 
-        // First, calculate effective width to determine if we need horizontal scrollbar
-        let effective_width = if content_size.width == u16::MAX {
-            self.content()
-                .content_width_for_scroll(inner_region.width as u16) as i32
-        } else {
-            content_size.width as i32
-        };
+        // Determine scrollbar sizes with a small fixed-point iteration
+        let mut h_scrollbar_size: i32 = 0;
+        let mut v_scrollbar_size: i32 = 0;
+        for _ in 0..2 {
+            let available_width = (inner_region.width - v_scrollbar_size).max(0);
+            let available_height = (inner_region.height - h_scrollbar_size).max(0);
 
-        // Determine if horizontal scrollbar will be shown
-        let needs_h_scrollbar = match self.style.overflow_x {
-            Overflow::Scroll => true,
-            Overflow::Auto => effective_width > inner_region.width,
-            Overflow::Hidden => false,
-        };
-        let h_scrollbar_size = if needs_h_scrollbar {
-            style.size.horizontal as i32
-        } else {
-            0
-        };
+            // Effective content width
+            let effective_width = if content_size.width == u16::MAX {
+                self.content()
+                    .content_width_for_scroll(available_width as u16) as i32
+            } else {
+                content_size.width as i32
+            };
 
-        // Calculate effective height, accounting for horizontal scrollbar if needed
-        let available_height = (inner_region.height - h_scrollbar_size).max(0) as u16;
-        let effective_height = if content_size.height == u16::MAX {
-            self.content().content_height_for_scroll(available_height) as i32
-        } else {
-            content_size.height as i32
-        };
+            let needs_h_scrollbar = match self.style.overflow_x {
+                Overflow::Scroll => true,
+                Overflow::Auto => effective_width > available_width,
+                Overflow::Hidden => false,
+            };
+            let next_h_scrollbar_size = if needs_h_scrollbar {
+                style.size.horizontal as i32
+            } else {
+                0
+            };
 
-        // Determine if vertical scrollbar will be shown
-        let needs_v_scrollbar = match self.style.overflow_y {
-            Overflow::Scroll => true,
-            Overflow::Auto => effective_height > available_height as i32,
-            Overflow::Hidden => false,
-        };
-        let v_scrollbar_size = if needs_v_scrollbar {
-            style.size.vertical as i32
-        } else {
-            0
-        };
+            // Effective content height (uses available width for wrapping)
+            let available_width_u16 =
+                available_width.clamp(0, u16::MAX as i32) as u16;
+            let should_measure_height =
+                content_size.height == u16::MAX || content_size.width > available_width_u16;
+            let effective_height = if should_measure_height {
+                self.content()
+                    .content_height_for_scroll(available_width_u16, available_height as u16)
+                    as i32
+            } else {
+                content_size.height as i32
+            };
+
+            let needs_v_scrollbar = match self.style.overflow_y {
+                Overflow::Scroll => true,
+                Overflow::Auto => effective_height > available_height as i32,
+                Overflow::Hidden => false,
+            };
+            let next_v_scrollbar_size = if needs_v_scrollbar {
+                style.size.vertical as i32
+            } else {
+                0
+            };
+
+            if next_h_scrollbar_size == h_scrollbar_size
+                && next_v_scrollbar_size == v_scrollbar_size
+            {
+                break;
+            }
+            h_scrollbar_size = next_h_scrollbar_size;
+            v_scrollbar_size = next_v_scrollbar_size;
+        }
 
         {
             let mut scroll = self.scroll.borrow_mut();
+            let available_width = (inner_region.width - v_scrollbar_size).max(0);
+            let available_height = (inner_region.height - h_scrollbar_size).max(0);
+            let effective_width = if content_size.width == u16::MAX {
+                self.content()
+                    .content_width_for_scroll(available_width as u16) as i32
+            } else {
+                content_size.width as i32
+            };
+            let available_width_u16 =
+                available_width.clamp(0, u16::MAX as i32) as u16;
+            let should_measure_height =
+                content_size.height == u16::MAX || content_size.width > available_width_u16;
+            let effective_height = if should_measure_height {
+                self.content()
+                    .content_height_for_scroll(available_width_u16, available_height as u16)
+                    as i32
+            } else {
+                content_size.height as i32
+            };
             scroll.set_virtual_size(effective_width, effective_height);
             scroll.set_viewport(
-                (inner_region.width - v_scrollbar_size).max(0),
-                (inner_region.height - h_scrollbar_size).max(0),
+                available_width,
+                available_height,
             );
         }
 

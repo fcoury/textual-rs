@@ -7,7 +7,7 @@
 //!
 //! This ensures proper remainder distribution across widgets.
 
-use crate::canvas::Region;
+use crate::canvas::{Region, Size};
 use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
 
@@ -21,6 +21,68 @@ use super::{Layout, LayoutChild, Viewport, WidgetPlacement};
 /// Supports `fr` units for proportional height distribution.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VerticalLayout;
+
+fn resolve_child_width(
+    child_style: &ComputedStyle,
+    desired_size: Size,
+    available: Region,
+    viewport: Viewport,
+) -> i32 {
+    let margin_left = child_style.margin.left.value as i32;
+    let margin_right = child_style.margin.right.value as i32;
+
+    // Resolve base width
+    let base_width = resolve_width_with_intrinsic(child_style, desired_size.width, available.width);
+    let should_reduce_by_margins = match &child_style.width {
+        Some(w) => matches!(
+            w.unit,
+            Unit::Percent
+                | Unit::Width
+                | Unit::Height
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+        ),
+        None => true, // default fill behavior
+    };
+    let width = if should_reduce_by_margins {
+        (base_width - margin_left - margin_right).max(0)
+    } else {
+        base_width
+    };
+
+    // Apply max-width constraint
+    let width = if let Some(max_w) = &child_style.max_width {
+        let max_width_value = match max_w.unit {
+            Unit::Cells => max_w.value as i32,
+            Unit::Percent => ((max_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Width => ((max_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Height => ((max_w.value / 100.0) * available.height as f64) as i32,
+            Unit::ViewWidth => ((max_w.value / 100.0) * viewport.width as f64) as i32,
+            Unit::ViewHeight => ((max_w.value / 100.0) * viewport.height as f64) as i32,
+            _ => max_w.value as i32,
+        };
+        width.min(max_width_value)
+    } else {
+        width
+    };
+
+    // Apply min-width constraint (floor)
+    if let Some(min_w) = &child_style.min_width {
+        let min_width_value = match min_w.unit {
+            Unit::Cells => min_w.value as i32,
+            Unit::Percent => ((min_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Width => ((min_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Height => ((min_w.value / 100.0) * available.height as f64) as i32,
+            Unit::ViewWidth => ((min_w.value / 100.0) * viewport.width as f64) as i32,
+            Unit::ViewHeight => ((min_w.value / 100.0) * viewport.height as f64) as i32,
+            _ => min_w.value as i32,
+        };
+        width.max(min_width_value)
+    } else {
+        width
+    }
+}
 
 impl Layout for VerticalLayout {
     fn arrange(
@@ -44,6 +106,9 @@ impl Layout for VerticalLayout {
             let desired_size = child.desired_size;
             let margin_top = child_style.margin.top.value as f64;
             let margin_bottom = child_style.margin.bottom.value as f64;
+            let child_width = resolve_child_width(child_style, desired_size, available, viewport);
+            let width_u16 = child_width.clamp(0, u16::MAX as i32) as u16;
+            let intrinsic_height = child.node.intrinsic_height_for_width(width_u16) as f64;
 
             // CSS margin collapsing
             let effective_top_margin = if i == 0 {
@@ -84,7 +149,7 @@ impl Layout for VerticalLayout {
                         fixed_height_total += raw;
                     }
                     Unit::Auto => {
-                        fixed_height_total += desired_size.height as f64;
+                        fixed_height_total += intrinsic_height;
                     }
                 }
             } else if desired_size.height == u16::MAX {
@@ -119,44 +184,10 @@ impl Layout for VerticalLayout {
             let desired_size = child.desired_size;
             // Get horizontal margins
             let margin_left = child_style.margin.left.value as i32;
-            let margin_right = child_style.margin.right.value as i32;
 
             // Resolve width
-            let base_width =
-                resolve_width_with_intrinsic(child_style, desired_size.width, available.width);
-            let width = (base_width - margin_left - margin_right).max(0);
-
-            // Apply max-width constraint
-            let width = if let Some(max_w) = &child_style.max_width {
-                let max_width_value = match max_w.unit {
-                    Unit::Cells => max_w.value as i32,
-                    Unit::Percent => ((max_w.value / 100.0) * available.width as f64) as i32,
-                    Unit::Width => ((max_w.value / 100.0) * available.width as f64) as i32,
-                    Unit::Height => ((max_w.value / 100.0) * available.height as f64) as i32,
-                    Unit::ViewWidth => ((max_w.value / 100.0) * viewport.width as f64) as i32,
-                    Unit::ViewHeight => ((max_w.value / 100.0) * viewport.height as f64) as i32,
-                    _ => max_w.value as i32,
-                };
-                width.min(max_width_value)
-            } else {
-                width
-            };
-
-            // Apply min-width constraint (floor)
-            let width = if let Some(min_w) = &child_style.min_width {
-                let min_width_value = match min_w.unit {
-                    Unit::Cells => min_w.value as i32,
-                    Unit::Percent => ((min_w.value / 100.0) * available.width as f64) as i32,
-                    Unit::Width => ((min_w.value / 100.0) * available.width as f64) as i32,
-                    Unit::Height => ((min_w.value / 100.0) * available.height as f64) as i32,
-                    Unit::ViewWidth => ((min_w.value / 100.0) * viewport.width as f64) as i32,
-                    Unit::ViewHeight => ((min_w.value / 100.0) * viewport.height as f64) as i32,
-                    _ => min_w.value as i32,
-                };
-                width.max(min_width_value)
-            } else {
-                width
-            };
+            let width = resolve_child_width(child_style, desired_size, available, viewport);
+            let width_u16 = width.clamp(0, u16::MAX as i32) as u16;
 
             // Resolve box_model height as f64 (keeping fractional precision)
             // This must match the calculation in the first pass
@@ -166,7 +197,7 @@ impl Layout for VerticalLayout {
                         // fr units use fraction_unit
                         h.value * fraction_unit
                     }
-                    Unit::Auto => desired_size.height as f64,
+                    Unit::Auto => child.node.intrinsic_height_for_width(width_u16) as f64,
                     Unit::Cells => {
                         // Cells are exact integers
                         apply_box_sizing_height(h.value as i32, child_style) as f64

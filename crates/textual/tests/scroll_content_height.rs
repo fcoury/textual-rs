@@ -63,7 +63,7 @@ Label {
     vertical.on_resize(textual::Size::new(80, 24));
 
     // Get content height
-    let content_height = vertical.content_height_for_scroll(24);
+    let content_height = vertical.content_height_for_scroll(80, 24);
 
     // Expected calculation:
     // - 3 labels, each with height=1
@@ -128,7 +128,7 @@ Label {
 
     vertical.on_resize(textual::Size::new(80, 24));
 
-    let content_height = vertical.content_height_for_scroll(24);
+    let content_height = vertical.content_height_for_scroll(80, 24);
 
     // With margin: 1 0 (top=1, right=0, bottom=1, left=0) and height=2:
     // Child 1: margin_top=1, height=2, margin_bottom=1
@@ -186,7 +186,7 @@ Label {
 
     vertical.on_resize(textual::Size::new(80, 24));
 
-    let content_height = vertical.content_height_for_scroll(24);
+    let content_height = vertical.content_height_for_scroll(80, 24);
 
     // With margin: 1 2 (top=1, bottom=1) and height=7:
     // Child 1: margin_top=1, height=7, margin_bottom=1

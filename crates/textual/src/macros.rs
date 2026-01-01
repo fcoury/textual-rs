@@ -189,8 +189,9 @@ macro_rules! impl_widget_delegation {
                 self.$field.for_each_child(f)
             }
 
-            fn content_height_for_scroll(&self, available_height: u16) -> u16 {
-                self.$field.content_height_for_scroll(available_height)
+            fn content_height_for_scroll(&self, available_width: u16, available_height: u16) -> u16 {
+                self.$field
+                    .content_height_for_scroll(available_width, available_height)
             }
 
             fn content_width_for_scroll(&self, available_width: u16) -> u16 {

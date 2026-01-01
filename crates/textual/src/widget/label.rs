@@ -230,6 +230,10 @@ Label {
         self.inner.desired_size()
     }
 
+    fn intrinsic_height_for_width(&self, width: u16) -> u16 {
+        self.inner.intrinsic_height_for_width(width)
+    }
+
     fn get_meta(&self) -> tcss::WidgetMeta {
         let mut meta = self.inner.get_meta();
         meta.type_name = "Label";

@@ -218,7 +218,12 @@ pub fn arrange_children_with_viewport(
     };
 
     // Apply post-layout alignment to layout widgets only
-    apply_alignment(&mut layout_placements, parent_style, content_region);
+    apply_alignment(
+        &mut layout_placements,
+        &layout_children_vec,
+        parent_style,
+        content_region,
+    );
 
     // Apply CSS offset to all placements (both docked and layout)
     apply_offset(&mut placements, children, viewport);
@@ -398,7 +403,12 @@ where
     };
 
     // Apply post-layout alignment to layout widgets only
-    apply_alignment(&mut layout_placements, parent_style, content_region);
+    apply_alignment(
+        &mut layout_placements,
+        &layout_children_vec,
+        parent_style,
+        content_region,
+    );
 
     // Apply CSS offset to all placements (both docked and layout)
     apply_offset(&mut placements, children, viewport);
@@ -421,6 +431,7 @@ where
 /// 3. Translate all placements by that offset
 fn apply_alignment(
     placements: &mut [WidgetPlacement],
+    children: &[LayoutChild],
     parent_style: &ComputedStyle,
     available: Region,
 ) {
@@ -438,8 +449,8 @@ fn apply_alignment(
         return;
     }
 
-    // Calculate bounding box of all placements
-    let bounds = get_placement_bounds(placements);
+    // Calculate bounding box of all placements, including margins
+    let bounds = get_placement_bounds_with_margins(placements, children);
 
     // Calculate alignment offset, clamping to 0 to prevent negative offsets
     // when content is larger than the available space
@@ -465,7 +476,10 @@ fn apply_alignment(
 }
 
 /// Calculate the bounding box that contains all placements.
-fn get_placement_bounds(placements: &[WidgetPlacement]) -> Region {
+fn get_placement_bounds_with_margins(
+    placements: &[WidgetPlacement],
+    children: &[LayoutChild],
+) -> Region {
     if placements.is_empty() {
         return Region::new(0, 0, 0, 0);
     }
@@ -476,10 +490,23 @@ fn get_placement_bounds(placements: &[WidgetPlacement]) -> Region {
     let mut max_y = i32::MIN;
 
     for p in placements {
-        min_x = min_x.min(p.region.x);
-        min_y = min_y.min(p.region.y);
-        max_x = max_x.max(p.region.x + p.region.width);
-        max_y = max_y.max(p.region.y + p.region.height);
+        let (margin_left, margin_right, margin_top, margin_bottom) =
+            if let Some(child) = children.iter().find(|child| child.index == p.child_index) {
+                let style = &child.style;
+                (
+                    style.margin.left.value as i32,
+                    style.margin.right.value as i32,
+                    style.margin.top.value as i32,
+                    style.margin.bottom.value as i32,
+                )
+            } else {
+                (0, 0, 0, 0)
+            };
+
+        min_x = min_x.min(p.region.x - margin_left);
+        min_y = min_y.min(p.region.y - margin_top);
+        max_x = max_x.max(p.region.x + p.region.width + margin_right);
+        max_y = max_y.max(p.region.y + p.region.height + margin_bottom);
     }
 
     Region {

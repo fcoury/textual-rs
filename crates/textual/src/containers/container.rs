@@ -945,7 +945,7 @@ Container {
         Size::new(width, height)
     }
 
-    fn content_height_for_scroll(&self, _available_height: u16) -> u16 {
+    fn content_height_for_scroll(&self, available_width: u16, _available_height: u16) -> u16 {
         use tcss::types::Unit;
 
         // Calculate actual content height for scrolling, resolving percentage/fr units
@@ -958,6 +958,7 @@ Container {
         // floor(5.875) + floor(2.125) = 5 + 2 = 7 rows.
         let viewport_width = self.viewport.width;
         let viewport_height = self.viewport.height;
+        let available_width = available_width.max(1);
 
         // Accumulate heights as f64 using the same floor arithmetic as vertical layout
         let mut current_y: f64 = 0.0;
@@ -970,6 +971,57 @@ Container {
             }
             let child_style = child.get_style();
             let child_desired = child.desired_size();
+
+            // Resolve child width to compute intrinsic height for wrapped content.
+            let margin_left = child_style.margin.left.value as i32;
+            let margin_right = child_style.margin.right.value as i32;
+            let base_width = super::super::layouts::size_resolver::resolve_width_with_intrinsic(
+                &child_style,
+                child_desired.width,
+                available_width as i32,
+            );
+            let should_reduce_by_margins = match &child_style.width {
+                Some(w) => matches!(
+                    w.unit,
+                    Unit::Percent
+                        | Unit::Width
+                        | Unit::Height
+                        | Unit::ViewWidth
+                        | Unit::ViewHeight
+                        | Unit::Fraction
+                ),
+                None => true,
+            };
+            let mut child_width = if should_reduce_by_margins {
+                (base_width - margin_left - margin_right).max(0)
+            } else {
+                base_width
+            };
+            if let Some(max_w) = &child_style.max_width {
+                let max_width_value = match max_w.unit {
+                    Unit::Cells => max_w.value as i32,
+                    Unit::Percent => ((max_w.value / 100.0) * available_width as f64) as i32,
+                    Unit::Width => ((max_w.value / 100.0) * available_width as f64) as i32,
+                    Unit::Height => ((max_w.value / 100.0) * viewport_height as f64) as i32,
+                    Unit::ViewWidth => ((max_w.value / 100.0) * viewport_width as f64) as i32,
+                    Unit::ViewHeight => ((max_w.value / 100.0) * viewport_height as f64) as i32,
+                    _ => max_w.value as i32,
+                };
+                child_width = child_width.min(max_width_value);
+            }
+            if let Some(min_w) = &child_style.min_width {
+                let min_width_value = match min_w.unit {
+                    Unit::Cells => min_w.value as i32,
+                    Unit::Percent => ((min_w.value / 100.0) * available_width as f64) as i32,
+                    Unit::Width => ((min_w.value / 100.0) * available_width as f64) as i32,
+                    Unit::Height => ((min_w.value / 100.0) * viewport_height as f64) as i32,
+                    Unit::ViewWidth => ((min_w.value / 100.0) * viewport_width as f64) as i32,
+                    Unit::ViewHeight => ((min_w.value / 100.0) * viewport_height as f64) as i32,
+                    _ => min_w.value as i32,
+                };
+                child_width = child_width.max(min_width_value);
+            }
+            let child_width_u16 = child_width.clamp(0, u16::MAX as i32) as u16;
 
             // Get vertical margins from child style
             let margin_top = child_style.margin.top.value as f64;
@@ -1008,19 +1060,18 @@ Container {
                         h.value.max(1.0)
                     }
                     Unit::Auto => {
-                        // Auto uses intrinsic height
-                        if child_desired.height == u16::MAX {
-                            child.content_height_for_scroll(viewport_height) as f64
-                        } else {
-                            child_desired.height as f64
-                        }
+                        // Auto uses intrinsic height based on resolved width
+                        child.intrinsic_height_for_width(child_width_u16) as f64
                     }
                 }
             } else if child_desired.height == u16::MAX {
                 // No CSS height, child wants to fill - recurse
-                child.content_height_for_scroll(viewport_height) as f64
+                child.content_height_for_scroll(available_width, viewport_height) as f64
             } else {
-                child_desired.height as f64
+                // No CSS height - use intrinsic height based on available width
+                child
+                    .intrinsic_height_for_width(child_width_u16)
+                    as f64
             };
 
             // Use floor arithmetic matching the vertical layout:
