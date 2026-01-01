@@ -12,11 +12,11 @@ use std::cell::RefCell;
 use crate::canvas::{Canvas, Region, Size};
 use crate::scroll::{ScrollMessage, ScrollState};
 use crate::scrollbar::ScrollBarRender;
-use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::widget::Widget;
-use crate::{KeyCode, MouseEvent, MouseEventKind};
-use tcss::types::{Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility};
+use crate::widget::scrollbar_corner::ScrollBarCorner;
+use crate::{KeyCode, KeyModifiers, MouseEvent, MouseEventKind};
 use tcss::ComputedStyle;
+use tcss::types::{Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility};
 
 /// Scroll amount for single scroll events (arrow keys).
 /// Matches Python Textual's behavior of scrolling 1 line per key press.
@@ -230,8 +230,24 @@ impl<M> ScrollableContainer<M> {
     /// Uses interior mutability so it can be called from render().
     fn update_scroll_dimensions(&self, content_region: Region) {
         let content_size = self.content().desired_size();
+
+        // Calculate effective dimensions (same logic as render)
+        let effective_width = if content_size.width == u16::MAX {
+            self.content()
+                .content_width_for_scroll(content_region.width as u16) as i32
+        } else {
+            content_size.width as i32
+        };
+
+        let effective_height = if content_size.height == u16::MAX {
+            self.content()
+                .content_height_for_scroll(content_region.height as u16) as i32
+        } else {
+            content_size.height as i32
+        };
+
         let mut scroll = self.scroll.borrow_mut();
-        scroll.set_virtual_size(content_size.width as i32, content_size.height as i32);
+        scroll.set_virtual_size(effective_width, effective_height);
         scroll.set_viewport(content_region.width, content_region.height);
     }
 
@@ -239,9 +255,15 @@ impl<M> ScrollableContainer<M> {
     fn vertical_colors(&self) -> (tcss::types::RgbaColor, tcss::types::RgbaColor) {
         let style = self.scrollbar_style();
         if self.scrollbar_drag.map(|(v, _)| v).unwrap_or(false) {
-            (style.effective_color_active(), style.effective_background_active())
+            (
+                style.effective_color_active(),
+                style.effective_background_active(),
+            )
         } else if self.scrollbar_hover == Some(true) {
-            (style.effective_color_hover(), style.effective_background_hover())
+            (
+                style.effective_color_hover(),
+                style.effective_background_hover(),
+            )
         } else {
             (style.effective_color(), style.effective_background())
         }
@@ -251,9 +273,15 @@ impl<M> ScrollableContainer<M> {
     fn horizontal_colors(&self) -> (tcss::types::RgbaColor, tcss::types::RgbaColor) {
         let style = self.scrollbar_style();
         if self.scrollbar_drag.map(|(v, _)| !v).unwrap_or(false) {
-            (style.effective_color_active(), style.effective_background_active())
+            (
+                style.effective_color_active(),
+                style.effective_background_active(),
+            )
         } else if self.scrollbar_hover == Some(false) {
-            (style.effective_color_hover(), style.effective_background_hover())
+            (
+                style.effective_color_hover(),
+                style.effective_background_hover(),
+            )
         } else {
             (style.effective_color(), style.effective_background())
         }
@@ -279,64 +307,63 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         // This fixes keyboard-only scrolling and overflow:auto decisions on first render
         let content_size = self.content().desired_size();
 
-        // Handle u16::MAX (signal for "fill available space") - use actual content height
-        // When widgets have flexible heights (fr, %, etc), desired_size returns u16::MAX
-        // which would incorrectly allow scrolling to position 65535. Instead, use the
-        // content's intrinsic size for scrolling calculations.
-        let effective_height = if content_size.height == u16::MAX {
-            // Get the intrinsic content height from the widget
-            let h = self.content().content_height_for_scroll(inner_region.height as u16) as i32;
-            log::debug!(
-                "ScrollableContainer: content_size.height=MAX, content_height_for_scroll({})={}, inner_region.height={}",
-                inner_region.height, h, inner_region.height
-            );
-            h
-        } else {
-            log::debug!(
-                "ScrollableContainer: content_size.height={}, inner_region.height={}",
-                content_size.height, inner_region.height
-            );
-            content_size.height as i32
-        };
+        // Handle u16::MAX (signal for "fill available space") - use actual content size
+        // When widgets have flexible sizes (fr, %, etc), desired_size returns u16::MAX
+        // which would incorrectly allow scrolling. Instead, use the widget's intrinsic size.
+        //
+        // We need to handle the chicken-and-egg problem:
+        // - Content width determines if we need horizontal scrollbar
+        // - Horizontal scrollbar reduces available height for content
+        // - So we calculate width first, then height with scrollbar accounted for
+
+        let style = self.scrollbar_style();
+
+        // First, calculate effective width to determine if we need horizontal scrollbar
         let effective_width = if content_size.width == u16::MAX {
-            inner_region.width
+            self.content()
+                .content_width_for_scroll(inner_region.width as u16) as i32
         } else {
             content_size.width as i32
+        };
+
+        // Determine if horizontal scrollbar will be shown
+        let needs_h_scrollbar = match self.style.overflow_x {
+            Overflow::Scroll => true,
+            Overflow::Auto => effective_width > inner_region.width,
+            Overflow::Hidden => false,
+        };
+        let h_scrollbar_size = if needs_h_scrollbar {
+            style.size.horizontal as i32
+        } else {
+            0
+        };
+
+        // Calculate effective height, accounting for horizontal scrollbar if needed
+        let available_height = (inner_region.height - h_scrollbar_size).max(0) as u16;
+        let effective_height = if content_size.height == u16::MAX {
+            self.content().content_height_for_scroll(available_height) as i32
+        } else {
+            content_size.height as i32
+        };
+
+        // Determine if vertical scrollbar will be shown
+        let needs_v_scrollbar = match self.style.overflow_y {
+            Overflow::Scroll => true,
+            Overflow::Auto => effective_height > available_height as i32,
+            Overflow::Hidden => false,
+        };
+        let v_scrollbar_size = if needs_v_scrollbar {
+            style.size.vertical as i32
+        } else {
+            0
         };
 
         {
             let mut scroll = self.scroll.borrow_mut();
             scroll.set_virtual_size(effective_width, effective_height);
-            // We need to estimate content region size before calling content_region()
-            // to avoid chicken-and-egg problem with scrollbar visibility
-            let style = self.scrollbar_style();
-            let est_v_size = match self.style.overflow_y {
-                Overflow::Scroll => style.size.vertical as i32,
-                Overflow::Auto => {
-                    // If content is taller than inner_region, we'll need scrollbar
-                    // Use effective_height for flexible content
-                    if effective_height > inner_region.height {
-                        style.size.vertical as i32
-                    } else {
-                        0
-                    }
-                }
-                Overflow::Hidden => 0,
-            };
-            let est_h_size = match self.style.overflow_x {
-                Overflow::Scroll => style.size.horizontal as i32,
-                Overflow::Auto => {
-                    if content_size.width as i32 > inner_region.width {
-                        style.size.horizontal as i32
-                    } else {
-                        0
-                    }
-                }
-                Overflow::Hidden => 0,
-            };
             scroll.set_viewport(
-                (inner_region.width - est_v_size).max(0),
-                (inner_region.height - est_h_size).max(0),
+                (inner_region.width - v_scrollbar_size).max(0),
+                (inner_region.height - h_scrollbar_size).max(0),
             );
         }
 
@@ -346,13 +373,21 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         let scroll = self.scroll.borrow();
         log::trace!(
             "ScrollableContainer::render - inner_region: ({}, {}, {}, {}), content_region: ({}, {}, {}, {})",
-            inner_region.x, inner_region.y, inner_region.width, inner_region.height,
-            content_region.x, content_region.y, content_region.width, content_region.height
+            inner_region.x,
+            inner_region.y,
+            inner_region.width,
+            inner_region.height,
+            content_region.x,
+            content_region.y,
+            content_region.width,
+            content_region.height
         );
         log::trace!(
             "  scroll offset: ({}, {}), content_size: ({}, {})",
-            scroll.offset_x, scroll.offset_y,
-            content_size.width, content_size.height
+            scroll.offset_x,
+            scroll.offset_y,
+            content_size.width,
+            content_size.height
         );
         log::trace!(
             "  show_vertical: {}, show_horizontal: {}, style.scrollbar.size: ({}, {})",
@@ -381,17 +416,22 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         let virtual_width = scroll_ref.virtual_width;
         drop(scroll_ref);
 
+        // For layout, use viewport width for percentage calculations (e.g., width: 50% means 50% of viewport).
+        // Individual elements with min-width can extend beyond this, but percentages should be relative to viewport.
+        // Use virtual_height for height since vertical scrolling uses the full content height.
         let content_render_region = Region {
             x: content_region.x - offset_x,
             y: content_region.y - offset_y,
-            width: virtual_width.max(content_region.width),  // At least viewport width
-            height: virtual_height.max(content_region.height), // Full content height for layout
+            width: content_region.width, // Use viewport width for percentage-based layouts
+            height: virtual_height.max(content_region.height), // Full content height for vertical layout
         };
 
         log::trace!(
             "  content_render_region: ({}, {}, {}, {})",
-            content_render_region.x, content_render_region.y,
-            content_render_region.width, content_render_region.height
+            content_render_region.x,
+            content_render_region.y,
+            content_render_region.width,
+            content_render_region.height
         );
 
         self.content().render(canvas, content_render_region);
@@ -435,10 +475,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         if self.show_vertical_scrollbar() && self.show_horizontal_scrollbar() {
             let corner_region = self.corner_region(inner_region);
             let style = self.scrollbar_style();
-            let corner = ScrollBarCorner::new(
-                style.size.vertical,
-                style.size.horizontal,
-            );
+            let corner = ScrollBarCorner::new(style.size.vertical, style.size.horizontal);
             <ScrollBarCorner as Widget<M>>::render(&corner, canvas, corner_region);
         }
     }
@@ -546,6 +583,24 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         let on_vertical = self.show_vertical_scrollbar() && v_region.contains_point(mx, my);
         let on_horizontal = self.show_horizontal_scrollbar() && h_region.contains_point(mx, my);
 
+        // Debug mouse events
+        if matches!(event.kind, MouseEventKind::Down(_)) {
+            log::info!("MOUSE DOWN: mx={}, my={}", mx, my);
+            log::info!(
+                "  h_region: x={}, y={}, w={}, h={}",
+                h_region.x,
+                h_region.y,
+                h_region.width,
+                h_region.height
+            );
+            log::info!(
+                "  show_horizontal={}, contains_point={}, on_horizontal={}",
+                self.show_horizontal_scrollbar(),
+                h_region.contains_point(mx, my),
+                on_horizontal
+            );
+        }
+
         match event.kind {
             MouseEventKind::Moved => {
                 // Handle drag
@@ -613,21 +668,36 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             }
 
             MouseEventKind::ScrollDown => {
-                self.handle_scroll(ScrollMessage::ScrollDown);
+                // Shift or Ctrl + scroll converts vertical scroll to horizontal
+                if event.modifiers.contains(KeyModifiers::SHIFT)
+                    || event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    self.handle_scroll(ScrollMessage::ScrollRight);
+                } else {
+                    self.handle_scroll(ScrollMessage::ScrollDown);
+                }
                 None
             }
 
             MouseEventKind::ScrollUp => {
-                self.handle_scroll(ScrollMessage::ScrollUp);
+                // Shift or Ctrl + scroll converts vertical scroll to horizontal
+                if event.modifiers.contains(KeyModifiers::SHIFT)
+                    || event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    self.handle_scroll(ScrollMessage::ScrollLeft);
+                } else {
+                    self.handle_scroll(ScrollMessage::ScrollUp);
+                }
                 None
             }
 
-            _ => {
-                // Pass other events to content if in content area
-                if content_region.contains_point(mx, my) {
-                    let scrolled = self.scrolled_content_region(content_region);
-                    return self.content_mut().on_mouse(event, scrolled);
-                }
+            MouseEventKind::ScrollLeft => {
+                self.handle_scroll(ScrollMessage::ScrollLeft);
+                None
+            }
+
+            MouseEventKind::ScrollRight => {
+                self.handle_scroll(ScrollMessage::ScrollRight);
                 None
             }
         }
@@ -650,7 +720,9 @@ impl<M> Widget<M> for ScrollableContainer<M> {
     }
 
     fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
-        self.children.get_mut(index).map(|c| c.as_mut() as &mut dyn Widget<M>)
+        self.children
+            .get_mut(index)
+            .map(|c| c.as_mut() as &mut dyn Widget<M>)
     }
 
     fn clear_hover(&mut self) {
@@ -711,7 +783,11 @@ impl<M> ScrollableContainer<M> {
     }
 
     /// Handle click on horizontal scrollbar.
-    fn handle_horizontal_scrollbar_click(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+    fn handle_horizontal_scrollbar_click(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<M> {
         let mx = event.column as i32;
         let pos_in_bar = mx - region.x;
 
@@ -723,14 +799,33 @@ impl<M> ScrollableContainer<M> {
             scroll.viewport_width as f32,
             scroll.offset_x as f32,
         );
+        let offset_x = scroll.offset_x;
+        let virtual_width = scroll.virtual_width;
+        let viewport_width = scroll.viewport_width;
         drop(scroll);
+
+        log::info!(
+            "H-SCROLLBAR CLICK: mx={}, region.x={}, pos_in_bar={}",
+            mx,
+            region.x,
+            pos_in_bar
+        );
+        log::info!("  thumb_bounds: start={}, end={}", thumb_start, thumb_end);
+        log::info!(
+            "  scroll state: offset_x={}, virtual_width={}, viewport_width={}",
+            offset_x,
+            virtual_width,
+            viewport_width
+        );
 
         if pos_in_bar >= thumb_start && pos_in_bar < thumb_end {
             // Start drag
+            log::info!("  -> Starting DRAG");
             self.scrollbar_drag = Some((false, pos_in_bar - thumb_start));
             self.dirty = true;
         } else if pos_in_bar < thumb_start {
             // Click left of thumb - page scroll left
+            log::info!("  -> Scroll LEFT");
             let mut scroll = self.scroll.borrow_mut();
             let amount = (scroll.viewport_width as f32 * PAGE_SCROLL_RATIO) as i32;
             scroll.scroll_left(amount);
@@ -738,6 +833,7 @@ impl<M> ScrollableContainer<M> {
             self.dirty = true;
         } else {
             // Click right of thumb - page scroll right
+            log::info!("  -> Scroll RIGHT");
             let mut scroll = self.scroll.borrow_mut();
             let amount = (scroll.viewport_width as f32 * PAGE_SCROLL_RATIO) as i32;
             scroll.scroll_right(amount);

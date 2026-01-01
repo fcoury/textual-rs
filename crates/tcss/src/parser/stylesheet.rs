@@ -212,6 +212,8 @@ pub enum Declaration {
     MaxWidth(Scalar),
     /// The `min-height` property for minimum element height.
     MinHeight(Scalar),
+    /// The `min-width` property for minimum element width.
+    MinWidth(Scalar),
     /// The `margin` property for outer spacing.
     Margin(Spacing),
     /// The `margin-top` property for top outer spacing.

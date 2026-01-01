@@ -226,6 +226,23 @@ impl<M> Container<M> {
         }
     }
 
+    /// Calculate the horizontal scrollbar region.
+    fn horizontal_scrollbar_region(&self, region: Region) -> Region {
+        let style = &self.style.scrollbar;
+        let v_size = if self.show_vertical_scrollbar() {
+            style.size.vertical as i32
+        } else {
+            0
+        };
+
+        Region {
+            x: region.x,
+            y: region.y + region.height - style.size.horizontal as i32,
+            width: (region.width - v_size).max(0),
+            height: style.size.horizontal as i32,
+        }
+    }
+
     /// Get colors for vertical scrollbar based on hover/drag state.
     fn vertical_colors(&self) -> (RgbaColor, RgbaColor) {
         let style = &self.style.scrollbar;
@@ -235,6 +252,24 @@ impl<M> Container<M> {
                 style.effective_background_active(),
             )
         } else if self.scrollbar_hover == Some(true) {
+            (
+                style.effective_color_hover(),
+                style.effective_background_hover(),
+            )
+        } else {
+            (style.effective_color(), style.effective_background())
+        }
+    }
+
+    /// Get colors for horizontal scrollbar based on hover/drag state.
+    fn horizontal_colors(&self) -> (RgbaColor, RgbaColor) {
+        let style = &self.style.scrollbar;
+        if self.scrollbar_drag.map(|(v, _)| !v).unwrap_or(false) {
+            (
+                style.effective_color_active(),
+                style.effective_background_active(),
+            )
+        } else if self.scrollbar_hover == Some(false) {
             (
                 style.effective_color_hover(),
                 style.effective_background_hover(),
@@ -705,17 +740,23 @@ Container {
         // First compute placements to determine virtual content height
         let initial_placements = self.compute_child_placements(inner_region, viewport);
 
-        // Calculate virtual content height from placements (max y + height relative to inner_region)
+        // Calculate virtual content dimensions from placements (max extent relative to inner_region)
         let virtual_height = initial_placements
             .iter()
             .map(|p| (p.region.y - inner_region.y) + p.region.height)
             .max()
             .unwrap_or(0);
 
+        let virtual_width = initial_placements
+            .iter()
+            .map(|p| (p.region.x - inner_region.x) + p.region.width)
+            .max()
+            .unwrap_or(0);
+
         // Update scroll state with virtual size and viewport
         {
             let mut scroll = self.scroll.borrow_mut();
-            scroll.set_virtual_size(inner_region.width, virtual_height);
+            scroll.set_virtual_size(virtual_width, virtual_height);
             scroll.set_viewport(inner_region.width, inner_region.height);
         }
 
@@ -724,23 +765,29 @@ Container {
         let content_region = self.content_region_for_scroll(inner_region);
 
         // If scrollbar visibility changed the content width, we need to recompute placements
-        // and update virtual_height (important for width-based units like `w` in min-height: 40w)
+        // and update virtual dimensions (important for width-based units like `w` in min-height: 40w)
         let placements = if show_v_scrollbar && content_region.width < inner_region.width {
             // Invalidate cache since we need to recalculate with smaller width
             *self.cached_layout.borrow_mut() = None;
             let new_placements = self.compute_child_placements(content_region, viewport);
 
-            // Recalculate virtual_height with the new placements (content_region based)
+            // Recalculate virtual dimensions with the new placements (content_region based)
             let new_virtual_height = new_placements
                 .iter()
                 .map(|p| (p.region.y - content_region.y) + p.region.height)
                 .max()
                 .unwrap_or(0);
 
-            // Update scroll state with corrected virtual height
+            let new_virtual_width = new_placements
+                .iter()
+                .map(|p| (p.region.x - content_region.x) + p.region.width)
+                .max()
+                .unwrap_or(0);
+
+            // Update scroll state with corrected virtual dimensions
             {
                 let mut scroll = self.scroll.borrow_mut();
-                scroll.set_virtual_size(content_region.width, new_virtual_height);
+                scroll.set_virtual_size(new_virtual_width, new_virtual_height);
                 scroll.set_viewport(content_region.width, content_region.height);
             }
 
@@ -749,8 +796,11 @@ Container {
             initial_placements
         };
 
-        // Get scroll offset for rendering
-        let offset_y = self.scroll.borrow().offset_y;
+        // Get scroll offsets for rendering
+        let (offset_x, offset_y) = {
+            let scroll = self.scroll.borrow();
+            (scroll.offset_x, scroll.offset_y)
+        };
 
         // 6. Render children with scroll offset applied
         canvas.push_clip(content_region);
@@ -763,16 +813,19 @@ Container {
 
             // Apply scroll offset to child region
             let scrolled_region = Region {
-                x: placement.region.x,
+                x: placement.region.x - offset_x,
                 y: placement.region.y - offset_y,
                 width: placement.region.width,
                 height: placement.region.height,
             };
 
-            // Only render if at least partially visible
-            if scrolled_region.y + scrolled_region.height > content_region.y
-                && scrolled_region.y < content_region.y + content_region.height
-            {
+            // Only render if at least partially visible (both horizontally and vertically)
+            let visible_h = scrolled_region.x + scrolled_region.width > content_region.x
+                && scrolled_region.x < content_region.x + content_region.width;
+            let visible_v = scrolled_region.y + scrolled_region.height > content_region.y
+                && scrolled_region.y < content_region.y + content_region.height;
+
+            if visible_h && visible_v {
                 child.render(canvas, scrolled_region);
             }
         }
@@ -796,6 +849,24 @@ Container {
                 scroll.virtual_height as f32,
                 content_region.height as f32,
                 scroll.offset_y as f32,
+                thumb_color,
+                track_color,
+            );
+        }
+
+        // 9. Render horizontal scrollbar if needed
+        let show_h_scrollbar = self.show_horizontal_scrollbar();
+        if show_h_scrollbar {
+            let h_region = self.horizontal_scrollbar_region(inner_region);
+            let (thumb_color, track_color) = self.horizontal_colors();
+            let scroll = self.scroll.borrow();
+
+            ScrollBarRender::render_horizontal(
+                canvas,
+                h_region,
+                scroll.virtual_width as f32,
+                content_region.width as f32,
+                scroll.offset_x as f32,
                 thumb_color,
                 track_color,
             );
@@ -931,6 +1002,164 @@ Container {
             .saturating_add(padding_v);
 
         result
+    }
+
+    fn content_width_for_scroll(&self, _available_width: u16) -> u16 {
+        use tcss::types::Unit;
+
+        // Calculate actual content width for scrolling, resolving percentage/fr units
+        // This is used when desired_size returns u16::MAX (fill available space)
+        // Use stored viewport dimensions to match layout calculations
+        let viewport_width = self.viewport.width;
+        let viewport_height = self.viewport.height;
+
+        // Determine layout direction
+        let is_horizontal = self.effective_layout() == LayoutDirection::Horizontal;
+
+        if is_horizontal {
+            // For horizontal layout, sum up all child widths (with floor arithmetic)
+            let mut current_x: f64 = 0.0;
+
+            for child in &self.children {
+                if !child.participates_in_layout() {
+                    continue;
+                }
+                let child_style = child.get_style();
+                let child_desired = child.desired_size();
+
+                // Calculate child width based on its CSS width property (as f64)
+                let mut box_width: f64 = if let Some(w) = &child_style.width {
+                    match w.unit {
+                        Unit::Cells => w.value,
+                        Unit::Percent | Unit::Width => {
+                            (w.value / 100.0) * viewport_width as f64
+                        }
+                        Unit::Height => {
+                            (w.value / 100.0) * viewport_height as f64
+                        }
+                        Unit::ViewWidth => (w.value / 100.0) * viewport_width as f64,
+                        Unit::ViewHeight => (w.value / 100.0) * viewport_height as f64,
+                        Unit::Fraction => {
+                            // fr units use their value as minimum width for scroll estimation
+                            w.value.max(1.0)
+                        }
+                        Unit::Auto => {
+                            // Auto uses intrinsic width
+                            if child_desired.width == u16::MAX {
+                                child.content_width_for_scroll(viewport_width) as f64
+                            } else {
+                                child_desired.width as f64
+                            }
+                        }
+                    }
+                } else if child_desired.width == u16::MAX {
+                    // No CSS width, child wants to fill - recurse
+                    child.content_width_for_scroll(viewport_width) as f64
+                } else {
+                    child_desired.width as f64
+                };
+
+                // Apply min-width constraint
+                if let Some(min_w) = &child_style.min_width {
+                    let min_width_px: f64 = match min_w.unit {
+                        Unit::Cells => min_w.value,
+                        Unit::Percent | Unit::Width => {
+                            (min_w.value / 100.0) * viewport_width as f64
+                        }
+                        Unit::Height => {
+                            (min_w.value / 100.0) * viewport_height as f64
+                        }
+                        Unit::ViewWidth => (min_w.value / 100.0) * viewport_width as f64,
+                        Unit::ViewHeight => (min_w.value / 100.0) * viewport_height as f64,
+                        _ => min_w.value,
+                    };
+                    box_width = box_width.max(min_width_px);
+                }
+
+                current_x += box_width;
+            }
+
+            // Total width is floor of final X position
+            let total_width = current_x.floor() as u16;
+
+            // Add container chrome (border + padding)
+            let border_size = if self.style.border.is_none() { 0 } else { 2 };
+            let padding_h =
+                self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+            total_width
+                .saturating_add(border_size)
+                .saturating_add(padding_h)
+        } else {
+            // For vertical layout, find the maximum child width (with min-width applied)
+            let mut max_width: f64 = 0.0;
+
+            for child in &self.children {
+                if !child.participates_in_layout() {
+                    continue;
+                }
+                let child_style = child.get_style();
+                let child_desired = child.desired_size();
+
+                // Calculate child width based on its CSS width property
+                let mut box_width: f64 = if let Some(w) = &child_style.width {
+                    match w.unit {
+                        Unit::Cells => w.value,
+                        Unit::Percent | Unit::Width => {
+                            (w.value / 100.0) * viewport_width as f64
+                        }
+                        Unit::Height => {
+                            (w.value / 100.0) * viewport_height as f64
+                        }
+                        Unit::ViewWidth => (w.value / 100.0) * viewport_width as f64,
+                        Unit::ViewHeight => (w.value / 100.0) * viewport_height as f64,
+                        Unit::Fraction => {
+                            // fr units - for max calculation, use the viewport width
+                            viewport_width as f64
+                        }
+                        Unit::Auto => {
+                            if child_desired.width == u16::MAX {
+                                child.content_width_for_scroll(viewport_width) as f64
+                            } else {
+                                child_desired.width as f64
+                            }
+                        }
+                    }
+                } else if child_desired.width == u16::MAX {
+                    child.content_width_for_scroll(viewport_width) as f64
+                } else {
+                    child_desired.width as f64
+                };
+
+                // Apply min-width constraint
+                if let Some(min_w) = &child_style.min_width {
+                    let min_width_px: f64 = match min_w.unit {
+                        Unit::Cells => min_w.value,
+                        Unit::Percent | Unit::Width => {
+                            (min_w.value / 100.0) * viewport_width as f64
+                        }
+                        Unit::Height => {
+                            (min_w.value / 100.0) * viewport_height as f64
+                        }
+                        Unit::ViewWidth => (min_w.value / 100.0) * viewport_width as f64,
+                        Unit::ViewHeight => (min_w.value / 100.0) * viewport_height as f64,
+                        _ => min_w.value,
+                    };
+                    box_width = box_width.max(min_width_px);
+                }
+
+                max_width = max_width.max(box_width);
+            }
+
+            let total_width = max_width.floor() as u16;
+
+            // Add container chrome (border + padding)
+            let border_size = if self.style.border.is_none() { 0 } else { 2 };
+            let padding_h =
+                self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+            total_width
+                .saturating_add(border_size)
+                .saturating_add(padding_h)
+        }
     }
 
     fn get_meta(&self) -> WidgetMeta {

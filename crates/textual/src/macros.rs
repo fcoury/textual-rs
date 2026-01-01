@@ -192,6 +192,10 @@ macro_rules! impl_widget_delegation {
             fn content_height_for_scroll(&self, available_height: u16) -> u16 {
                 self.$field.content_height_for_scroll(available_height)
             }
+
+            fn content_width_for_scroll(&self, available_width: u16) -> u16 {
+                self.$field.content_width_for_scroll(available_width)
+            }
         }
     };
 }

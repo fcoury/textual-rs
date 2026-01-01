@@ -152,6 +152,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "max-height" => map(units::parse_scalar, Declaration::MaxHeight)(input)?,
         "max-width" => map(units::parse_scalar, Declaration::MaxWidth)(input)?,
         "min-height" => map(units::parse_scalar, Declaration::MinHeight)(input)?,
+        "min-width" => map(units::parse_scalar, Declaration::MinWidth)(input)?,
         "margin" => map(units::parse_spacing, Declaration::Margin)(input)?,
         "margin-top" => map(units::parse_scalar, Declaration::MarginTop)(input)?,
         "margin-right" => map(units::parse_scalar, Declaration::MarginRight)(input)?,

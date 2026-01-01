@@ -211,15 +211,15 @@ impl ScrollBarRender {
 
                 // Determine glyph and colors based on position
                 let (glyph, fg, bg) = if x_offset == start_index && start_bar > 0 {
-                    // Left edge with gradient
+                    // Left edge with gradient - fg=track (left part), bg=thumb (right part)
                     let bar_char = ScrollbarGlyphs::HORIZONTAL[start_bar];
-                    (bar_char, Some(thumb_color.clone()), Some(track_color.clone()))
+                    (bar_char, Some(track_color.clone()), Some(thumb_color.clone()))
                 } else if x_offset == end_index && end_bar > 0 && x_offset > start_index {
-                    // Right edge with gradient
+                    // Right edge with gradient - fg=thumb (left part), bg=track (right part)
                     let inverse_bar = (len_bars as usize) - end_bar;
                     if inverse_bar < ScrollbarGlyphs::HORIZONTAL.len() {
                         let bar_char = ScrollbarGlyphs::HORIZONTAL[inverse_bar];
-                        (bar_char, Some(track_color.clone()), Some(thumb_color.clone()))
+                        (bar_char, Some(thumb_color.clone()), Some(track_color.clone()))
                     } else {
                         (ScrollbarGlyphs::BODY, Some(thumb_color.clone()), Some(thumb_color.clone()))
                     }

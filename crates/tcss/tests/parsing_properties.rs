@@ -593,11 +593,14 @@ fn test_property_overflow_y_scroll() {
 }
 
 #[test]
-#[ignore = "min-width property not yet implemented"]
 fn test_property_min_width() {
     let decl = parse_first_declaration("Button { min-width: 10; }");
-    // Should parse as Declaration::MinWidth(Scalar)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    if let Declaration::MinWidth(s) = decl {
+        assert_eq!(s.value, 10.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected MinWidth declaration, got {:?}", decl);
+    }
 }
 
 #[test]

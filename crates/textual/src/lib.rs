@@ -26,7 +26,7 @@ pub mod visual;
 pub mod widget;
 
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, EventStream};
-pub use crossterm::event::{Event, KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
+pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use crossterm::{cursor, execute, terminal};
 use futures::StreamExt;
 use std::collections::{HashSet, VecDeque};
