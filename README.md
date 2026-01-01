@@ -87,15 +87,17 @@ Text display widget with semantic variants and rich markup support.
 
 ```rust
 // Plain text
-Label { "Hello, world!" }
+Label("Hello, world!")
 
-// With variant
-Label { variant: LabelVariant::Success, "Operation complete" }
-Label { variant: LabelVariant::Error, "Something went wrong" }
-Label { variant: LabelVariant::Warning, "Proceed with caution" }
+// With ID and classes
+Label("My border is solid red", id: "label1")
+Label("Vertical alignment with [b]Textual[/]", classes: "box")
 
 // With rich markup
-Label { "[bold]Bold[/], [italic red]italic red[/], [underline]underlined[/]" }
+Label("[bold]Bold[/], [italic red]italic red[/], [underline]underlined[/]")
+
+// With semantic variant (using builder pattern)
+Label::new("Operation complete").with_variant(LabelVariant::Success)
 ```
 
 **Variants:** `Default`, `Primary`, `Secondary`, `Success`, `Error`, `Warning`, `Accent`
@@ -105,7 +107,7 @@ Label { "[bold]Bold[/], [italic red]italic red[/], [underline]underlined[/]" }
 Base widget for displaying updateable content. Supports rich markup and dynamic updates.
 
 ```rust
-Static { id: "status", "Initial content" }
+Static("Initial content", id: "status")
 
 // Update later via message handling
 widget.update("[green]Updated![/]");
@@ -116,8 +118,8 @@ widget.update("[green]Updated![/]");
 Interactive toggle with keyboard and mouse support.
 
 ```rust
-Switch { id: "dark-mode", value: true }
-Switch { id: "notifications", value: false }
+Switch(true, Message::DarkModeToggled, id: "dark-mode")
+Switch(false, Message::NotificationsToggled, id: "notifications")
 ```
 
 ### Placeholder
@@ -125,7 +127,8 @@ Switch { id: "notifications", value: false }
 Debug widget that displays its size and ID — useful during layout development.
 
 ```rust
-Placeholder { id: "debug" }
+Placeholder(id: "debug")
+Placeholder(id: "p1", label: "min-height: 25%")
 ```
 
 ### Container
@@ -133,9 +136,9 @@ Placeholder { id: "debug" }
 Base wrapper with border, background, and padding support.
 
 ```rust
-Container [
-    Label { "Wrapped content" }
-]
+Container(id: "my-container") {
+    Label("Wrapped content")
+}
 ```
 
 ## Layouts
@@ -145,11 +148,11 @@ Container [
 Stack widgets top-to-bottom.
 
 ```rust
-Vertical [
-    Label { "First" }
-    Label { "Second" }
-    Label { "Third" }
-]
+Vertical {
+    Label("First")
+    Label("Second")
+    Label("Third")
+}
 ```
 
 ### Horizontal
@@ -157,11 +160,11 @@ Vertical [
 Stack widgets left-to-right.
 
 ```rust
-Horizontal [
-    Label { "Left" }
-    Label { "Center" }
-    Label { "Right" }
-]
+Horizontal {
+    Label("Left")
+    Label("Center")
+    Label("Right")
+}
 ```
 
 ### Grid
@@ -169,7 +172,16 @@ Horizontal [
 CSS Grid-inspired layout with rows and columns.
 
 ```rust
-// In TCSS
+Grid {
+    Static("Cell 1", id: "cell1")
+    Static("Cell 2", id: "cell2")
+    Static("Cell 3", id: "cell3")
+}
+```
+
+Configure grid layout via TCSS:
+
+```css
 Grid {
     grid-columns: 1fr 2fr 1fr;
     grid-rows: auto 1fr auto;
@@ -364,10 +376,10 @@ Screen.-wide #sidebar {
 Style text inline using bracket notation:
 
 ```rust
-Label { "[bold]Bold text[/]" }
-Label { "[italic red on blue]Styled text[/]" }
-Label { "[underline]Underlined[/] and [strike]strikethrough[/]" }
-Label { "[dim]Dimmed[/] and [reverse]reversed[/]" }
+Label("[bold]Bold text[/]")
+Label("[italic red on blue]Styled text[/]")
+Label("[underline]Underlined[/] and [strike]strikethrough[/]")
+Label("[dim]Dimmed[/] and [reverse]reversed[/]")
 ```
 
 **Supported attributes:**
