@@ -601,11 +601,14 @@ fn test_property_min_width() {
 }
 
 #[test]
-#[ignore = "max-height property not yet implemented"]
 fn test_property_max_height() {
     let decl = parse_first_declaration("Button { max-height: 100; }");
-    // Should parse as Declaration::MaxHeight(Scalar)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    if let Declaration::MaxHeight(s) = decl {
+        assert_eq!(s.value, 100.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected MaxHeight declaration, got {:?}", decl);
+    }
 }
 
 // ============================================================================

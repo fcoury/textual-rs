@@ -173,6 +173,20 @@ impl Layout for HorizontalLayout {
                 available.height
             };
 
+            // Apply max-height constraint
+            let height = if let Some(max_h) = &child_style.max_height {
+                let max_height_value = match max_h.unit {
+                    Unit::Cells => max_h.value as i32,
+                    Unit::Percent => ((max_h.value / 100.0) * available.height as f64) as i32,
+                    Unit::Width => ((max_h.value / 100.0) * available.width as f64) as i32,
+                    Unit::Height => ((max_h.value / 100.0) * available.height as f64) as i32,
+                    _ => max_h.value as i32,
+                };
+                height.min(max_height_value)
+            } else {
+                height
+            };
+
             // Get margins for positioning
             let margin_left = child_style.margin.left.value as i32;
             let margin_right = child_style.margin.right.value as i32;

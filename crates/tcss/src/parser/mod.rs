@@ -149,6 +149,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "background-tint" => map(values::parse_color, Declaration::BackgroundTint)(input)?,
         "width" => map(units::parse_scalar, Declaration::Width)(input)?,
         "height" => map(units::parse_scalar, Declaration::Height)(input)?,
+        "max-height" => map(units::parse_scalar, Declaration::MaxHeight)(input)?,
         "margin" => map(units::parse_spacing, Declaration::Margin)(input)?,
         "margin-top" => map(units::parse_scalar, Declaration::MarginTop)(input)?,
         "margin-right" => map(units::parse_scalar, Declaration::MarginRight)(input)?,
