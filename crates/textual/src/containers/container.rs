@@ -5,12 +5,12 @@
 
 use std::cell::RefCell;
 
-use tcss::types::keyline::KeylineStyle;
 use tcss::types::Layout as LayoutDirection;
 use tcss::types::Overflow;
 use tcss::types::RgbaColor;
 use tcss::types::ScrollbarGutter;
 use tcss::types::Visibility;
+use tcss::types::keyline::KeylineStyle;
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, Size};
@@ -102,7 +102,11 @@ impl<M> Container<M> {
 
     /// Set CSS classes (space-separated).
     pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
-        self.classes = classes.into().split_whitespace().map(String::from).collect();
+        self.classes = classes
+            .into()
+            .split_whitespace()
+            .map(String::from)
+            .collect();
         self
     }
 
@@ -182,14 +186,6 @@ impl<M> Container<M> {
         }
     }
 
-    /// Get scrollbar sizes from style.
-    fn scrollbar_size(&self) -> (u16, u16) {
-        (
-            self.style.scrollbar.size.vertical,
-            self.style.scrollbar.size.horizontal,
-        )
-    }
-
     /// Calculate content region with scrollbar space subtracted.
     fn content_region_for_scroll(&self, region: Region) -> Region {
         let style = &self.style.scrollbar;
@@ -198,7 +194,8 @@ impl<M> Container<M> {
         } else {
             0
         };
-        let h_size = if self.show_horizontal_scrollbar() || style.gutter == ScrollbarGutter::Stable {
+        let h_size = if self.show_horizontal_scrollbar() || style.gutter == ScrollbarGutter::Stable
+        {
             style.size.horizontal as i32
         } else {
             0
@@ -233,9 +230,15 @@ impl<M> Container<M> {
     fn vertical_colors(&self) -> (RgbaColor, RgbaColor) {
         let style = &self.style.scrollbar;
         if self.scrollbar_drag.map(|(v, _)| v).unwrap_or(false) {
-            (style.effective_color_active(), style.effective_background_active())
+            (
+                style.effective_color_active(),
+                style.effective_background_active(),
+            )
         } else if self.scrollbar_hover == Some(true) {
-            (style.effective_color_hover(), style.effective_background_hover())
+            (
+                style.effective_color_hover(),
+                style.effective_background_hover(),
+            )
         } else {
             (style.effective_color(), style.effective_background())
         }
@@ -243,11 +246,7 @@ impl<M> Container<M> {
 
     /// Compute child placements using the appropriate layout algorithm.
     /// Uses caching to avoid recomputation when region/viewport haven't changed.
-    fn compute_child_placements(
-        &self,
-        region: Region,
-        viewport: Viewport,
-    ) -> Vec<WidgetPlacement> {
+    fn compute_child_placements(&self, region: Region, viewport: Viewport) -> Vec<WidgetPlacement> {
         // Check cache first - if region and viewport match, return cached placements
         {
             let cache = self.cached_layout.borrow();
@@ -272,8 +271,12 @@ impl<M> Container<M> {
         effective_style.layout = self.effective_layout();
 
         // Dispatch to layout (handles layers internally when needed)
-        let placements =
-            layouts::arrange_children_with_layers(&effective_style, &children_with_styles, region, viewport);
+        let placements = layouts::arrange_children_with_layers(
+            &effective_style,
+            &children_with_styles,
+            region,
+            viewport,
+        );
 
         // Store in cache
         *self.cached_layout.borrow_mut() = Some(CachedLayout {
@@ -289,7 +292,12 @@ impl<M> Container<M> {
     ///
     /// For horizontal layout: draws outer box + vertical dividers between children
     /// For vertical layout: draws outer box + horizontal dividers between children
-    fn render_keylines(&self, canvas: &mut Canvas, region: Region, placements: &[layouts::WidgetPlacement]) {
+    fn render_keylines(
+        &self,
+        canvas: &mut Canvas,
+        region: Region,
+        placements: &[layouts::WidgetPlacement],
+    ) {
         if placements.is_empty() {
             return;
         }
@@ -312,7 +320,8 @@ impl<M> Container<M> {
 
                 // Add divider positions at the END of each child (which is the START of the next)
                 for placement in placements {
-                    let right_edge = (placement.region.x + placement.region.width - region.x) as usize;
+                    let right_edge =
+                        (placement.region.x + placement.region.width - region.x) as usize;
                     if !col_positions.contains(&right_edge) && right_edge < region.width as usize {
                         col_positions.push(right_edge);
                     }
@@ -341,8 +350,10 @@ impl<M> Container<M> {
 
                 // Add divider positions at the END of each child (which is the START of the next)
                 for placement in placements {
-                    let bottom_edge = (placement.region.y + placement.region.height - region.y) as usize;
-                    if !row_positions.contains(&bottom_edge) && bottom_edge < region.height as usize {
+                    let bottom_edge =
+                        (placement.region.y + placement.region.height - region.y) as usize;
+                    if !row_positions.contains(&bottom_edge) && bottom_edge < region.height as usize
+                    {
                         row_positions.push(bottom_edge);
                     }
                 }
@@ -374,7 +385,8 @@ impl<M> Container<M> {
                     .collect();
 
                 let layout = layouts::GridLayout::default();
-                let track_info = layout.compute_track_info(&self.style, &children_with_styles, region);
+                let track_info =
+                    layout.compute_track_info(&self.style, &children_with_styles, region);
 
                 if track_info.col_positions.len() >= 2 && track_info.row_positions.len() >= 2 {
                     let col_positions: Vec<usize> = track_info
@@ -401,8 +413,10 @@ impl<M> Container<M> {
         if self.children.is_empty() {
             // Empty container: minimal size (account for border)
             let border_size = if self.style.border.is_none() { 0 } else { 2 };
-            let padding_h = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
-            let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+            let padding_h =
+                self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+            let padding_v =
+                self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
             return Size::new(border_size + padding_h, border_size + padding_v);
         }
 
@@ -443,8 +457,16 @@ impl<M> Container<M> {
             }
 
             // Track max dimensions (cap at reasonable max to avoid overflow, but preserve MAX signal)
-            let capped_width = if child_size.width == u16::MAX { 0 } else { child_size.width.min(1000) };
-            let capped_height = if child_size.height == u16::MAX { 0 } else { child_size.height.min(1000) };
+            let capped_width = if child_size.width == u16::MAX {
+                0
+            } else {
+                child_size.width.min(1000)
+            };
+            let capped_height = if child_size.height == u16::MAX {
+                0
+            } else {
+                child_size.height.min(1000)
+            };
 
             let margin_left = child_style.margin.left.value as u16;
             let margin_right = child_style.margin.right.value as u16;
@@ -459,7 +481,9 @@ impl<M> Container<M> {
             } else {
                 // CSS margin collapsing: use max of adjacent margins, not sum
                 let collapsed_margin = margin_left.max(prev_margin_right);
-                total_width = total_width.saturating_add(collapsed_margin).saturating_add(capped_width);
+                total_width = total_width
+                    .saturating_add(collapsed_margin)
+                    .saturating_add(capped_width);
             }
             prev_margin_right = margin_right;
             last_child_margin_right = margin_right;
@@ -472,21 +496,31 @@ impl<M> Container<M> {
             } else {
                 // CSS margin collapsing: use max of adjacent margins, not sum
                 let collapsed_margin = margin_top.max(prev_margin_bottom);
-                total_height = total_height.saturating_add(collapsed_margin).saturating_add(capped_height);
+                total_height = total_height
+                    .saturating_add(collapsed_margin)
+                    .saturating_add(capped_height);
             }
             prev_margin_bottom = margin_bottom;
             last_child_margin_bottom = margin_bottom;
 
             // Max dimensions include full margins (for cross-axis)
-            let width_with_margin = capped_width.saturating_add(margin_left).saturating_add(margin_right);
-            let height_with_margin = capped_height.saturating_add(margin_top).saturating_add(margin_bottom);
+            let width_with_margin = capped_width
+                .saturating_add(margin_left)
+                .saturating_add(margin_right);
+            let height_with_margin = capped_height
+                .saturating_add(margin_top)
+                .saturating_add(margin_bottom);
             max_width = max_width.max(width_with_margin);
             max_height = max_height.max(height_with_margin);
         }
 
         // Add outer margins (first and last child's outer margins)
-        total_width = first_child_margin_left.saturating_add(total_width).saturating_add(last_child_margin_right);
-        total_height = first_child_margin_top.saturating_add(total_height).saturating_add(last_child_margin_bottom);
+        total_width = first_child_margin_left
+            .saturating_add(total_width)
+            .saturating_add(last_child_margin_right);
+        total_height = first_child_margin_top
+            .saturating_add(total_height)
+            .saturating_add(last_child_margin_bottom);
 
         // Calculate based on layout mode (use effective layout, not just CSS)
         let (content_w, content_h) = match self.effective_layout() {
@@ -506,20 +540,26 @@ impl<M> Container<M> {
 
         // Add border and padding
         let border_size = if self.style.border.is_none() { 0 } else { 2 };
-        let padding_h = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
-        let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+        let padding_h =
+            self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+        let padding_v =
+            self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
 
         // If any child wants to fill available space, propagate that signal
         let final_width = if any_child_wants_fill_width {
             u16::MAX
         } else {
-            content_w.saturating_add(border_size).saturating_add(padding_h)
+            content_w
+                .saturating_add(border_size)
+                .saturating_add(padding_h)
         };
 
         let final_height = if any_child_wants_fill_height {
             u16::MAX
         } else {
-            content_h.saturating_add(border_size).saturating_add(padding_v)
+            content_h
+                .saturating_add(border_size)
+                .saturating_add(padding_v)
         };
 
         Size::new(final_width, final_height)
@@ -555,17 +595,29 @@ Container {
         // 1. border_title_color / border_subtitle_color if explicitly set
         // 2. border.top.color / border.bottom.color (border color)
         // 3. style.color (text color) as fallback
-        let title_fg = self.style.border_title_color.clone()
+        let title_fg = self
+            .style
+            .border_title_color
+            .clone()
             .or_else(|| self.style.border.top.color.clone())
             .or_else(|| self.style.color.clone());
-        let subtitle_fg = self.style.border_subtitle_color.clone()
+        let subtitle_fg = self
+            .style
+            .border_subtitle_color
+            .clone()
             .or_else(|| self.style.border.bottom.color.clone())
             .or_else(|| self.style.color.clone());
 
         // Use border-title-background if set, otherwise fall back to widget background
-        let title_bg = self.style.border_title_background.clone()
+        let title_bg = self
+            .style
+            .border_title_background
+            .clone()
             .or_else(|| self.style.background.clone());
-        let subtitle_bg = self.style.border_subtitle_background.clone()
+        let subtitle_bg = self
+            .style
+            .border_subtitle_background
+            .clone()
             .or_else(|| self.style.background.clone());
 
         let title_style = Style {
@@ -762,7 +814,12 @@ Container {
         let width = if let Some(w) = &self.style.width {
             match w.unit {
                 Unit::Cells => w.value as u16,
-                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => {
                     // Percentage-based or flexible units: signal "fill available space"
                     u16::MAX
                 }
@@ -776,7 +833,12 @@ Container {
         let height = if let Some(h) = &self.style.height {
             match h.unit {
                 Unit::Cells => h.value as u16,
-                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => {
                     // Percentage-based or flexible units: signal "fill available space"
                     u16::MAX
                 }
@@ -827,12 +889,8 @@ Container {
                         // Python uses parent.app.size.width for w units
                         (h.value / 100.0) * viewport_width as f64
                     }
-                    Unit::ViewWidth => {
-                        (h.value / 100.0) * viewport_width as f64
-                    }
-                    Unit::ViewHeight => {
-                        (h.value / 100.0) * viewport_height as f64
-                    }
+                    Unit::ViewWidth => (h.value / 100.0) * viewport_width as f64,
+                    Unit::ViewHeight => (h.value / 100.0) * viewport_height as f64,
                     Unit::Fraction => {
                         // fr units use their value as minimum height for scroll estimation
                         // 1fr = 1 row minimum, 2fr = 2 rows minimum, etc.
@@ -866,8 +924,11 @@ Container {
 
         // Add container chrome (border + padding)
         let border_size = if self.style.border.is_none() { 0 } else { 2 };
-        let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
-        let result = total_height.saturating_add(border_size).saturating_add(padding_v);
+        let padding_v =
+            self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+        let result = total_height
+            .saturating_add(border_size)
+            .saturating_add(padding_v);
 
         result
     }
@@ -985,7 +1046,9 @@ Container {
             };
 
             if scrolled_placement.contains_point(mx, my) {
-                if let Some(msg) = self.children[placement.child_index].on_mouse(event, scrolled_placement) {
+                if let Some(msg) =
+                    self.children[placement.child_index].on_mouse(event, scrolled_placement)
+                {
                     return Some(msg);
                 }
             }
