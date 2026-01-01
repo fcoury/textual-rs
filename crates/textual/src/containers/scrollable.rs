@@ -132,6 +132,16 @@ impl<M> ScrollableContainer<M> {
         }
     }
 
+    /// Check if vertical scrolling is allowed (not hidden).
+    fn allow_vertical_scroll(&self) -> bool {
+        self.style.overflow_y != Overflow::Hidden
+    }
+
+    /// Check if horizontal scrolling is allowed (not hidden).
+    fn allow_horizontal_scroll(&self) -> bool {
+        self.style.overflow_x != Overflow::Hidden
+    }
+
     /// Calculate the content region (excluding scrollbars).
     fn content_region(&self, region: Region) -> Region {
         let style = self.scrollbar_style();
@@ -513,25 +523,25 @@ impl<M> Widget<M> for ScrollableContainer<M> {
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
-        // Handle scroll keys
+        // Handle scroll keys (only if scrolling is allowed for that direction)
         match key {
-            KeyCode::Up => {
+            KeyCode::Up if self.allow_vertical_scroll() => {
                 self.handle_scroll(ScrollMessage::ScrollUp);
                 return None;
             }
-            KeyCode::Down => {
+            KeyCode::Down if self.allow_vertical_scroll() => {
                 self.handle_scroll(ScrollMessage::ScrollDown);
                 return None;
             }
-            KeyCode::Left => {
+            KeyCode::Left if self.allow_horizontal_scroll() => {
                 self.handle_scroll(ScrollMessage::ScrollLeft);
                 return None;
             }
-            KeyCode::Right => {
+            KeyCode::Right if self.allow_horizontal_scroll() => {
                 self.handle_scroll(ScrollMessage::ScrollRight);
                 return None;
             }
-            KeyCode::PageUp => {
+            KeyCode::PageUp if self.allow_vertical_scroll() => {
                 let mut scroll = self.scroll.borrow_mut();
                 let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
                 scroll.scroll_up(amount);
@@ -539,7 +549,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 self.dirty = true;
                 return None;
             }
-            KeyCode::PageDown => {
+            KeyCode::PageDown if self.allow_vertical_scroll() => {
                 let mut scroll = self.scroll.borrow_mut();
                 let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
                 scroll.scroll_down(amount);
@@ -547,16 +557,18 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 self.dirty = true;
                 return None;
             }
-            KeyCode::Home => {
-                self.scroll.borrow_mut().scroll_to(Some(0.0), Some(0.0));
+            KeyCode::Home if self.allow_vertical_scroll() || self.allow_horizontal_scroll() => {
+                let x = if self.allow_horizontal_scroll() { Some(0.0) } else { None };
+                let y = if self.allow_vertical_scroll() { Some(0.0) } else { None };
+                self.scroll.borrow_mut().scroll_to(x, y);
                 self.dirty = true;
                 return None;
             }
-            KeyCode::End => {
+            KeyCode::End if self.allow_vertical_scroll() || self.allow_horizontal_scroll() => {
                 let mut scroll = self.scroll.borrow_mut();
-                let max_x = scroll.max_scroll_x() as f32;
-                let max_y = scroll.max_scroll_y() as f32;
-                scroll.scroll_to(Some(max_x), Some(max_y));
+                let x = if self.allow_horizontal_scroll() { Some(scroll.max_scroll_x() as f32) } else { None };
+                let y = if self.allow_vertical_scroll() { Some(scroll.max_scroll_y() as f32) } else { None };
+                scroll.scroll_to(x, y);
                 drop(scroll);
                 self.dirty = true;
                 return None;
@@ -672,8 +684,10 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 if event.modifiers.contains(KeyModifiers::SHIFT)
                     || event.modifiers.contains(KeyModifiers::CONTROL)
                 {
-                    self.handle_scroll(ScrollMessage::ScrollRight);
-                } else {
+                    if self.allow_horizontal_scroll() {
+                        self.handle_scroll(ScrollMessage::ScrollRight);
+                    }
+                } else if self.allow_vertical_scroll() {
                     self.handle_scroll(ScrollMessage::ScrollDown);
                 }
                 None
@@ -684,20 +698,26 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 if event.modifiers.contains(KeyModifiers::SHIFT)
                     || event.modifiers.contains(KeyModifiers::CONTROL)
                 {
-                    self.handle_scroll(ScrollMessage::ScrollLeft);
-                } else {
+                    if self.allow_horizontal_scroll() {
+                        self.handle_scroll(ScrollMessage::ScrollLeft);
+                    }
+                } else if self.allow_vertical_scroll() {
                     self.handle_scroll(ScrollMessage::ScrollUp);
                 }
                 None
             }
 
             MouseEventKind::ScrollLeft => {
-                self.handle_scroll(ScrollMessage::ScrollLeft);
+                if self.allow_horizontal_scroll() {
+                    self.handle_scroll(ScrollMessage::ScrollLeft);
+                }
                 None
             }
 
             MouseEventKind::ScrollRight => {
-                self.handle_scroll(ScrollMessage::ScrollRight);
+                if self.allow_horizontal_scroll() {
+                    self.handle_scroll(ScrollMessage::ScrollRight);
+                }
                 None
             }
         }
