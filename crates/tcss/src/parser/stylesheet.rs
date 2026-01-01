@@ -357,6 +357,18 @@ pub enum Declaration {
     /// The `border-right` property for right edge only.
     BorderRight(BorderEdge),
 
+    // Outline properties (non-layout-affecting border overlay)
+    /// The `outline` property for all edges (overlay, doesn't affect layout).
+    Outline(BorderEdge),
+    /// The `outline-top` property for top edge outline.
+    OutlineTop(BorderEdge),
+    /// The `outline-right` property for right edge outline.
+    OutlineRight(BorderEdge),
+    /// The `outline-bottom` property for bottom edge outline.
+    OutlineBottom(BorderEdge),
+    /// The `outline-left` property for left edge outline.
+    OutlineLeft(BorderEdge),
+
     // Hatch pattern fill
     /// The `hatch` property for filling an area with a pattern.
     /// Syntax: `hatch: <pattern> <color> [opacity]`

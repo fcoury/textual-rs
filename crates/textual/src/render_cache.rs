@@ -32,6 +32,16 @@ pub struct RenderCache {
     padding_right: usize,
     padding_bottom: usize,
     padding_left: usize,
+    /// Cached outline box segments (top, middle, bottom rows).
+    /// Outline is rendered ON TOP of content (doesn't affect layout).
+    outline_box: Option<[BoxSegments; 3]>,
+    /// Whether the widget has any visible outline.
+    has_outline: bool,
+    /// Which edges have visible outlines.
+    has_top_outline: bool,
+    has_right_outline: bool,
+    has_bottom_outline: bool,
+    has_left_outline: bool,
 }
 
 impl RenderCache {
@@ -87,6 +97,35 @@ impl RenderCache {
         let padding_bottom = style.padding.bottom.value as usize;
         let padding_left = style.padding.left.value as usize;
 
+        // Check which edges have visible outlines
+        let has_top_outline = !matches!(style.outline.top.kind, BorderKind::None | BorderKind::Hidden);
+        let has_right_outline = !matches!(style.outline.right.kind, BorderKind::None | BorderKind::Hidden);
+        let has_bottom_outline = !matches!(style.outline.bottom.kind, BorderKind::None | BorderKind::Hidden);
+        let has_left_outline = !matches!(style.outline.left.kind, BorderKind::None | BorderKind::Hidden);
+        let has_outline = has_top_outline || has_right_outline || has_bottom_outline || has_left_outline;
+
+        // Build outline box segments if any outline edge is visible
+        let outline_box = if has_outline {
+            let outline_kind = style.outline.top.kind;
+            let outline_type = border_kind_to_str(outline_kind);
+            // Outline color, falling back to text color
+            let outline_color = style.outline.top.color.clone().or_else(|| style.color.clone());
+            let outline_inner_style = Style {
+                fg: outline_color.clone(),
+                bg: effective_bg.clone(),
+                ..Default::default()
+            };
+            // Outer style uses inherited/parent background
+            let outline_outer_style = Style {
+                fg: outline_color.clone(),
+                bg: style.inherited_background.clone(),
+                ..Default::default()
+            };
+            Some(get_box(outline_type, &outline_inner_style, &outline_outer_style))
+        } else {
+            None
+        };
+
         Self {
             border_box,
             has_border,
@@ -99,6 +138,12 @@ impl RenderCache {
             padding_right,
             padding_bottom,
             padding_left,
+            outline_box,
+            has_outline,
+            has_top_outline,
+            has_right_outline,
+            has_bottom_outline,
+            has_left_outline,
         }
     }
 
@@ -174,79 +219,82 @@ impl RenderCache {
             return Strip::new();
         }
 
-        if !self.has_border || self.border_box.is_none() {
+        let base_strip = if !self.has_border || self.border_box.is_none() {
             // No border - but still apply horizontal padding
-            return self.render_content_row(width, content_line);
-        }
-
-        let box_segs = self.border_box.as_ref().unwrap();
-
-        // Determine if this is a top border row
-        let is_top_border_row = y == 0 && self.has_top_border;
-        // Determine if this is a bottom border row
-        let is_bottom_border_row = y == height - 1 && self.has_bottom_border;
-        // Calculate the content row index (offset by top border if present)
-        let content_row_offset = if self.has_top_border { 1 } else { 0 };
-
-        if is_top_border_row {
-            // Top border row - check if we have corners (left/right borders)
-            if self.has_left_border && self.has_right_border {
-                // Full border with corners
-                render_row(
-                    &box_segs[0],
-                    width,
-                    title,
-                    None,
-                    self.style.border_title_align,
-                    self.style.border_subtitle_align,
-                )
-            } else {
-                // Partial border - no corners, just horizontal line
-                self.render_horizontal_border_row(
-                    &box_segs[0],
-                    width,
-                    title,
-                    self.style.border_title_align,
-                )
-            }
-        } else if is_bottom_border_row {
-            // Bottom border row - check if we have corners
-            if self.has_left_border && self.has_right_border {
-                // Full border with corners
-                render_row(
-                    &box_segs[2],
-                    width,
-                    None,
-                    subtitle,
-                    self.style.border_title_align,
-                    self.style.border_subtitle_align,
-                )
-            } else {
-                // Partial border - no corners, just horizontal line
-                self.render_horizontal_border_row(
-                    &box_segs[2],
-                    width,
-                    subtitle,
-                    self.style.border_subtitle_align,
-                )
-            }
-        } else if y >= content_row_offset && y < height - if self.has_bottom_border { 1 } else { 0 } {
-            // Content row - check if we have side borders
-            if self.has_left_border || self.has_right_border {
-                // Has at least one side border
-                self.render_partial_middle_row(
-                    &box_segs[1],
-                    content_line,
-                    width,
-                )
-            } else {
-                // No side borders - just content with padding
-                self.render_content_row(width, content_line)
-            }
+            self.render_content_row(width, content_line)
         } else {
-            // This shouldn't happen, but return blank row
-            Strip::blank(width, self.pad_style())
-        }
+            let box_segs = self.border_box.as_ref().unwrap();
+
+            // Determine if this is a top border row
+            let is_top_border_row = y == 0 && self.has_top_border;
+            // Determine if this is a bottom border row
+            let is_bottom_border_row = y == height - 1 && self.has_bottom_border;
+            // Calculate the content row index (offset by top border if present)
+            let content_row_offset = if self.has_top_border { 1 } else { 0 };
+
+            if is_top_border_row {
+                // Top border row - check if we have corners (left/right borders)
+                if self.has_left_border && self.has_right_border {
+                    // Full border with corners
+                    render_row(
+                        &box_segs[0],
+                        width,
+                        title,
+                        None,
+                        self.style.border_title_align,
+                        self.style.border_subtitle_align,
+                    )
+                } else {
+                    // Partial border - no corners, just horizontal line
+                    self.render_horizontal_border_row(
+                        &box_segs[0],
+                        width,
+                        title,
+                        self.style.border_title_align,
+                    )
+                }
+            } else if is_bottom_border_row {
+                // Bottom border row - check if we have corners
+                if self.has_left_border && self.has_right_border {
+                    // Full border with corners
+                    render_row(
+                        &box_segs[2],
+                        width,
+                        None,
+                        subtitle,
+                        self.style.border_title_align,
+                        self.style.border_subtitle_align,
+                    )
+                } else {
+                    // Partial border - no corners, just horizontal line
+                    self.render_horizontal_border_row(
+                        &box_segs[2],
+                        width,
+                        subtitle,
+                        self.style.border_subtitle_align,
+                    )
+                }
+            } else if y >= content_row_offset && y < height - if self.has_bottom_border { 1 } else { 0 } {
+                // Content row - check if we have side borders
+                if self.has_left_border || self.has_right_border {
+                    // Has at least one side border
+                    self.render_partial_middle_row(
+                        &box_segs[1],
+                        content_line,
+                        width,
+                    )
+                } else {
+                    // No side borders - just content with padding
+                    self.render_content_row(width, content_line)
+                }
+            } else {
+                // This shouldn't happen, but return blank row
+                Strip::blank(width, self.pad_style())
+            }
+        };
+
+        // Apply outline as final overlay (outline renders ON TOP of content)
+        self.apply_outline(base_strip, y, height, width)
     }
 
     /// Renders a content row without any border (just padding and content).
@@ -428,6 +476,96 @@ impl RenderCache {
             .effective_background()
             .as_ref()
             .map(|bg| Style::with_bg(bg.clone()))
+    }
+
+    /// Applies outline overlay to a rendered strip.
+    ///
+    /// Outline is rendered ON TOP of existing content, replacing edge characters.
+    /// Unlike borders, outline doesn't affect layout - it's a visual overlay.
+    fn apply_outline(&self, strip: Strip, y: usize, height: usize, width: usize) -> Strip {
+        if !self.has_outline || self.outline_box.is_none() || width == 0 || height == 0 {
+            return strip;
+        }
+
+        let box_segs = self.outline_box.as_ref().unwrap();
+        use crate::segment::Segment;
+
+        // Determine which outline row type we need
+        let is_top_row = y == 0;
+        let is_bottom_row = y == height - 1;
+
+        if is_top_row && self.has_top_outline {
+            // Top outline row - render full top edge
+            let (left, fill, right) = &box_segs[0];
+            let fill_char = fill.text().chars().next().unwrap_or('─');
+            let fill_style = fill.style().cloned();
+
+            let mut segments = Vec::new();
+            if self.has_left_outline {
+                segments.push(left.clone());
+            }
+            let inner_width = width
+                .saturating_sub(if self.has_left_outline { 1 } else { 0 })
+                .saturating_sub(if self.has_right_outline { 1 } else { 0 });
+            if inner_width > 0 {
+                segments.push(Segment::styled(
+                    std::iter::repeat(fill_char).take(inner_width).collect::<String>(),
+                    fill_style.unwrap_or_default(),
+                ));
+            }
+            if self.has_right_outline {
+                segments.push(right.clone());
+            }
+            Strip::from_segments(segments)
+        } else if is_bottom_row && self.has_bottom_outline {
+            // Bottom outline row - render full bottom edge
+            let (left, fill, right) = &box_segs[2];
+            let fill_char = fill.text().chars().next().unwrap_or('─');
+            let fill_style = fill.style().cloned();
+
+            let mut segments = Vec::new();
+            if self.has_left_outline {
+                segments.push(left.clone());
+            }
+            let inner_width = width
+                .saturating_sub(if self.has_left_outline { 1 } else { 0 })
+                .saturating_sub(if self.has_right_outline { 1 } else { 0 });
+            if inner_width > 0 {
+                segments.push(Segment::styled(
+                    std::iter::repeat(fill_char).take(inner_width).collect::<String>(),
+                    fill_style.unwrap_or_default(),
+                ));
+            }
+            if self.has_right_outline {
+                segments.push(right.clone());
+            }
+            Strip::from_segments(segments)
+        } else if self.has_left_outline || self.has_right_outline {
+            // Middle row - wrap content with side outlines
+            let (left, _fill, right) = &box_segs[1];
+
+            // Calculate content strip bounds
+            let left_width = if self.has_left_outline { 1 } else { 0 };
+            let right_width = if self.has_right_outline { 1 } else { 0 };
+            let inner_width = width.saturating_sub(left_width + right_width);
+
+            // Crop the existing strip to fit inside the outlines
+            let content = strip.crop(left_width, left_width + inner_width);
+            let content_adjusted = content.adjust_cell_length(inner_width, self.pad_style());
+
+            let mut segments = Vec::new();
+            if self.has_left_outline {
+                segments.push(left.clone());
+            }
+            segments.extend(content_adjusted.segments().iter().cloned());
+            if self.has_right_outline {
+                segments.push(right.clone());
+            }
+            Strip::from_segments(segments)
+        } else {
+            // No outline edges for this row
+            strip
+        }
     }
 }
 

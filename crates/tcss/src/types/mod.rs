@@ -153,6 +153,11 @@ pub struct ComputedStyle {
     pub offset_x: Option<Scalar>,
     /// Vertical offset from calculated position. Positive moves down.
     pub offset_y: Option<Scalar>,
+
+    // Outline (non-layout-affecting border overlay)
+    /// Outline renders ON TOP of content, unlike border which affects layout.
+    /// Uses same Border struct but renders as final overlay pass.
+    pub outline: Border,
 }
 
 impl Default for ComputedStyle {
@@ -205,6 +210,7 @@ impl Default for ComputedStyle {
             keyline: Keyline::default(),
             offset_x: None,
             offset_y: None,
+            outline: Border::default(),
         }
     }
 }

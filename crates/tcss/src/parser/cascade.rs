@@ -327,6 +327,43 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.border.right = resolved_edge;
         }
 
+        // Outline properties (non-layout-affecting border overlay)
+        Declaration::Outline(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.outline = Border::all(resolved_edge);
+        }
+        Declaration::OutlineTop(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.outline.top = resolved_edge;
+        }
+        Declaration::OutlineRight(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.outline.right = resolved_edge;
+        }
+        Declaration::OutlineBottom(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.outline.bottom = resolved_edge;
+        }
+        Declaration::OutlineLeft(b) => {
+            let mut resolved_edge = b.clone();
+            if let Some(ref color) = b.color {
+                resolved_edge.color = Some(resolve_theme_color(color, theme));
+            }
+            style.outline.left = resolved_edge;
+        }
+
         // Scrollbar properties
         Declaration::ScrollbarColor(c) => {
             style.scrollbar.color = Some(resolve_theme_color(c, theme));

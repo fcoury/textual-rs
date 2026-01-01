@@ -245,6 +245,13 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "border-left" => map(values::parse_border_edge, Declaration::BorderLeft)(input)?,
         "border-right" => map(values::parse_border_edge, Declaration::BorderRight)(input)?,
 
+        // Outline properties (non-layout-affecting border overlay)
+        "outline" => map(values::parse_border_edge, Declaration::Outline)(input)?,
+        "outline-top" => map(values::parse_border_edge, Declaration::OutlineTop)(input)?,
+        "outline-right" => map(values::parse_border_edge, Declaration::OutlineRight)(input)?,
+        "outline-bottom" => map(values::parse_border_edge, Declaration::OutlineBottom)(input)?,
+        "outline-left" => map(values::parse_border_edge, Declaration::OutlineLeft)(input)?,
+
         // Hatch pattern fill
         "hatch" => map(values::parse_hatch, Declaration::Hatch)(input)?,
 
