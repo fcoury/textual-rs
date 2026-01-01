@@ -158,6 +158,20 @@ impl Layout for HorizontalLayout {
                 width
             };
 
+            // Apply min-width constraint (floor)
+            let width = if let Some(min_w) = &child_style.min_width {
+                let min_width_value = match min_w.unit {
+                    Unit::Cells => min_w.value as i32,
+                    Unit::Percent => ((min_w.value / 100.0) * available.width as f64) as i32,
+                    Unit::Width => ((min_w.value / 100.0) * available.width as f64) as i32,
+                    Unit::Height => ((min_w.value / 100.0) * available.height as f64) as i32,
+                    _ => min_w.value as i32,
+                };
+                width.max(min_width_value)
+            } else {
+                width
+            };
+
             // Resolve height - horizontal layout children fill available height by default
             // Apply box-sizing only for explicit CSS heights, not auto/intrinsic
             let height = if let Some(h) = &child_style.height {

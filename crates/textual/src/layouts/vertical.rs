@@ -137,6 +137,22 @@ impl Layout for VerticalLayout {
                 width
             };
 
+            // Apply min-width constraint (floor)
+            let width = if let Some(min_w) = &child_style.min_width {
+                let min_width_value = match min_w.unit {
+                    Unit::Cells => min_w.value as i32,
+                    Unit::Percent => ((min_w.value / 100.0) * available.width as f64) as i32,
+                    Unit::Width => ((min_w.value / 100.0) * available.width as f64) as i32,
+                    Unit::Height => ((min_w.value / 100.0) * available.height as f64) as i32,
+                    Unit::ViewWidth => ((min_w.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((min_w.value / 100.0) * viewport.height as f64) as i32,
+                    _ => min_w.value as i32,
+                };
+                width.max(min_width_value)
+            } else {
+                width
+            };
+
             // Resolve box_model height as f64 (keeping fractional precision)
             // This must match the calculation in the first pass
             let box_height: f64 = if let Some(h) = &child_style.height {
