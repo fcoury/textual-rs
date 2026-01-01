@@ -611,6 +611,17 @@ fn test_property_max_height() {
     }
 }
 
+#[test]
+fn test_property_max_width() {
+    let decl = parse_first_declaration("Button { max-width: 100; }");
+    if let Declaration::MaxWidth(s) = decl {
+        assert_eq!(s.value, 100.0);
+        assert_eq!(s.unit, Unit::Cells);
+    } else {
+        panic!("expected MaxWidth declaration, got {:?}", decl);
+    }
+}
+
 // ============================================================================
 // SCROLLBAR PROPERTIES
 // ============================================================================

@@ -121,6 +121,22 @@ impl Layout for VerticalLayout {
                 resolve_width_with_intrinsic(child_style, desired_size.width, available.width);
             let width = (base_width - margin_left - margin_right).max(0);
 
+            // Apply max-width constraint
+            let width = if let Some(max_w) = &child_style.max_width {
+                let max_width_value = match max_w.unit {
+                    Unit::Cells => max_w.value as i32,
+                    Unit::Percent => ((max_w.value / 100.0) * available.width as f64) as i32,
+                    Unit::Width => ((max_w.value / 100.0) * available.width as f64) as i32,
+                    Unit::Height => ((max_w.value / 100.0) * available.height as f64) as i32,
+                    Unit::ViewWidth => ((max_w.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((max_w.value / 100.0) * viewport.height as f64) as i32,
+                    _ => max_w.value as i32,
+                };
+                width.min(max_width_value)
+            } else {
+                width
+            };
+
             // Resolve box_model height as f64 (keeping fractional precision)
             // This must match the calculation in the first pass
             let box_height: f64 = if let Some(h) = &child_style.height {

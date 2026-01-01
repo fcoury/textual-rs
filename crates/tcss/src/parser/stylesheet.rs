@@ -208,6 +208,8 @@ pub enum Declaration {
     Height(Scalar),
     /// The `max-height` property for maximum element height.
     MaxHeight(Scalar),
+    /// The `max-width` property for maximum element width.
+    MaxWidth(Scalar),
     /// The `margin` property for outer spacing.
     Margin(Spacing),
     /// The `margin-top` property for top outer spacing.

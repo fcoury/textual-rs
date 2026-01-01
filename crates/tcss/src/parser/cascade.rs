@@ -254,6 +254,7 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Width(s) => style.width = Some(*s),
         Declaration::Height(s) => style.height = Some(*s),
         Declaration::MaxHeight(s) => style.max_height = Some(*s),
+        Declaration::MaxWidth(s) => style.max_width = Some(*s),
         Declaration::Margin(s) => style.margin = *s,
         Declaration::MarginTop(s) => style.margin.top = *s,
         Declaration::MarginRight(s) => style.margin.right = *s,

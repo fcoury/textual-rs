@@ -351,13 +351,34 @@ Placeholder {
                     );
                 }
                 PlaceholderVariant::Default => {
-                    // Default: center the label
-                    // Use (height - 1) / 2 to match Python Textual's centering
-                    let label_len = content.len() as i32;
-                    let x = region.x + (region.width - label_len).max(0) / 2;
-                    let y = region.y + (region.height - 1) / 2;
+                    // Default: center the label with word-wrapping if needed
+                    let content_width = region.width.max(1) as usize;
 
-                    canvas.put_str(x, y, content, Some(fg), Some(bg), TextAttributes::default());
+                    // Word-wrap the label if it's wider than the container
+                    let lines = Self::word_wrap(content, content_width);
+                    let num_lines = lines.len() as i32;
+
+                    // Find the width of the text block (longest line)
+                    let max_line_len = lines.iter().map(|l| l.len()).max().unwrap_or(0) as i32;
+
+                    // Calculate vertical centering
+                    // Use (height - num_lines) / 2 to center the block
+                    let y_offset = ((region.height - num_lines) / 2).max(0);
+
+                    // Calculate horizontal centering for the block
+                    let x_offset = ((region.width - max_line_len) / 2).max(0);
+
+                    for (i, line) in lines.iter().enumerate() {
+                        let y = region.y + y_offset + i as i32;
+                        canvas.put_str(
+                            region.x + x_offset,
+                            y,
+                            line,
+                            Some(fg.clone()),
+                            Some(bg.clone()),
+                            TextAttributes::default(),
+                        );
+                    }
                 }
             }
         }
