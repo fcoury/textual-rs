@@ -10,13 +10,15 @@
 use std::cell::RefCell;
 
 use crate::canvas::{Canvas, Region, Size};
+use crate::layouts::{self, Viewport};
+use crate::render_cache::RenderCache;
 use crate::scroll::{ScrollMessage, ScrollState};
 use crate::scrollbar::ScrollBarRender;
 use crate::widget::Widget;
 use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::{KeyCode, KeyModifiers, MouseEvent, MouseEventKind};
-use tcss::ComputedStyle;
-use tcss::types::{Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility};
+use tcss::types::{Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility, Visibility};
+use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 /// Scroll amount for single scroll events (arrow keys).
 /// Matches Python Textual's behavior of scrolling 1 line per key press.
@@ -43,6 +45,19 @@ pub struct ScrollableContainer<M> {
     scrollbar_hover: Option<bool>,
     /// Scrollbar being dragged: None, Some((vertical, grab_offset))
     scrollbar_drag: Option<(bool, i32)>,
+    /// Widget ID for CSS targeting
+    id: Option<String>,
+    /// CSS classes for styling
+    classes: Vec<String>,
+}
+
+struct ScrollLayout {
+    content_region: Region,
+    placements: Vec<layouts::WidgetPlacement>,
+    virtual_width: i32,
+    virtual_height: i32,
+    show_vertical: bool,
+    show_horizontal: bool,
 }
 
 impl<M> ScrollableContainer<M> {
@@ -63,6 +78,8 @@ impl<M> ScrollableContainer<M> {
             dirty: true,
             scrollbar_hover: None,
             scrollbar_drag: None,
+            id: None,
+            classes: Vec::new(),
         }
     }
 
@@ -71,12 +88,50 @@ impl<M> ScrollableContainer<M> {
         Self::new(vec![child])
     }
 
+    /// Set the widget ID for CSS targeting.
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
+    /// Set CSS classes (space-separated).
+    pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
+        self.classes = classes
+            .into()
+            .split_whitespace()
+            .map(String::from)
+            .collect();
+        self
+    }
+
     fn content(&self) -> &dyn Widget<M> {
         self.children[0].as_ref()
     }
 
     fn content_mut(&mut self) -> &mut dyn Widget<M> {
         self.children[0].as_mut()
+    }
+
+    fn compute_inner_region(&self, region: Region) -> Region {
+        if region.width <= 0 || region.height <= 0 {
+            return region;
+        }
+
+        let width = region.width as usize;
+        let height = region.height as usize;
+        let cache = RenderCache::new(&self.style);
+        let (inner_width, inner_height) = cache.inner_size(width, height);
+
+        let border_offset = if cache.has_border() { 1 } else { 0 };
+        let padding_left = cache.padding_left() as i32;
+        let padding_top = cache.padding_top() as i32;
+
+        Region::new(
+            region.x + border_offset + padding_left,
+            region.y + border_offset + padding_top,
+            inner_width as i32,
+            inner_height as i32,
+        )
     }
 
     /// Get the scrollbar style from computed style.
@@ -144,10 +199,21 @@ impl<M> ScrollableContainer<M> {
 
     /// Calculate the content region (excluding scrollbars).
     fn content_region(&self, region: Region) -> Region {
+        let show_vertical = self.show_vertical_scrollbar();
+        let show_horizontal = self.show_horizontal_scrollbar();
+        self.content_region_with_flags(region, show_vertical, show_horizontal)
+    }
+
+    fn content_region_with_flags(
+        &self,
+        region: Region,
+        show_vertical: bool,
+        show_horizontal: bool,
+    ) -> Region {
         let style = self.scrollbar_style();
         // Vertical gutter: apply when showing scrollbar OR when stable gutter with overflow-y: auto
         // (matches Python Textual behavior where scrollbar-gutter only affects vertical scrollbar)
-        let v_size = if self.show_vertical_scrollbar()
+        let v_size = if show_vertical
             || (style.gutter == ScrollbarGutter::Stable && self.style.overflow_y == Overflow::Auto)
         {
             style.size.vertical as i32
@@ -155,7 +221,7 @@ impl<M> ScrollableContainer<M> {
             0
         };
         // Horizontal gutter: only when actually showing scrollbar (no stable gutter support)
-        let h_size = if self.show_horizontal_scrollbar() {
+        let h_size = if show_horizontal {
             style.size.horizontal as i32
         } else {
             0
@@ -171,8 +237,17 @@ impl<M> ScrollableContainer<M> {
 
     /// Calculate the vertical scrollbar region.
     fn vertical_scrollbar_region(&self, region: Region) -> Region {
+        let show_horizontal = self.show_horizontal_scrollbar();
+        self.vertical_scrollbar_region_with_flags(region, show_horizontal)
+    }
+
+    fn vertical_scrollbar_region_with_flags(
+        &self,
+        region: Region,
+        show_horizontal: bool,
+    ) -> Region {
         let style = self.scrollbar_style();
-        let h_size = if self.show_horizontal_scrollbar() {
+        let h_size = if show_horizontal {
             style.size.horizontal as i32
         } else {
             0
@@ -188,8 +263,17 @@ impl<M> ScrollableContainer<M> {
 
     /// Calculate the horizontal scrollbar region.
     fn horizontal_scrollbar_region(&self, region: Region) -> Region {
+        let show_vertical = self.show_vertical_scrollbar();
+        self.horizontal_scrollbar_region_with_flags(region, show_vertical)
+    }
+
+    fn horizontal_scrollbar_region_with_flags(
+        &self,
+        region: Region,
+        show_vertical: bool,
+    ) -> Region {
         let style = self.scrollbar_style();
-        let v_size = if self.show_vertical_scrollbar() {
+        let v_size = if show_vertical {
             style.size.vertical as i32
         } else {
             0
@@ -211,6 +295,109 @@ impl<M> ScrollableContainer<M> {
             y: region.y + region.height - style.size.horizontal as i32,
             width: style.size.vertical as i32,
             height: style.size.horizontal as i32,
+        }
+    }
+
+    fn compute_child_placements(
+        &self,
+        region: Region,
+        viewport: Viewport,
+    ) -> Vec<layouts::WidgetPlacement> {
+        let children_with_styles: Vec<layouts::LayoutChild> = self
+            .children
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.participates_in_layout())
+            .map(|(i, c)| layouts::LayoutChild {
+                index: i,
+                style: c.get_style(),
+                desired_size: c.desired_size(),
+                node: c,
+            })
+            .collect();
+
+        layouts::arrange_children_with_layers(&self.style, &children_with_styles, region, viewport)
+    }
+
+    fn compute_virtual_size(
+        &self,
+        placements: &[layouts::WidgetPlacement],
+        base_region: Region,
+    ) -> (i32, i32) {
+        let mut virtual_width = 0;
+        let mut virtual_height = 0;
+
+        for placement in placements {
+            let width = (placement.region.x - base_region.x) + placement.region.width;
+            let height = (placement.region.y - base_region.y) + placement.region.height;
+            if width > virtual_width {
+                virtual_width = width;
+            }
+            if height > virtual_height {
+                virtual_height = height;
+            }
+        }
+
+        (virtual_width, virtual_height)
+    }
+
+    fn compute_scroll_layout(&self, inner_region: Region, viewport: Viewport) -> ScrollLayout {
+        let style = self.scrollbar_style();
+        let mut show_vertical = false;
+        let mut show_horizontal = false;
+        let mut content_region = inner_region;
+        let mut placements = Vec::new();
+        let mut virtual_width = 0;
+        let mut virtual_height = 0;
+
+        for _ in 0..3 {
+            content_region =
+                self.content_region_with_flags(inner_region, show_vertical, show_horizontal);
+            placements = self.compute_child_placements(content_region, viewport);
+            let (next_virtual_width, next_virtual_height) =
+                self.compute_virtual_size(&placements, content_region);
+            virtual_width = next_virtual_width;
+            virtual_height = next_virtual_height;
+
+            let needs_horizontal = match self.style.overflow_x {
+                Overflow::Scroll => true,
+                Overflow::Auto => virtual_width > content_region.width,
+                Overflow::Hidden => false,
+            };
+            let needs_vertical = match self.style.overflow_y {
+                Overflow::Scroll => true,
+                Overflow::Auto => virtual_height > content_region.height,
+                Overflow::Hidden => false,
+            };
+
+            let next_show_horizontal = style.visibility != ScrollbarVisibility::Hidden
+                && style.size.horizontal > 0
+                && needs_horizontal;
+            let next_show_vertical = style.visibility != ScrollbarVisibility::Hidden
+                && style.size.vertical > 0
+                && needs_vertical;
+
+            if next_show_horizontal == show_horizontal && next_show_vertical == show_vertical {
+                break;
+            }
+
+            show_horizontal = next_show_horizontal;
+            show_vertical = next_show_vertical;
+        }
+
+        {
+            let mut scroll = self.scroll.borrow_mut();
+            scroll.set_virtual_size(virtual_width, virtual_height);
+            scroll.set_viewport(content_region.width, content_region.height);
+        }
+
+        ScrollLayout {
+            content_region,
+            placements,
+            virtual_width,
+            virtual_height,
+            show_vertical,
+            show_horizontal,
         }
     }
 
@@ -242,33 +429,8 @@ impl<M> ScrollableContainer<M> {
 
     /// Update scroll state dimensions from content and viewport.
     /// Uses interior mutability so it can be called from render().
-    fn update_scroll_dimensions(&self, content_region: Region) {
-        let content_size = self.content().desired_size();
-
-        // Calculate effective dimensions (same logic as render)
-        let effective_width = if content_size.width == u16::MAX {
-            self.content()
-                .content_width_for_scroll(content_region.width as u16) as i32
-        } else {
-            content_size.width as i32
-        };
-
-        let effective_height = if content_size.height == u16::MAX {
-            self.content()
-                .content_height_for_scroll(content_region.width as u16, content_region.height as u16)
-                as i32
-        } else {
-            content_size.height as i32
-        };
-
-        // Add 1 cell of scroll padding to ensure the last character/line is fully visible
-        // (matches Screen::render behavior for consistency)
-        let effective_width = effective_width.saturating_add(1);
-        let effective_height = effective_height.saturating_add(1);
-
-        let mut scroll = self.scroll.borrow_mut();
-        scroll.set_virtual_size(effective_width, effective_height);
-        scroll.set_viewport(content_region.width, content_region.height);
+    fn update_scroll_dimensions(&self, inner_region: Region, viewport: Viewport) {
+        let _layout = self.compute_scroll_layout(inner_region, viewport);
     }
 
     /// Get colors for vertical scrollbar based on hover/drag state.
@@ -309,6 +471,18 @@ impl<M> ScrollableContainer<M> {
 }
 
 impl<M> Widget<M> for ScrollableContainer<M> {
+    fn default_css(&self) -> &'static str {
+        // Match Python Textual's ScrollableContainer DEFAULT_CSS
+        r#"
+ScrollableContainer {
+    width: 1fr;
+    height: 1fr;
+    layout: vertical;
+    overflow: auto auto;
+}
+"#
+    }
+
     fn desired_size(&self) -> Size {
         // ScrollableContainer fills available space
         // Return content size as hint, but container should expand
@@ -323,112 +497,9 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         // 1. Render background/border and get inner region
         let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
 
-        // Update scroll dimensions FIRST so show_*_scrollbar() has correct viewport info
-        // This fixes keyboard-only scrolling and overflow:auto decisions on first render
-        let content_size = self.content().desired_size();
-
-        // Handle u16::MAX (signal for "fill available space") - use actual content size
-        // When widgets have flexible sizes (fr, %, etc), desired_size returns u16::MAX
-        // which would incorrectly allow scrolling. Instead, use the widget's intrinsic size.
-        //
-        // We need to handle the chicken-and-egg problem:
-        // - Content width determines if we need horizontal scrollbar
-        // - Horizontal scrollbar reduces available height for content
-        // - So we calculate width first, then height with scrollbar accounted for
-
-        let style = self.scrollbar_style();
-
-        // Determine scrollbar sizes with a small fixed-point iteration
-        let mut h_scrollbar_size: i32 = 0;
-        let mut v_scrollbar_size: i32 = 0;
-        for _ in 0..2 {
-            let available_width = (inner_region.width - v_scrollbar_size).max(0);
-            let available_height = (inner_region.height - h_scrollbar_size).max(0);
-
-            // Effective content width
-            let effective_width = if content_size.width == u16::MAX {
-                self.content()
-                    .content_width_for_scroll(available_width as u16) as i32
-            } else {
-                content_size.width as i32
-            };
-
-            let needs_h_scrollbar = match self.style.overflow_x {
-                Overflow::Scroll => true,
-                Overflow::Auto => effective_width > available_width,
-                Overflow::Hidden => false,
-            };
-            let next_h_scrollbar_size = if needs_h_scrollbar {
-                style.size.horizontal as i32
-            } else {
-                0
-            };
-
-            // Effective content height (uses available width for wrapping)
-            let available_width_u16 =
-                available_width.clamp(0, u16::MAX as i32) as u16;
-            let should_measure_height =
-                content_size.height == u16::MAX || content_size.width > available_width_u16;
-            let effective_height = if should_measure_height {
-                self.content()
-                    .content_height_for_scroll(available_width_u16, available_height as u16)
-                    as i32
-            } else {
-                content_size.height as i32
-            };
-
-            let needs_v_scrollbar = match self.style.overflow_y {
-                Overflow::Scroll => true,
-                Overflow::Auto => effective_height > available_height as i32,
-                Overflow::Hidden => false,
-            };
-            let next_v_scrollbar_size = if needs_v_scrollbar {
-                style.size.vertical as i32
-            } else {
-                0
-            };
-
-            if next_h_scrollbar_size == h_scrollbar_size
-                && next_v_scrollbar_size == v_scrollbar_size
-            {
-                break;
-            }
-            h_scrollbar_size = next_h_scrollbar_size;
-            v_scrollbar_size = next_v_scrollbar_size;
-        }
-
-        {
-            let mut scroll = self.scroll.borrow_mut();
-            let available_width = (inner_region.width - v_scrollbar_size).max(0);
-            let available_height = (inner_region.height - h_scrollbar_size).max(0);
-            let effective_width = if content_size.width == u16::MAX {
-                self.content()
-                    .content_width_for_scroll(available_width as u16) as i32
-            } else {
-                content_size.width as i32
-            };
-            let available_width_u16 =
-                available_width.clamp(0, u16::MAX as i32) as u16;
-            let should_measure_height =
-                content_size.height == u16::MAX || content_size.width > available_width_u16;
-            let effective_height = if should_measure_height {
-                self.content()
-                    .content_height_for_scroll(available_width_u16, available_height as u16)
-                    as i32
-            } else {
-                content_size.height as i32
-            };
-            // Add 1 cell of scroll padding (matches update_scroll_dimensions and Screen::render)
-            let effective_width = effective_width.saturating_add(1);
-            let effective_height = effective_height.saturating_add(1);
-            scroll.set_virtual_size(effective_width, effective_height);
-            scroll.set_viewport(
-                available_width,
-                available_height,
-            );
-        }
-
-        let content_region = self.content_region(inner_region);
+        let viewport = canvas.viewport();
+        let layout = self.compute_scroll_layout(inner_region, viewport);
+        let content_region = layout.content_region;
 
         // Verbose render diagnostics (use RUST_LOG=trace to enable)
         let scroll = self.scroll.borrow();
@@ -444,16 +515,16 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             content_region.height
         );
         log::trace!(
-            "  scroll offset: ({}, {}), content_size: ({}, {})",
+            "  scroll offset: ({}, {}), virtual_size: ({}, {})",
             scroll.offset_x,
             scroll.offset_y,
-            content_size.width,
-            content_size.height
+            layout.virtual_width,
+            layout.virtual_height
         );
         log::trace!(
             "  show_vertical: {}, show_horizontal: {}, style.scrollbar.size: ({}, {})",
-            self.show_vertical_scrollbar(),
-            self.show_horizontal_scrollbar(),
+            layout.show_vertical,
+            layout.show_horizontal,
             self.style.scrollbar.size.horizontal,
             self.style.scrollbar.size.vertical
         );
@@ -468,46 +539,40 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         // Render content with clipping and scroll offset
         canvas.push_clip(content_region);
 
-        // Calculate content position with scroll offset
-        // Use the full virtual content size for layout so all children are positioned correctly.
-        // The clipping will show only the visible portion.
-        // NOTE: We use effective_height/effective_width calculated earlier for scroll purposes.
-        let scroll_ref = self.scroll.borrow();
-        let virtual_height = scroll_ref.virtual_height;
-        let virtual_width = scroll_ref.virtual_width;
-        drop(scroll_ref);
+        for placement in &layout.placements {
+            let child = &self.children[placement.child_index];
+            if child.get_style().visibility == Visibility::Hidden {
+                continue;
+            }
 
-        // For layout, use viewport width for percentage calculations (e.g., width: 50% means 50% of viewport).
-        // Individual elements with min-width can extend beyond this, but percentages should be relative to viewport.
-        // Use virtual_height for height since vertical scrolling uses the full content height.
-        let content_render_region = Region {
-            x: content_region.x - offset_x,
-            y: content_region.y - offset_y,
-            width: content_region.width, // Use viewport width for percentage-based layouts
-            height: virtual_height.max(content_region.height), // Full content height for vertical layout
-        };
+            let scrolled_region = Region {
+                x: placement.region.x - offset_x,
+                y: placement.region.y - offset_y,
+                width: placement.region.width,
+                height: placement.region.height,
+            };
 
-        log::trace!(
-            "  content_render_region: ({}, {}, {}, {})",
-            content_render_region.x,
-            content_render_region.y,
-            content_render_region.width,
-            content_render_region.height
-        );
+            let visible_h = scrolled_region.x + scrolled_region.width > content_region.x
+                && scrolled_region.x < content_region.x + content_region.width;
+            let visible_v = scrolled_region.y + scrolled_region.height > content_region.y
+                && scrolled_region.y < content_region.y + content_region.height;
 
-        self.content().render(canvas, content_render_region);
+            if visible_h && visible_v {
+                child.render(canvas, scrolled_region);
+            }
+        }
         canvas.pop_clip();
 
         // Render vertical scrollbar ON TOP of chrome
-        if self.show_vertical_scrollbar() {
-            let v_region = self.vertical_scrollbar_region(inner_region);
+        if layout.show_vertical {
+            let v_region =
+                self.vertical_scrollbar_region_with_flags(inner_region, layout.show_horizontal);
             let (thumb_color, track_color) = self.vertical_colors();
 
-            // Use virtual_height (which equals effective_height) for correct scrollbar rendering
             ScrollBarRender::render_vertical(
                 canvas,
                 v_region,
-                virtual_height as f32,
+                layout.virtual_height as f32,
                 content_region.height as f32,
                 offset_y as f32,
                 thumb_color,
@@ -516,15 +581,15 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         }
 
         // Render horizontal scrollbar ON TOP of chrome
-        if self.show_horizontal_scrollbar() {
-            let h_region = self.horizontal_scrollbar_region(inner_region);
+        if layout.show_horizontal {
+            let h_region =
+                self.horizontal_scrollbar_region_with_flags(inner_region, layout.show_vertical);
             let (thumb_color, track_color) = self.horizontal_colors();
 
-            // Use virtual_width (which equals effective_width) for correct scrollbar rendering
             ScrollBarRender::render_horizontal(
                 canvas,
                 h_region,
-                virtual_width as f32,
+                layout.virtual_width as f32,
                 content_region.width as f32,
                 offset_x as f32,
                 thumb_color,
@@ -533,7 +598,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         }
 
         // Render corner if both scrollbars visible
-        if self.show_vertical_scrollbar() && self.show_horizontal_scrollbar() {
+        if layout.show_vertical && layout.show_horizontal {
             let corner_region = self.corner_region(inner_region);
             let style = self.scrollbar_style();
             let mut corner = ScrollBarCorner::new(style.size.vertical, style.size.horizontal);
@@ -568,6 +633,46 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         for child in &mut self.children {
             f(child.as_mut());
         }
+    }
+
+    fn get_meta(&self) -> WidgetMeta {
+        WidgetMeta {
+            type_name: "ScrollableContainer",
+            id: self.id.clone(),
+            classes: self.classes.clone(),
+            states: WidgetStates::empty(),
+        }
+    }
+
+    fn id(&self) -> Option<&str> {
+        self.id.as_deref()
+    }
+
+    fn add_class(&mut self, class: &str) {
+        if !self.classes.iter().any(|c| c == class) {
+            self.classes.push(class.to_string());
+            self.dirty = true;
+        }
+    }
+
+    fn remove_class(&mut self, class: &str) {
+        if let Some(pos) = self.classes.iter().position(|c| c == class) {
+            self.classes.remove(pos);
+            self.dirty = true;
+        }
+    }
+
+    fn has_class(&self, class: &str) -> bool {
+        self.classes.iter().any(|c| c == class)
+    }
+
+    fn set_classes(&mut self, classes: &str) {
+        self.classes = classes.split_whitespace().map(String::from).collect();
+        self.dirty = true;
+    }
+
+    fn classes(&self) -> Vec<String> {
+        self.classes.clone()
     }
 
     fn on_resize(&mut self, size: Size) {
@@ -610,16 +715,32 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 return None;
             }
             KeyCode::Home if self.allow_vertical_scroll() || self.allow_horizontal_scroll() => {
-                let x = if self.allow_horizontal_scroll() { Some(0.0) } else { None };
-                let y = if self.allow_vertical_scroll() { Some(0.0) } else { None };
+                let x = if self.allow_horizontal_scroll() {
+                    Some(0.0)
+                } else {
+                    None
+                };
+                let y = if self.allow_vertical_scroll() {
+                    Some(0.0)
+                } else {
+                    None
+                };
                 self.scroll.borrow_mut().scroll_to(x, y);
                 self.dirty = true;
                 return None;
             }
             KeyCode::End if self.allow_vertical_scroll() || self.allow_horizontal_scroll() => {
                 let mut scroll = self.scroll.borrow_mut();
-                let x = if self.allow_horizontal_scroll() { Some(scroll.max_scroll_x() as f32) } else { None };
-                let y = if self.allow_vertical_scroll() { Some(scroll.max_scroll_y() as f32) } else { None };
+                let x = if self.allow_horizontal_scroll() {
+                    Some(scroll.max_scroll_x() as f32)
+                } else {
+                    None
+                };
+                let y = if self.allow_vertical_scroll() {
+                    Some(scroll.max_scroll_y() as f32)
+                } else {
+                    None
+                };
                 scroll.scroll_to(x, y);
                 drop(scroll);
                 self.dirty = true;
@@ -636,16 +757,19 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         let mx = event.column as i32;
         let my = event.row as i32;
 
-        // Update scroll dimensions
-        let content_region = self.content_region(region);
-        self.update_scroll_dimensions(content_region);
+        let inner_region = self.compute_inner_region(region);
+        let viewport = layouts::Viewport::from(region);
+        let layout = self.compute_scroll_layout(inner_region, viewport);
+        let content_region = layout.content_region;
 
         // Check scrollbar regions first
-        let v_region = self.vertical_scrollbar_region(region);
-        let h_region = self.horizontal_scrollbar_region(region);
+        let v_region =
+            self.vertical_scrollbar_region_with_flags(inner_region, layout.show_horizontal);
+        let h_region =
+            self.horizontal_scrollbar_region_with_flags(inner_region, layout.show_vertical);
 
-        let on_vertical = self.show_vertical_scrollbar() && v_region.contains_point(mx, my);
-        let on_horizontal = self.show_horizontal_scrollbar() && h_region.contains_point(mx, my);
+        let on_vertical = layout.show_vertical && v_region.contains_point(mx, my);
+        let on_horizontal = layout.show_horizontal && h_region.contains_point(mx, my);
 
         // Debug mouse events
         if matches!(event.kind, MouseEventKind::Down(_)) {
@@ -659,7 +783,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             );
             log::info!(
                 "  show_horizontal={}, contains_point={}, on_horizontal={}",
-                self.show_horizontal_scrollbar(),
+                layout.show_horizontal,
                 h_region.contains_point(mx, my),
                 on_horizontal
             );
@@ -669,7 +793,7 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             MouseEventKind::Moved => {
                 // Handle drag
                 if let Some((vertical, grab_offset)) = self.scrollbar_drag {
-                    return self.handle_scrollbar_drag(event, region, vertical, grab_offset);
+                    return self.handle_scrollbar_drag(event, inner_region, vertical, grab_offset);
                 }
 
                 // Update hover state
@@ -688,8 +812,21 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 
                 // Pass to content if in content area
                 if content_region.contains_point(mx, my) {
-                    let scrolled = self.scrolled_content_region(content_region);
-                    return self.content_mut().on_mouse(event, scrolled);
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index].on_mouse(event, scrolled);
+                        }
+                    }
                 }
                 None
             }
@@ -700,20 +837,46 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 } else if on_horizontal {
                     return self.handle_horizontal_scrollbar_click(event, h_region);
                 } else if content_region.contains_point(mx, my) {
-                    let scrolled = self.scrolled_content_region(content_region);
-                    return self.content_mut().on_mouse(event, scrolled);
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index].on_mouse(event, scrolled);
+                        }
+                    }
                 }
                 None
             }
 
             MouseEventKind::Drag(_) => {
                 if let Some((vertical, grab_offset)) = self.scrollbar_drag {
-                    return self.handle_scrollbar_drag(event, region, vertical, grab_offset);
+                    return self.handle_scrollbar_drag(event, inner_region, vertical, grab_offset);
                 }
                 // Pass to content
                 if content_region.contains_point(mx, my) {
-                    let scrolled = self.scrolled_content_region(content_region);
-                    return self.content_mut().on_mouse(event, scrolled);
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index].on_mouse(event, scrolled);
+                        }
+                    }
                 }
                 None
             }
@@ -725,8 +888,21 @@ impl<M> Widget<M> for ScrollableContainer<M> {
                 }
                 // Pass to content
                 if content_region.contains_point(mx, my) {
-                    let scrolled = self.scrolled_content_region(content_region);
-                    return self.content_mut().on_mouse(event, scrolled);
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index].on_mouse(event, scrolled);
+                        }
+                    }
                 }
                 None
             }
@@ -804,19 +980,6 @@ impl<M> Widget<M> for ScrollableContainer<M> {
 }
 
 impl<M> ScrollableContainer<M> {
-    /// Calculate content region adjusted for scroll offset (for mouse routing).
-    /// Must match the region used in render() for proper hit detection.
-    fn scrolled_content_region(&self, content_region: Region) -> Region {
-        let scroll = self.scroll.borrow();
-        Region {
-            x: content_region.x - scroll.offset_x,
-            y: content_region.y - scroll.offset_y,
-            // Use viewport dimensions to match render region
-            width: content_region.width,
-            height: content_region.height,
-        }
-    }
-
     /// Handle click on vertical scrollbar.
     fn handle_vertical_scrollbar_click(&mut self, event: MouseEvent, region: Region) -> Option<M> {
         let my = event.row as i32;

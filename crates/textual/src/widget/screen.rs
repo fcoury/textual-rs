@@ -17,13 +17,13 @@
 use std::cell::RefCell;
 
 use crate::canvas::{Canvas, Region, Size};
-use crossterm::event::KeyModifiers;
 use crate::layouts;
 use crate::scroll::ScrollState;
 use crate::scrollbar::ScrollBarRender;
-use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::widget::Widget;
+use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::{KeyCode, MouseEvent};
+use crossterm::event::KeyModifiers;
 use tcss::types::{Overflow, RgbaColor, ScrollbarGutter, Unit};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
@@ -31,16 +31,10 @@ use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 pub type Breakpoint = (u16, &'static str);
 
 /// Default horizontal breakpoints (matches Textual).
-pub const DEFAULT_HORIZONTAL_BREAKPOINTS: &[Breakpoint] = &[
-    (0, "-narrow"),
-    (80, "-wide"),
-];
+pub const DEFAULT_HORIZONTAL_BREAKPOINTS: &[Breakpoint] = &[(0, "-narrow"), (80, "-wide")];
 
 /// Default vertical breakpoints (matches Textual).
-pub const DEFAULT_VERTICAL_BREAKPOINTS: &[Breakpoint] = &[
-    (0, "-short"),
-    (24, "-tall"),
-];
+pub const DEFAULT_VERTICAL_BREAKPOINTS: &[Breakpoint] = &[(0, "-short"), (24, "-tall")];
 
 const PAGE_SCROLL_RATIO: f32 = 0.9;
 
@@ -385,7 +379,13 @@ impl<M> Screen<M> {
         }
     }
 
-    fn handle_scrollbar_drag(&mut self, event: MouseEvent, region: Region, vertical: bool, grab_offset: i32) {
+    fn handle_scrollbar_drag(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+        vertical: bool,
+        grab_offset: i32,
+    ) {
         if vertical {
             let v_region = self.vertical_scrollbar_region(region);
             let my = event.row as i32;
@@ -448,8 +448,7 @@ Screen {
         }
 
         // Render background/border and get inner region
-        let inner_region =
-            crate::containers::render_container_chrome(canvas, region, &self.style);
+        let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
 
         // Use the canvas viewport (screen dimensions) for CSS vw/vh units
         let viewport = canvas.viewport();
@@ -458,15 +457,8 @@ Screen {
         let (virtual_width, virtual_height, _) =
             self.compute_virtual_size(&initial_placements, inner_region);
 
-        // Add 1 cell of scroll padding to ensure the last character/line is fully visible
-        // and not clipped by terminal edge behavior or scrollbar overlay issues.
-        // This must be applied BEFORE setting the initial scroll state.
-        //
-        // The vertical +1 is needed because when both scrollbars are visible, the viewport
-        // height is reduced by the horizontal scrollbar, but we need to ensure the last
-        // line of content (especially trailing empty lines from \n) remains scrollable.
-        let virtual_width = virtual_width.saturating_add(1);
-        let virtual_height = virtual_height.saturating_add(1);
+        // Do not pad virtual size here; padding can fabricate overflow and force
+        // Screen-level scrollbars even when content fits (differs from Python Textual).
 
         {
             let mut scroll = self.scroll.borrow_mut();
@@ -482,10 +474,6 @@ Screen {
             let new_placements = self.compute_child_placements(content_region, viewport);
             let (new_virtual_width, new_virtual_height, _new_max_from_auto) =
                 self.compute_virtual_size(&new_placements, content_region);
-
-            // Add 1 cell safety padding here as well (matches initial computation)
-            let new_virtual_width = new_virtual_width.saturating_add(1);
-            let new_virtual_height = new_virtual_height.saturating_add(1);
 
             {
                 let mut scroll = self.scroll.borrow_mut();
@@ -556,7 +544,8 @@ Screen {
         if self.show_vertical_scrollbar() && self.show_horizontal_scrollbar() {
             let corner_region = Region {
                 x: inner_region.x + inner_region.width - self.style.scrollbar.size.vertical as i32,
-                y: inner_region.y + inner_region.height - self.style.scrollbar.size.horizontal as i32,
+                y: inner_region.y + inner_region.height
+                    - self.style.scrollbar.size.horizontal as i32,
                 width: self.style.scrollbar.size.vertical as i32,
                 height: self.style.scrollbar.size.horizontal as i32,
             };
@@ -586,7 +575,11 @@ Screen {
         WidgetMeta {
             type_name: "Screen",
             // Convert &'static str to String only when metadata is requested
-            classes: self.responsive_classes.iter().map(|s| s.to_string()).collect(),
+            classes: self
+                .responsive_classes
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             states: WidgetStates::empty(), // Screen typically doesn't have focus/hover itself
             id: None,
         }
