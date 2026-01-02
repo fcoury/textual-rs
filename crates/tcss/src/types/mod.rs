@@ -45,7 +45,7 @@ pub use geometry::{Scalar, Spacing, Unit};
 pub use grid::{GridPlacement, GridStyle};
 pub use hatch::{Hatch, HatchPattern};
 pub use keyline::{Keyline, KeylineStyle};
-pub use layout::{BoxSizing, Display, Dock, Layout, Overflow, Visibility};
+pub use layout::{BoxSizing, Display, Dock, Layout, Overflow, Position, Visibility};
 pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
 pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
@@ -114,6 +114,9 @@ pub struct ComputedStyle {
 
     // Layout mode
     pub layout: Layout,
+
+    // Positioning (relative/absolute)
+    pub position: Position,
 
     // Dock position (removes from layout flow)
     pub dock: Option<Dock>,
@@ -197,6 +200,7 @@ impl Default for ComputedStyle {
             visibility: Visibility::default(),
             opacity: 1.0,
             layout: Layout::default(),
+            position: Position::default(),
             dock: None,
             layers: None,
             layer: None,

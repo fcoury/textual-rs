@@ -186,6 +186,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "display" => map(values::parse_display, Declaration::Display)(input)?,
         "visibility" => map(values::parse_visibility, Declaration::Visibility)(input)?,
         "opacity" => map(values::parse_opacity, Declaration::Opacity)(input)?,
+        "position" => map(values::parse_position, Declaration::Position)(input)?,
 
         // Overflow properties
         "overflow-x" => map(values::parse_overflow, Declaration::OverflowX)(input)?,

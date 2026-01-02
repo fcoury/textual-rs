@@ -114,3 +114,16 @@ pub enum Dock {
     /// Dock to the right edge.
     Right,
 }
+
+/// Controls how a widget is positioned relative to the layout flow.
+///
+/// - `relative`: participates in normal layout flow (default)
+/// - `absolute`: removed from flow and positioned relative to parent region
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Position {
+    /// Widget participates in normal layout flow (default).
+    #[default]
+    Relative,
+    /// Widget is removed from layout flow and positioned absolutely.
+    Absolute,
+}

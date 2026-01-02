@@ -318,6 +318,20 @@ pub fn parse_visibility(input: &str) -> IResult<&str, crate::types::Visibility> 
     }
 }
 
+/// Parse position: `relative` or `absolute`.
+pub fn parse_position(input: &str) -> IResult<&str, crate::types::Position> {
+    use crate::types::Position;
+    let (input, ident) = parse_ident(input)?;
+    match ident.to_lowercase().as_str() {
+        "relative" => Ok((input, Position::Relative)),
+        "absolute" => Ok((input, Position::Absolute)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
 /// Parse horizontal alignment: `left`, `center`, or `right`.
 pub fn parse_align_horizontal(input: &str) -> IResult<&str, crate::types::AlignHorizontal> {
     use crate::types::AlignHorizontal;

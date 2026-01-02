@@ -31,7 +31,7 @@ pub use vertical::VerticalLayout;
 
 use crate::canvas::{Region, Size};
 use crate::widget::Widget;
-use tcss::types::{ComputedStyle, Dock, Layout as LayoutKind};
+use tcss::types::{ComputedStyle, Dock, Layout as LayoutKind, Position};
 
 /// Layout-specific view of a widget for intrinsic measurements.
 pub trait LayoutNode {
@@ -164,8 +164,13 @@ pub fn arrange_children_with_viewport(
     viewport: Viewport,
 ) -> Vec<WidgetPlacement> {
     // Separate docked widgets from layout widgets
-    let (docked, layout_children): (Vec<_>, Vec<_>) =
+    let (docked, non_docked): (Vec<_>, Vec<_>) =
         children.iter().partition(|child| child.style.dock.is_some());
+
+    // Absolute-positioned widgets are removed from normal flow
+    let (absolute_children, layout_children): (Vec<&LayoutChild>, Vec<&LayoutChild>) = non_docked
+        .into_iter()
+        .partition(|child| child.style.position == Position::Absolute);
 
     // Process docked widgets first
     let docked_vec: Vec<LayoutChild> = docked
@@ -202,6 +207,16 @@ pub fn arrange_children_with_viewport(
         })
         .collect();
 
+    let absolute_children_vec: Vec<_> = absolute_children
+        .iter()
+        .map(|child| LayoutChild {
+            index: child.index,
+            style: child.style.clone(),
+            desired_size: child.desired_size,
+            node: child.node,
+        })
+        .collect();
+
     let mut layout_placements = match parent_style.layout {
         LayoutKind::Grid => {
             let mut layout = GridLayout::default();
@@ -229,8 +244,16 @@ pub fn arrange_children_with_viewport(
     apply_offset(&mut placements, children, viewport);
     apply_offset(&mut layout_placements, children, viewport);
 
+    // Absolute placements: position at the content origin, then apply offset
+    let mut absolute_placements: Vec<WidgetPlacement> = absolute_children_vec
+        .iter()
+        .map(|child| resolve_absolute_placement(child, content_region, viewport))
+        .collect();
+    apply_offset(&mut absolute_placements, children, viewport);
+
     // Combine docked and layout placements
     placements.extend(layout_placements);
+    placements.extend(absolute_placements);
 
     placements
 }
@@ -573,6 +596,127 @@ fn apply_offset(
                 placement.region.y += offset_y;
             }
         }
+    }
+}
+
+fn resolve_absolute_placement(
+    child: &LayoutChild,
+    available: Region,
+    viewport: Viewport,
+) -> WidgetPlacement {
+    use tcss::types::geometry::Unit;
+
+    let style = &child.style;
+    let desired = child.desired_size;
+
+    let intrinsic_width = if desired.width == u16::MAX {
+        available.width.clamp(0, u16::MAX as i32) as u16
+    } else {
+        desired.width
+    };
+
+    let width = if let Some(w) = &style.width {
+        let raw = match w.unit {
+            Unit::Cells => w.value as i32,
+            Unit::Percent => ((w.value / 100.0) * available.width as f64).round() as i32,
+            Unit::Width => ((w.value / 100.0) * available.width as f64).round() as i32,
+            Unit::Height => ((w.value / 100.0) * available.height as f64).round() as i32,
+            Unit::ViewWidth => ((w.value / 100.0) * viewport.width as f64).round() as i32,
+            Unit::ViewHeight => ((w.value / 100.0) * viewport.height as f64).round() as i32,
+            Unit::Fraction => available.width,
+            Unit::Auto => intrinsic_width as i32,
+        };
+        size_resolver::apply_box_sizing_width(raw, style)
+    } else {
+        intrinsic_width as i32
+    };
+
+    let width = if let Some(max_w) = &style.max_width {
+        let max_width_value = match max_w.unit {
+            Unit::Cells => max_w.value as i32,
+            Unit::Percent => ((max_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Width => ((max_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Height => ((max_w.value / 100.0) * available.height as f64) as i32,
+            Unit::ViewWidth => ((max_w.value / 100.0) * viewport.width as f64) as i32,
+            Unit::ViewHeight => ((max_w.value / 100.0) * viewport.height as f64) as i32,
+            _ => max_w.value as i32,
+        };
+        width.min(max_width_value)
+    } else {
+        width
+    };
+
+    let width = if let Some(min_w) = &style.min_width {
+        let min_width_value = match min_w.unit {
+            Unit::Cells => min_w.value as i32,
+            Unit::Percent => ((min_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Width => ((min_w.value / 100.0) * available.width as f64) as i32,
+            Unit::Height => ((min_w.value / 100.0) * available.height as f64) as i32,
+            Unit::ViewWidth => ((min_w.value / 100.0) * viewport.width as f64) as i32,
+            Unit::ViewHeight => ((min_w.value / 100.0) * viewport.height as f64) as i32,
+            _ => min_w.value as i32,
+        };
+        width.max(min_width_value)
+    } else {
+        width
+    };
+
+    let width_u16 = width.clamp(0, u16::MAX as i32) as u16;
+
+    let height = if let Some(h) = &style.height {
+        let raw = match h.unit {
+            Unit::Cells => h.value as i32,
+            Unit::Percent => ((h.value / 100.0) * available.height as f64).round() as i32,
+            Unit::Width => ((h.value / 100.0) * available.width as f64).round() as i32,
+            Unit::Height => ((h.value / 100.0) * available.height as f64).round() as i32,
+            Unit::ViewWidth => ((h.value / 100.0) * viewport.width as f64).round() as i32,
+            Unit::ViewHeight => ((h.value / 100.0) * viewport.height as f64).round() as i32,
+            Unit::Fraction => available.height,
+            Unit::Auto => child.node.intrinsic_height_for_width(width_u16) as i32,
+        };
+        size_resolver::apply_box_sizing_height(raw, style)
+    } else {
+        child.node.intrinsic_height_for_width(width_u16) as i32
+    };
+
+    let height = if let Some(max_h) = &style.max_height {
+        let max_height_value = match max_h.unit {
+            Unit::Cells => max_h.value,
+            Unit::Percent => (max_h.value / 100.0) * available.height as f64,
+            Unit::Width => (max_h.value / 100.0) * available.width as f64,
+            Unit::Height => (max_h.value / 100.0) * available.height as f64,
+            Unit::ViewWidth => (max_h.value / 100.0) * viewport.width as f64,
+            Unit::ViewHeight => (max_h.value / 100.0) * viewport.height as f64,
+            _ => max_h.value,
+        };
+        height.min(max_height_value as i32)
+    } else {
+        height
+    };
+
+    let height = if let Some(min_h) = &style.min_height {
+        let min_height_value = match min_h.unit {
+            Unit::Cells => min_h.value,
+            Unit::Percent => (min_h.value / 100.0) * available.height as f64,
+            Unit::Width => (min_h.value / 100.0) * available.width as f64,
+            Unit::Height => (min_h.value / 100.0) * available.height as f64,
+            Unit::ViewWidth => (min_h.value / 100.0) * viewport.width as f64,
+            Unit::ViewHeight => (min_h.value / 100.0) * viewport.height as f64,
+            _ => min_h.value,
+        };
+        height.max(min_height_value as i32)
+    } else {
+        height
+    };
+
+    WidgetPlacement {
+        child_index: child.index,
+        region: Region {
+            x: available.x,
+            y: available.y,
+            width: width.max(0),
+            height: height.max(0),
+        },
     }
 }
 

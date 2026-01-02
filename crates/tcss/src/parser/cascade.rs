@@ -434,6 +434,9 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::Layout(l) => {
             style.layout = *l;
         }
+        Declaration::Position(p) => {
+            style.position = *p;
+        }
         Declaration::Dock(d) => {
             style.dock = Some(*d);
         }

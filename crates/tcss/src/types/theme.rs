@@ -298,17 +298,9 @@ impl ColorSystem {
         vars.insert("link-color-hover".into(), RgbaColor::auto(0.87));
         vars.insert("link-background-hover".into(), self.primary.clone());
 
-        // Border colors
-        vars.insert("border".into(), if self.dark {
-            foreground.with_alpha(0.2)
-        } else {
-            foreground.with_alpha(0.15)
-        });
-        vars.insert("border-blurred".into(), if self.dark {
-            foreground.with_alpha(0.1)
-        } else {
-            foreground.with_alpha(0.08)
-        });
+        // Border colors (match Python Textual)
+        vars.insert("border".into(), self.primary.clone());
+        vars.insert("border-blurred".into(), surface.darken(0.025));
 
         // Surface active (for selected items)
         vars.insert("surface-active".into(), if self.dark {
