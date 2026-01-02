@@ -197,13 +197,6 @@ impl<M> ScrollableContainer<M> {
         self.style.overflow_x != Overflow::Hidden
     }
 
-    /// Calculate the content region (excluding scrollbars).
-    fn content_region(&self, region: Region) -> Region {
-        let show_vertical = self.show_vertical_scrollbar();
-        let show_horizontal = self.show_horizontal_scrollbar();
-        self.content_region_with_flags(region, show_vertical, show_horizontal)
-    }
-
     fn content_region_with_flags(
         &self,
         region: Region,
@@ -425,12 +418,6 @@ impl<M> ScrollableContainer<M> {
                 self.dirty = true;
             }
         }
-    }
-
-    /// Update scroll state dimensions from content and viewport.
-    /// Uses interior mutability so it can be called from render().
-    fn update_scroll_dimensions(&self, inner_region: Region, viewport: Viewport) {
-        let _layout = self.compute_scroll_layout(inner_region, viewport);
     }
 
     /// Get colors for vertical scrollbar based on hover/drag state.

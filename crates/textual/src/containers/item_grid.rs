@@ -93,7 +93,10 @@ impl<M> ItemGrid<M> {
 
     /// Count visible children that participate in layout.
     fn visible_children(&self) -> usize {
-        self.children.iter().filter(|c| c.participates_in_layout()).count()
+        self.children
+            .iter()
+            .filter(|c| c.participates_in_layout())
+            .count()
     }
 
     /// Compute child placements using GridLayout with pre_layout configuration.
@@ -227,7 +230,9 @@ impl<M> Widget<M> for ItemGrid<M> {
 
         for placement in placements {
             if placement.region.contains_point(mx, my) {
-                if let Some(msg) = self.children[placement.child_index].on_mouse(event, placement.region) {
+                if let Some(msg) =
+                    self.children[placement.child_index].on_mouse(event, placement.region)
+                {
                     return Some(msg);
                 }
             }

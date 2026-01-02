@@ -1069,9 +1069,7 @@ Container {
                 child.content_height_for_scroll(available_width, viewport_height) as f64
             } else {
                 // No CSS height - use intrinsic height based on available width
-                child
-                    .intrinsic_height_for_width(child_width_u16)
-                    as f64
+                child.intrinsic_height_for_width(child_width_u16) as f64
             };
 
             // Use floor arithmetic matching the vertical layout:
@@ -1125,12 +1123,8 @@ Container {
                 let mut box_width: f64 = if let Some(w) = &child_style.width {
                     match w.unit {
                         Unit::Cells => w.value,
-                        Unit::Percent | Unit::Width => {
-                            (w.value / 100.0) * viewport_width as f64
-                        }
-                        Unit::Height => {
-                            (w.value / 100.0) * viewport_height as f64
-                        }
+                        Unit::Percent | Unit::Width => (w.value / 100.0) * viewport_width as f64,
+                        Unit::Height => (w.value / 100.0) * viewport_height as f64,
                         Unit::ViewWidth => (w.value / 100.0) * viewport_width as f64,
                         Unit::ViewHeight => (w.value / 100.0) * viewport_height as f64,
                         Unit::Fraction => {
@@ -1160,9 +1154,7 @@ Container {
                         Unit::Percent | Unit::Width => {
                             (min_w.value / 100.0) * viewport_width as f64
                         }
-                        Unit::Height => {
-                            (min_w.value / 100.0) * viewport_height as f64
-                        }
+                        Unit::Height => (min_w.value / 100.0) * viewport_height as f64,
                         Unit::ViewWidth => (min_w.value / 100.0) * viewport_width as f64,
                         Unit::ViewHeight => (min_w.value / 100.0) * viewport_height as f64,
                         _ => min_w.value,
@@ -1198,12 +1190,8 @@ Container {
                 let mut box_width: f64 = if let Some(w) = &child_style.width {
                     match w.unit {
                         Unit::Cells => w.value,
-                        Unit::Percent | Unit::Width => {
-                            (w.value / 100.0) * viewport_width as f64
-                        }
-                        Unit::Height => {
-                            (w.value / 100.0) * viewport_height as f64
-                        }
+                        Unit::Percent | Unit::Width => (w.value / 100.0) * viewport_width as f64,
+                        Unit::Height => (w.value / 100.0) * viewport_height as f64,
                         Unit::ViewWidth => (w.value / 100.0) * viewport_width as f64,
                         Unit::ViewHeight => (w.value / 100.0) * viewport_height as f64,
                         Unit::Fraction => {
@@ -1231,9 +1219,7 @@ Container {
                         Unit::Percent | Unit::Width => {
                             (min_w.value / 100.0) * viewport_width as f64
                         }
-                        Unit::Height => {
-                            (min_w.value / 100.0) * viewport_height as f64
-                        }
+                        Unit::Height => (min_w.value / 100.0) * viewport_height as f64,
                         Unit::ViewWidth => (min_w.value / 100.0) * viewport_width as f64,
                         Unit::ViewHeight => (min_w.value / 100.0) * viewport_height as f64,
                         _ => min_w.value,

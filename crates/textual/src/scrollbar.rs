@@ -4,8 +4,8 @@
 //! Textual Python's visual appearance, including smooth gradient edges
 //! using Unicode block characters.
 
-use crate::{Canvas, Region};
 use crate::canvas::TextAttributes;
+use crate::{Canvas, Region};
 use tcss::types::RgbaColor;
 
 /// Glyphs for smooth scrollbar thumb edges.

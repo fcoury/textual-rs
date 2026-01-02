@@ -402,10 +402,14 @@ Placeholder {
 
         // Calculate chrome (padding) for auto sizing
         // When height/width is auto, the widget should include padding in its desired size
-        let padding_h = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
-        let padding_v = self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+        let padding_h =
+            self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+        let padding_v =
+            self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
 
-        let content = self.get_display_content(&Region::default()).unwrap_or_default();
+        let content = self
+            .get_display_content(&Region::default())
+            .unwrap_or_default();
         let content_width = content
             .lines()
             .map(|line| line.chars().count() as u16)
@@ -417,7 +421,12 @@ Placeholder {
         let width = if let Some(w) = &self.style.width {
             match w.unit {
                 Unit::Cells => w.value as u16,
-                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => {
                     u16::MAX // Signal "fill available space"
                 }
                 Unit::Auto => content_width + padding_h, // Content width + horizontal padding
@@ -432,7 +441,12 @@ Placeholder {
         let height = if let Some(h) = &self.style.height {
             match h.unit {
                 Unit::Cells => h.value as u16,
-                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => {
                     u16::MAX // Signal "fill available space"
                 }
                 Unit::Auto => content_height + padding_v, // Content height + vertical padding
@@ -451,7 +465,9 @@ Placeholder {
         let padding_right = self.style.padding.right.value as u16;
 
         let content_width = width.saturating_sub(padding_left + padding_right).max(1);
-        let content = self.get_display_content(&Region::default()).unwrap_or_default();
+        let content = self
+            .get_display_content(&Region::default())
+            .unwrap_or_default();
         let lines = Self::word_wrap(&content, content_width as usize);
         let content_height = lines.len().max(1) as u16;
 

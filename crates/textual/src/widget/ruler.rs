@@ -304,7 +304,9 @@ mod tests {
         let ruler: Ruler<()> = Ruler::vertical();
 
         // Test first 15 positions
-        let expected = ['·', '·', '·', '·', '•', '·', '·', '·', '·', '•', '·', '·', '·', '·', '•'];
+        let expected = [
+            '·', '·', '·', '·', '•', '·', '·', '·', '·', '•', '·', '·', '·', '·', '•',
+        ];
 
         for (i, &expected_char) in expected.iter().enumerate() {
             assert_eq!(
@@ -328,7 +330,13 @@ mod tests {
         for i in 0..100 {
             let ch = ruler.char_at(i);
             if (i + 1) % 5 == 0 {
-                assert_eq!(ch, '•', "Position {} (1-indexed: {}) should be bullet", i, i + 1);
+                assert_eq!(
+                    ch,
+                    '•',
+                    "Position {} (1-indexed: {}) should be bullet",
+                    i,
+                    i + 1
+                );
             } else {
                 assert_eq!(ch, '·', "Position {} should be middle dot", i);
             }

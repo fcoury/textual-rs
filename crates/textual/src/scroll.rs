@@ -38,7 +38,12 @@ pub struct ScrollState {
 
 impl ScrollState {
     /// Create new scroll state with given dimensions.
-    pub fn new(virtual_width: i32, virtual_height: i32, viewport_width: i32, viewport_height: i32) -> Self {
+    pub fn new(
+        virtual_width: i32,
+        virtual_height: i32,
+        viewport_width: i32,
+        viewport_height: i32,
+    ) -> Self {
         Self {
             offset_x: 0,
             offset_y: 0,
@@ -240,7 +245,7 @@ mod tests {
         let mut state = ScrollState::new(200, 200, 100, 100);
         state.scroll_to(Some(200.0), Some(-50.0));
         assert_eq!(state.offset_x, 100); // Clamped to max
-        assert_eq!(state.offset_y, 0);   // Clamped to 0
+        assert_eq!(state.offset_y, 0); // Clamped to 0
     }
 
     #[test]

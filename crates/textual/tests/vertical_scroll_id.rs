@@ -3,7 +3,7 @@
 //! Bug #2: VerticalScroll::with_id() was adding ID as a CSS class with "#" prefix
 //! instead of setting an actual ID. This caused CSS selectors like `#right` to fail.
 
-use tcss::parser::cascade::{compute_style, WidgetMeta};
+use tcss::parser::cascade::{WidgetMeta, compute_style};
 use tcss::parser::parse_stylesheet;
 use tcss::types::{Overflow, Theme};
 use textual::widget::Widget;
@@ -12,10 +12,9 @@ use textual::{Label, Static, VerticalScroll};
 #[test]
 fn test_vertical_scroll_id_is_set_correctly() {
     // Create VerticalScroll with ID
-    let vs: VerticalScroll<()> = VerticalScroll::new(vec![
-        Box::new(Label::new("test")) as Box<dyn Widget<()>>,
-    ])
-    .with_id("my-scroll");
+    let vs: VerticalScroll<()> =
+        VerticalScroll::new(vec![Box::new(Label::new("test")) as Box<dyn Widget<()>>])
+            .with_id("my-scroll");
 
     // The ID should be accessible via id() method
     assert_eq!(
@@ -27,10 +26,9 @@ fn test_vertical_scroll_id_is_set_correctly() {
 
 #[test]
 fn test_vertical_scroll_meta_has_id() {
-    let vs: VerticalScroll<()> = VerticalScroll::new(vec![
-        Box::new(Label::new("test")) as Box<dyn Widget<()>>,
-    ])
-    .with_id("test-id");
+    let vs: VerticalScroll<()> =
+        VerticalScroll::new(vec![Box::new(Label::new("test")) as Box<dyn Widget<()>>])
+            .with_id("test-id");
 
     let meta = vs.get_meta();
     assert_eq!(
@@ -57,15 +55,16 @@ VerticalScroll {
     let theme = Theme::new("default", true);
 
     // Create VerticalScroll with the target ID
-    let vs: VerticalScroll<()> = VerticalScroll::new(vec![
-        Box::new(Label::new("content")) as Box<dyn Widget<()>>,
-    ])
-    .with_id("hidden-scroll");
+    let vs: VerticalScroll<()> =
+        VerticalScroll::new(vec![Box::new(Label::new("content")) as Box<dyn Widget<()>>])
+            .with_id("hidden-scroll");
 
     // Get widget meta for CSS matching
     let meta = vs.get_meta();
-    println!("Widget meta: type={}, id={:?}, classes={:?}",
-             meta.type_name, meta.id, meta.classes);
+    println!(
+        "Widget meta: type={}, id={:?}, classes={:?}",
+        meta.type_name, meta.id, meta.classes
+    );
 
     // Compute style from CSS
     let ancestors: Vec<WidgetMeta> = Vec::new();
@@ -96,10 +95,9 @@ VerticalScroll {
     let theme = Theme::new("default", true);
 
     // Create VerticalScroll WITHOUT the specific ID
-    let vs: VerticalScroll<()> = VerticalScroll::new(vec![
-        Box::new(Label::new("content")) as Box<dyn Widget<()>>,
-    ])
-    .with_id("other-id");
+    let vs: VerticalScroll<()> =
+        VerticalScroll::new(vec![Box::new(Label::new("content")) as Box<dyn Widget<()>>])
+            .with_id("other-id");
 
     let meta = vs.get_meta();
     let ancestors: Vec<WidgetMeta> = Vec::new();
@@ -126,10 +124,9 @@ fn test_style_propagation_to_inner_scrollable() {
     let theme = Theme::new("default", true);
 
     // Create VerticalScroll with target ID
-    let mut vs: VerticalScroll<()> = VerticalScroll::new(vec![
-        Box::new(Label::new("content")) as Box<dyn Widget<()>>,
-    ])
-    .with_id("hidden-scroll");
+    let mut vs: VerticalScroll<()> =
+        VerticalScroll::new(vec![Box::new(Label::new("content")) as Box<dyn Widget<()>>])
+            .with_id("hidden-scroll");
 
     // Compute style using the CSS cascade
     let meta = vs.get_meta();
@@ -175,22 +172,26 @@ Static {
     let theme = Theme::new("default", true);
 
     // Left container (no specific ID, should scroll)
-    let left: VerticalScroll<()> = VerticalScroll::new(vec![
-        Box::new(Static::new("content")) as Box<dyn Widget<()>>,
-    ])
-    .with_id("left");
+    let left: VerticalScroll<()> =
+        VerticalScroll::new(vec![Box::new(Static::new("content")) as Box<dyn Widget<()>>])
+            .with_id("left");
 
     // Right container (ID = "right", should have hidden overflow)
-    let right: VerticalScroll<()> = VerticalScroll::new(vec![
-        Box::new(Static::new("content")) as Box<dyn Widget<()>>,
-    ])
-    .with_id("right");
+    let right: VerticalScroll<()> =
+        VerticalScroll::new(vec![Box::new(Static::new("content")) as Box<dyn Widget<()>>])
+            .with_id("right");
 
     let left_meta = left.get_meta();
     let right_meta = right.get_meta();
 
-    println!("Left meta: id={:?}, classes={:?}", left_meta.id, left_meta.classes);
-    println!("Right meta: id={:?}, classes={:?}", right_meta.id, right_meta.classes);
+    println!(
+        "Left meta: id={:?}, classes={:?}",
+        left_meta.id, left_meta.classes
+    );
+    println!(
+        "Right meta: id={:?}, classes={:?}",
+        right_meta.id, right_meta.classes
+    );
 
     let ancestors: Vec<WidgetMeta> = Vec::new();
     let left_style = compute_style(&left_meta, &ancestors, &stylesheet, &theme);

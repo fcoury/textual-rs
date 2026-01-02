@@ -7,7 +7,7 @@
 //! to pre-compile the examples. Otherwise, cargo's compilation output will be captured
 //! instead of the TUI output.
 
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -36,7 +36,9 @@ fn run_example_in_pty(example_name: &str, width: u16, height: u16) -> String {
     // Run the pre-built binary directly (avoids cargo compilation output in PTY)
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let workspace_root = manifest_dir.parent().unwrap().parent().unwrap();
-    let binary_path = workspace_root.join("target/debug/examples").join(example_name);
+    let binary_path = workspace_root
+        .join("target/debug/examples")
+        .join(example_name);
 
     if !binary_path.exists() {
         panic!(
@@ -49,14 +51,20 @@ fn run_example_in_pty(example_name: &str, width: u16, height: u16) -> String {
     let mut cmd = CommandBuilder::new(&binary_path);
     cmd.cwd(workspace_root);
 
-    let mut child = pair.slave.spawn_command(cmd).expect("Failed to spawn command");
+    let mut child = pair
+        .slave
+        .spawn_command(cmd)
+        .expect("Failed to spawn command");
 
     // Drop the slave to avoid blocking reads
     drop(pair.slave);
 
     // Get writer and reader handles
     let mut writer = pair.master.take_writer().expect("Failed to get writer");
-    let mut reader = pair.master.try_clone_reader().expect("Failed to clone reader");
+    let mut reader = pair
+        .master
+        .try_clone_reader()
+        .expect("Failed to clone reader");
 
     // Spawn a thread to read output (PTY reads are blocking)
     let (tx, rx) = mpsc::channel();
@@ -89,9 +97,7 @@ fn run_example_in_pty(example_name: &str, width: u16, height: u16) -> String {
     let _ = child.wait();
 
     // Get output from reader thread with timeout
-    let output = rx
-        .recv_timeout(Duration::from_secs(5))
-        .unwrap_or_default();
+    let output = rx.recv_timeout(Duration::from_secs(5)).unwrap_or_default();
 
     // Parse with vt100
     let mut parser = vt100::Parser::new(height, width, 0);

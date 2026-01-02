@@ -94,10 +94,7 @@ impl Add for Fraction {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        Fraction::new(
-            self.num * rhs.den + rhs.num * self.den,
-            self.den * rhs.den,
-        )
+        Fraction::new(self.num * rhs.den + rhs.num * self.den, self.den * rhs.den)
     }
 }
 
@@ -143,15 +140,15 @@ mod tests {
 
     #[test]
     fn floor_positive() {
-        assert_eq!(Fraction::new(7, 3).floor(), 2);  // 2.33... -> 2
-        assert_eq!(Fraction::new(6, 3).floor(), 2);  // 2.0 -> 2
-        assert_eq!(Fraction::new(1, 3).floor(), 0);  // 0.33... -> 0
+        assert_eq!(Fraction::new(7, 3).floor(), 2); // 2.33... -> 2
+        assert_eq!(Fraction::new(6, 3).floor(), 2); // 2.0 -> 2
+        assert_eq!(Fraction::new(1, 3).floor(), 0); // 0.33... -> 0
     }
 
     #[test]
     fn floor_negative() {
-        assert_eq!(Fraction::new(-7, 3).floor(), -3);  // -2.33... -> -3
-        assert_eq!(Fraction::new(-6, 3).floor(), -2);  // -2.0 -> -2
+        assert_eq!(Fraction::new(-7, 3).floor(), -3); // -2.33... -> -3
+        assert_eq!(Fraction::new(-6, 3).floor(), -2); // -2.0 -> -2
     }
 
     #[test]

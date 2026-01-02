@@ -23,16 +23,10 @@ fn create_test_tree() -> Box<dyn Widget<()>> {
     let item2 = Label::<()>::new("Item 2").with_id("item-2");
     let footer = Label::<()>::new("Footer").with_id("footer");
 
-    let content = Container::<()>::new(vec![
-        Box::new(item1),
-        Box::new(item2),
-    ]).with_id("content");
+    let content = Container::<()>::new(vec![Box::new(item1), Box::new(item2)]).with_id("content");
 
-    let root = Container::<()>::new(vec![
-        Box::new(header),
-        Box::new(content),
-        Box::new(footer),
-    ]).with_id("root");
+    let root = Container::<()>::new(vec![Box::new(header), Box::new(content), Box::new(footer)])
+        .with_id("root");
 
     Box::new(root)
 }
@@ -42,9 +36,7 @@ fn integration_query_by_id_finds_root_container() {
     let root = create_test_tree();
     let mut tree = WidgetTree::new(root);
 
-    let found = tree.with_widget_by_id("root", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = tree.with_widget_by_id("root", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Container".to_string()));
 }
@@ -54,9 +46,7 @@ fn integration_query_by_id_finds_direct_child() {
     let root = create_test_tree();
     let mut tree = WidgetTree::new(root);
 
-    let found = tree.with_widget_by_id("header", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = tree.with_widget_by_id("header", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Label".to_string()));
 }
@@ -66,9 +56,7 @@ fn integration_query_by_id_finds_nested_container() {
     let root = create_test_tree();
     let mut tree = WidgetTree::new(root);
 
-    let found = tree.with_widget_by_id("content", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = tree.with_widget_by_id("content", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Container".to_string()));
 }
@@ -79,13 +67,9 @@ fn integration_query_by_id_finds_deeply_nested_label() {
     let mut tree = WidgetTree::new(root);
 
     // item-1 and item-2 are nested inside "content" container
-    let found1 = tree.with_widget_by_id("item-1", |widget| {
-        widget.type_name().to_string()
-    });
+    let found1 = tree.with_widget_by_id("item-1", |widget| widget.type_name().to_string());
 
-    let found2 = tree.with_widget_by_id("item-2", |widget| {
-        widget.type_name().to_string()
-    });
+    let found2 = tree.with_widget_by_id("item-2", |widget| widget.type_name().to_string());
 
     assert_eq!(found1, Some("Label".to_string()));
     assert_eq!(found2, Some("Label".to_string()));
@@ -97,9 +81,7 @@ fn integration_query_by_type_finds_first_container() {
     let mut tree = WidgetTree::new(root);
 
     // The root is a Container, so it should be found first
-    let found = tree.with_widget_by_type("Container", |widget| {
-        widget.id().map(|s| s.to_string())
-    });
+    let found = tree.with_widget_by_type("Container", |widget| widget.id().map(|s| s.to_string()));
 
     assert_eq!(found, Some(Some("root".to_string())));
 }
@@ -110,9 +92,7 @@ fn integration_query_by_type_finds_first_label() {
     let mut tree = WidgetTree::new(root);
 
     // "header" is the first Label in depth-first order
-    let found = tree.with_widget_by_type("Label", |widget| {
-        widget.id().map(|s| s.to_string())
-    });
+    let found = tree.with_widget_by_type("Label", |widget| widget.id().map(|s| s.to_string()));
 
     assert_eq!(found, Some(Some("header".to_string())));
 }
@@ -183,9 +163,7 @@ fn integration_mount_context_query_works() {
     let mut ctx = MountContext::new(app_ctx, &mut tree);
 
     // Query through MountContext
-    let found = ctx.with_widget_by_id("footer", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = ctx.with_widget_by_id("footer", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Label".to_string()));
 }
@@ -231,23 +209,17 @@ fn integration_query_depth_first_order() {
     //   └── Label (sibling)
 
     let leaf_a = Label::<()>::new("Leaf A").with_id("leaf-a");
-    let branch_a = Container::<()>::new(vec![
-        Box::new(leaf_a),
-    ]).with_id("branch-a");
+    let branch_a = Container::<()>::new(vec![Box::new(leaf_a)]).with_id("branch-a");
 
     let sibling = Label::<()>::new("Sibling").with_id("sibling");
 
-    let root = Container::<()>::new(vec![
-        Box::new(branch_a),
-        Box::new(sibling),
-    ]).with_id("root");
+    let root = Container::<()>::new(vec![Box::new(branch_a), Box::new(sibling)]).with_id("root");
 
     let mut tree = WidgetTree::new(Box::new(root) as Box<dyn Widget<()>>);
 
     // Depth-first: should find "leaf-a" before "sibling"
-    let first_label = tree.with_widget_by_type("Label", |widget| {
-        widget.id().map(|s| s.to_string())
-    });
+    let first_label =
+        tree.with_widget_by_type("Label", |widget| widget.id().map(|s| s.to_string()));
 
     assert_eq!(first_label, Some(Some("leaf-a".to_string())));
 }
@@ -262,9 +234,7 @@ fn integration_query_one_id_selector() {
     let mut tree = WidgetTree::new(root);
 
     // Query using #id selector
-    let found = tree.query_one("#header", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = tree.query_one("#header", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Label".to_string()));
 }
@@ -275,9 +245,7 @@ fn integration_query_one_type_selector() {
     let mut tree = WidgetTree::new(root);
 
     // Query using type selector - should find root Container
-    let found = tree.query_one("Container", |widget| {
-        widget.id().map(|s| s.to_string())
-    });
+    let found = tree.query_one("Container", |widget| widget.id().map(|s| s.to_string()));
 
     assert_eq!(found, Some(Some("root".to_string())));
 }
@@ -288,9 +256,7 @@ fn integration_query_one_combined_selector() {
     let mut tree = WidgetTree::new(root);
 
     // Query using Type#id selector
-    let found = tree.query_one("Label#footer", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = tree.query_one("Label#footer", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Label".to_string()));
 }
@@ -325,9 +291,7 @@ fn integration_query_one_deeply_nested() {
     let mut tree = WidgetTree::new(root);
 
     // Query for deeply nested item
-    let found = tree.query_one("#item-1", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = tree.query_one("#item-1", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Label".to_string()));
 }
@@ -360,9 +324,7 @@ fn integration_mount_context_query_one() {
     let mut ctx = MountContext::new(app_ctx, &mut tree);
 
     // Query using MountContext.query_one
-    let found = ctx.query_one("#footer", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = ctx.query_one("#footer", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Label".to_string()));
 }
@@ -398,16 +360,12 @@ fn integration_mount_context_query_one_modify() {
 fn integration_query_one_with_real_widget_types() {
     // Create a tree with multiple widget types having same ID pattern
     let label1 = Label::<()>::new("Label Submit").with_id("submit");
-    let container = Container::<()>::new(vec![
-        Box::new(label1),
-    ]).with_id("form");
+    let container = Container::<()>::new(vec![Box::new(label1)]).with_id("form");
 
     let mut tree = WidgetTree::new(Box::new(container) as Box<dyn Widget<()>>);
 
     // Query for Label#submit specifically
-    let found = tree.query_one("Label#submit", |widget| {
-        widget.type_name().to_string()
-    });
+    let found = tree.query_one("Label#submit", |widget| widget.type_name().to_string());
 
     assert_eq!(found, Some("Label".to_string()));
 

@@ -2,9 +2,9 @@
 //!
 //! This is a thin wrapper around `Container` with `layout: vertical` enforced.
 
+use crate::Widget;
 use crate::containers::container::{Container, ContainerLayoutDirection};
 use crate::impl_widget_delegation;
-use crate::Widget;
 
 /// A container that arranges children vertically (top-to-bottom).
 ///

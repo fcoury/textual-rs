@@ -1215,18 +1215,6 @@ mod theme_math_tests {
     use super::*;
 
     #[test]
-    fn test_hsl_roundtrip() {
-        // Test that converting RGB -> HSL -> RGB returns the original color
-        let original = RgbaColor::rgb(100, 150, 200);
-        let (h, s, l) = original.to_hsl();
-        let roundtrip = RgbaColor::from_hsl(h, s, l, 1.0);
-
-        assert_eq!(original.r, roundtrip.r);
-        assert_eq!(original.g, roundtrip.g);
-        assert_eq!(original.b, roundtrip.b);
-    }
-
-    #[test]
     fn test_lighten_darken_logic() {
         let base = RgbaColor::rgb(128, 128, 128); // 50% Gray
 

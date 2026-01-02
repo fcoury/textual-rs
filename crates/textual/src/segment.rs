@@ -331,17 +331,15 @@ impl Segment {
             return self.clone();
         }
 
-        let new_style = self.style.as_ref().map(|s| {
-            Style {
-                fg: s.fg.as_ref().map(|c| c.tint(tint)),
-                bg: s.bg.as_ref().map(|c| c.tint(tint)),
-                bold: s.bold,
-                dim: s.dim,
-                italic: s.italic,
-                underline: s.underline,
-                strike: s.strike,
-                reverse: s.reverse,
-            }
+        let new_style = self.style.as_ref().map(|s| Style {
+            fg: s.fg.as_ref().map(|c| c.tint(tint)),
+            bg: s.bg.as_ref().map(|c| c.tint(tint)),
+            bold: s.bold,
+            dim: s.dim,
+            italic: s.italic,
+            underline: s.underline,
+            strike: s.strike,
+            reverse: s.reverse,
         });
 
         Segment {

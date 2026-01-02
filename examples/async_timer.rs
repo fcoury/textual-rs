@@ -123,11 +123,7 @@ impl App for TimerApp {
         match envelope.message {
             Message::Tick => {
                 self.tick_count += 1;
-                log::info!(
-                    "Tick #{} (from: {})",
-                    self.tick_count,
-                    envelope.sender_type
-                );
+                log::info!("Tick #{} (from: {})", self.tick_count, envelope.sender_type);
             }
             Message::SwitchToggled(enabled) => {
                 self.timer_enabled = enabled;

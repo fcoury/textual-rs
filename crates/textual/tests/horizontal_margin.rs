@@ -256,12 +256,16 @@ fn test_horizontal_margin_collapsing_between_siblings() {
 
     // Child 1 at x=0, width=10
     assert_eq!(placements[0].region.x, 0, "First child should start at x=0");
-    assert_eq!(placements[0].region.width, 10, "First child width should be 10");
+    assert_eq!(
+        placements[0].region.width, 10,
+        "First child width should be 10"
+    );
 
     // Child 2 should start at x = 0 + 10 + max(3, 5) = 15
     // NOT x = 0 + 10 + 3 + 5 = 18 (additive)
     assert_eq!(
-        placements[1].region.x, 15,
+        placements[1].region.x,
+        15,
         "Second child x should be 15 (margin collapsing: max(3,5)=5), but got {}. Gap is {} instead of expected 5.",
         placements[1].region.x,
         placements[1].region.x - 10
@@ -296,7 +300,8 @@ fn test_horizontal_margin_collapsing_equal_margins() {
 
     // Child 2 at x = 0 + 10 + max(4,4) = 14
     assert_eq!(
-        placements[1].region.x, 14,
+        placements[1].region.x,
+        14,
         "Second child x should be 14 (collapsed margin=4), but got {}. Gap is {} instead of expected 4.",
         placements[1].region.x,
         placements[1].region.x - 10

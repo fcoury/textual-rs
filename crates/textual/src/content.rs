@@ -27,8 +27,8 @@ use std::collections::HashMap;
 
 use crate::segment::{Segment, Style};
 use crate::strip::Strip;
-use tcss::types::link::LinkStyle;
 use tcss::types::RgbaColor;
+use tcss::types::link::LinkStyle;
 use unicode_width::UnicodeWidthStr;
 
 /// An internal span for styled content.
@@ -349,15 +349,26 @@ impl Content {
     ///
     /// When `is_hovered` is true, hover variants (link-color-hover, link-background-hover,
     /// link-style-hover) are used instead of the normal variants.
-    fn apply_link_style(&self, base_style: Style, link_style: &LinkStyle, is_hovered: bool) -> Style {
+    fn apply_link_style(
+        &self,
+        base_style: Style,
+        link_style: &LinkStyle,
+        is_hovered: bool,
+    ) -> Style {
         // Select colors based on hover state (hover takes precedence if set)
         let link_bg = if is_hovered {
-            link_style.background_hover.as_ref().or(link_style.background.as_ref())
+            link_style
+                .background_hover
+                .as_ref()
+                .or(link_style.background.as_ref())
         } else {
             link_style.background.as_ref()
         };
         let link_color = if is_hovered {
-            link_style.color_hover.as_ref().or(link_style.color.as_ref())
+            link_style
+                .color_hover
+                .as_ref()
+                .or(link_style.color.as_ref())
         } else {
             link_style.color.as_ref()
         };
@@ -573,7 +584,8 @@ impl Content {
                     let segment_text = &line[word_byte_start..word_byte_end];
                     let abs_start = line_start + word_byte_start;
                     let abs_end = line_start + word_byte_end;
-                    let strip = self.render_line_with_spans(segment_text, abs_start, abs_end, spans);
+                    let strip =
+                        self.render_line_with_spans(segment_text, abs_start, abs_end, spans);
                     result.push(strip);
                     current_segment_start = if i + 1 < word_positions.len() {
                         word_positions[i + 1].0
@@ -595,7 +607,8 @@ impl Content {
                     let segment_text = &line[current_segment_start..segment_end];
                     let abs_start = line_start + current_segment_start;
                     let abs_end = line_start + segment_end;
-                    let strip = self.render_line_with_spans(segment_text, abs_start, abs_end, spans);
+                    let strip =
+                        self.render_line_with_spans(segment_text, abs_start, abs_end, spans);
                     result.push(strip);
 
                     // Start new segment at this word
@@ -806,7 +819,11 @@ mod tests {
         // Wrap should preserve trailing empty line from trailing newline
         let content = Content::new("a\nb\n");
         let lines = content.wrap(80);
-        assert_eq!(lines.len(), 3, "Should have 3 lines: 'a', 'b', and trailing empty");
+        assert_eq!(
+            lines.len(),
+            3,
+            "Should have 3 lines: 'a', 'b', and trailing empty"
+        );
         assert_eq!(lines[0].text(), "a");
         assert_eq!(lines[1].text(), "b");
         assert_eq!(lines[2].text(), "");
@@ -913,11 +930,18 @@ mod tests {
         let segments = lines[0].segments();
 
         // Should have at least 3 segments: "Hello ", "Bold", " text"
-        assert!(segments.len() >= 2, "Expected at least 2 segments, got {}", segments.len());
+        assert!(
+            segments.len() >= 2,
+            "Expected at least 2 segments, got {}",
+            segments.len()
+        );
 
         // Find the segment with "Bold" text
         let bold_segment = segments.iter().find(|s| s.text().contains("Bold"));
-        assert!(bold_segment.is_some(), "Should have a segment containing 'Bold'");
+        assert!(
+            bold_segment.is_some(),
+            "Should have a segment containing 'Bold'"
+        );
 
         let bold_segment = bold_segment.unwrap();
         assert!(
@@ -940,9 +964,10 @@ mod tests {
 
         // All lines should have bold segments
         for (i, line) in lines.iter().enumerate() {
-            let has_bold = line.segments().iter().any(|s| {
-                s.style().map(|st| st.bold).unwrap_or(false)
-            });
+            let has_bold = line
+                .segments()
+                .iter()
+                .any(|s| s.style().map(|st| st.bold).unwrap_or(false));
             assert!(
                 has_bold || line.text().is_empty(),
                 "Line {} should have bold style: '{}'",
@@ -1034,7 +1059,10 @@ mod tests {
 
         // Only italic (from link-style), not bold (from link-style-hover)
         assert!(style.italic, "Non-hover should have link-style italic");
-        assert!(!style.bold, "Non-hover should NOT have link-style-hover bold");
+        assert!(
+            !style.bold,
+            "Non-hover should NOT have link-style-hover bold"
+        );
     }
 
     #[test]
@@ -1064,7 +1092,10 @@ mod tests {
         let style = link_segment.style().expect("Link should have style");
 
         // All three should be present: underline from link-style + reverse/strike from hover
-        assert!(style.underline, "Hover should preserve link-style underline");
+        assert!(
+            style.underline,
+            "Hover should preserve link-style underline"
+        );
         assert!(style.reverse, "Hover should add link-style-hover reverse");
         assert!(style.strike, "Hover should add link-style-hover strike");
     }
@@ -1100,9 +1131,16 @@ mod tests {
         // Yellow (255,255,0) at 50% over blue (1,120,212) should give greenish result
         // Approximately: r=128, g=187-188, b=106
         assert!(fg.r > 100 && fg.r < 150, "Red should be blended: {}", fg.r);
-        assert!(fg.g > 150 && fg.g < 210, "Green should be blended: {}", fg.g);
+        assert!(
+            fg.g > 150 && fg.g < 210,
+            "Green should be blended: {}",
+            fg.g
+        );
         assert!(fg.b > 80 && fg.b < 130, "Blue should be blended: {}", fg.b);
-        assert!((fg.a - 1.0).abs() < 0.01, "Alpha should be 1.0 (fully opaque after blend)");
+        assert!(
+            (fg.a - 1.0).abs() < 0.01,
+            "Alpha should be 1.0 (fully opaque after blend)"
+        );
     }
 
     #[test]
@@ -1116,13 +1154,21 @@ mod tests {
         // Regression test: trailing newline should create an extra blank line
         // This matches Python Textual's behavior where "Hello!\n" renders as 2 lines
         let content = Content::new("Hello!\n");
-        assert_eq!(content.height(), 2, "Trailing newline should add a blank line");
+        assert_eq!(
+            content.height(),
+            2,
+            "Trailing newline should add a blank line"
+        );
     }
 
     #[test]
     fn height_with_multiple_trailing_newlines() {
         let content = Content::new("Hello!\n\n");
-        assert_eq!(content.height(), 3, "Two trailing newlines should add two blank lines");
+        assert_eq!(
+            content.height(),
+            3,
+            "Two trailing newlines should add two blank lines"
+        );
     }
 
     #[test]
@@ -1134,7 +1180,11 @@ mod tests {
     #[test]
     fn height_just_newline() {
         let content = Content::new("\n");
-        assert_eq!(content.height(), 2, "Single newline should be 2 lines (empty + blank)");
+        assert_eq!(
+            content.height(),
+            2,
+            "Single newline should be 2 lines (empty + blank)"
+        );
     }
 
     #[test]

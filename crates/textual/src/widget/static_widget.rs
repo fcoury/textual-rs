@@ -251,7 +251,9 @@ impl<M> Static<M> {
                 let contrasting = bg.get_contrasting_color(ratio);
                 // Apply opacity by blending toward inherited background
                 match &self.style.inherited_background {
-                    Some(inherited_bg) => contrasting.blend_toward(inherited_bg, self.style.opacity),
+                    Some(inherited_bg) => {
+                        contrasting.blend_toward(inherited_bg, self.style.opacity)
+                    }
                     None => contrasting.with_opacity(self.style.opacity),
                 }
             })
@@ -309,7 +311,11 @@ impl<M> Static<M> {
         };
 
         // Determine content block width (max line length)
-        let max_line_len = lines.iter().map(|line| line.cell_length()).max().unwrap_or(0);
+        let max_line_len = lines
+            .iter()
+            .map(|line| line.cell_length())
+            .max()
+            .unwrap_or(0);
         let block_width = width.min(max_line_len);
 
         // Calculate horizontal offset for the content block
@@ -478,7 +484,10 @@ Static {
         // 2. border.top.color / border.bottom.color (border color)
         // 3. style.color (text color) as fallback
         // Apply opacity by blending toward inherited background
-        let base_title_fg = self.style.border_title_color.clone()
+        let base_title_fg = self
+            .style
+            .border_title_color
+            .clone()
             .or_else(|| self.style.border.top.color.clone())
             .or_else(|| self.style.color.clone());
         let title_fg = match (&base_title_fg, &self.style.inherited_background) {
@@ -486,7 +495,10 @@ Static {
             (Some(color), None) => Some(color.with_opacity(self.style.opacity)),
             _ => None,
         };
-        let base_subtitle_fg = self.style.border_subtitle_color.clone()
+        let base_subtitle_fg = self
+            .style
+            .border_subtitle_color
+            .clone()
             .or_else(|| self.style.border.bottom.color.clone())
             .or_else(|| self.style.color.clone());
         let subtitle_fg = match (&base_subtitle_fg, &self.style.inherited_background) {
@@ -497,9 +509,15 @@ Static {
 
         // Use border-title-background if set, otherwise fall back to widget background
         // Note: Background opacity is already handled through effective_background()
-        let title_bg = self.style.border_title_background.clone()
+        let title_bg = self
+            .style
+            .border_title_background
+            .clone()
             .or_else(|| self.style.background.clone());
-        let subtitle_bg = self.style.border_subtitle_background.clone()
+        let subtitle_bg = self
+            .style
+            .border_subtitle_background
+            .clone()
             .or_else(|| self.style.background.clone());
 
         let title_style = Style {
@@ -583,11 +601,7 @@ Static {
             let strip = if let Some(hatch) = &self.style.hatch {
                 // Apply hatch to rows inside the border (content + padding area)
                 if y >= border_offset && y < height - border_offset {
-                    strip.apply_hatch(
-                        hatch.pattern.char(),
-                        &hatch.color,
-                        hatch.opacity,
-                    )
+                    strip.apply_hatch(hatch.pattern.char(), &hatch.color, hatch.opacity)
                 } else {
                     strip
                 }
@@ -610,14 +624,23 @@ Static {
         // Check CSS dimensions first, fall back to content size
         // Account for box-sizing: border-box vs content-box
         let style = self.get_style();
-        use tcss::types::border::BorderKind;
         use tcss::types::BoxSizing;
+        use tcss::types::border::BorderKind;
 
         // Calculate border contribution (each visible edge adds 1 cell)
         let has_top = !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden);
-        let has_bottom = !matches!(style.border.bottom.kind, BorderKind::None | BorderKind::Hidden);
-        let has_left = !matches!(style.border.left.kind, BorderKind::None | BorderKind::Hidden);
-        let has_right = !matches!(style.border.right.kind, BorderKind::None | BorderKind::Hidden);
+        let has_bottom = !matches!(
+            style.border.bottom.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_left = !matches!(
+            style.border.left.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_right = !matches!(
+            style.border.right.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
 
         let border_width = (if has_left { 1 } else { 0 }) + (if has_right { 1 } else { 0 });
         let border_height = (if has_top { 1 } else { 0 }) + (if has_bottom { 1 } else { 0 });
@@ -641,27 +664,22 @@ Static {
                     }
                 }
                 // Percentage/fraction units: signal "fill available space"
-                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
-                    u16::MAX
-                }
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => u16::MAX,
                 // Auto: fall back to content width + chrome
                 Unit::Auto => {
                     let text = self.text();
-                    let content_width = text
-                        .lines()
-                        .map(|l| l.width())
-                        .max()
-                        .unwrap_or(0) as u16;
+                    let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
                     content_width + chrome_width
                 }
             }
         } else {
             let text = self.text();
-            let content_width = text
-                .lines()
-                .map(|l| l.width())
-                .max()
-                .unwrap_or(0) as u16;
+            let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
             content_width + chrome_width
         };
 
@@ -676,9 +694,12 @@ Static {
                     }
                 }
                 // Percentage/fraction units: signal "fill available space"
-                Unit::Percent | Unit::ViewWidth | Unit::ViewHeight | Unit::Fraction | Unit::Width | Unit::Height => {
-                    u16::MAX
-                }
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => u16::MAX,
                 // Auto: fall back to content height + chrome
                 Unit::Auto => {
                     let text = self.text();
@@ -699,19 +720,29 @@ Static {
         use tcss::types::border::BorderKind;
 
         // Calculate border contribution (each visible edge adds 1 cell)
-        let has_top = !matches!(self.style.border.top.kind, BorderKind::None | BorderKind::Hidden);
-        let has_bottom =
-            !matches!(self.style.border.bottom.kind, BorderKind::None | BorderKind::Hidden);
-        let has_left =
-            !matches!(self.style.border.left.kind, BorderKind::None | BorderKind::Hidden);
-        let has_right =
-            !matches!(self.style.border.right.kind, BorderKind::None | BorderKind::Hidden);
+        let has_top = !matches!(
+            self.style.border.top.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_bottom = !matches!(
+            self.style.border.bottom.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_left = !matches!(
+            self.style.border.left.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_right = !matches!(
+            self.style.border.right.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
 
         let border_width = (if has_left { 1 } else { 0 }) + (if has_right { 1 } else { 0 });
         let border_height = (if has_top { 1 } else { 0 }) + (if has_bottom { 1 } else { 0 });
 
         // Calculate padding contribution
-        let padding_width = self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+        let padding_width =
+            self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
         let padding_height =
             self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
 

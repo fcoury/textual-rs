@@ -25,7 +25,9 @@
 //! }
 //! ```
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates, types::keyline::KeylineStyle, types::Visibility};
+use tcss::{
+    ComputedStyle, WidgetMeta, WidgetStates, types::Visibility, types::keyline::KeylineStyle,
+};
 
 use crate::keyline_canvas::KeylineCanvas;
 use crate::layouts::{self, GridLayout, Layout};
@@ -97,7 +99,8 @@ impl<M> Grid<M> {
 
         // Force grid layout regardless of CSS
         let mut layout = layouts::GridLayout::default();
-        let mut placements = layout.arrange(&self.style, &children_with_styles, layout_region, viewport);
+        let mut placements =
+            layout.arrange(&self.style, &children_with_styles, layout_region, viewport);
 
         // Offset all placements when keylines are enabled
         if keyline_offset != (0, 0) {
@@ -141,7 +144,8 @@ impl<M> Grid<M> {
 
         // Get track info from GridLayout (includes cell occupancy for span-aware rendering)
         let layout = GridLayout::default();
-        let track_info = layout.compute_track_info(&self.style, &children_with_styles, layout_region);
+        let track_info =
+            layout.compute_track_info(&self.style, &children_with_styles, layout_region);
 
         if track_info.col_positions.len() < 2 || track_info.row_positions.len() < 2 {
             return;
@@ -195,7 +199,11 @@ impl<M> Grid<M> {
             .collect();
 
         // Use span-aware grid rendering (respects column-span/row-span)
-        keyline_canvas.add_grid_with_occupancy(&col_positions, &row_positions, &track_info.cell_occupancy);
+        keyline_canvas.add_grid_with_occupancy(
+            &col_positions,
+            &row_positions,
+            &track_info.cell_occupancy,
+        );
         keyline_canvas.render(canvas, region);
     }
 }
@@ -338,7 +346,9 @@ Grid {
         // Then iterate and dispatch mouse events (borrows self mutably)
         for placement in placements {
             if placement.region.contains_point(mx, my) {
-                if let Some(msg) = self.children[placement.child_index].on_mouse(event, placement.region) {
+                if let Some(msg) =
+                    self.children[placement.child_index].on_mouse(event, placement.region)
+                {
                     return Some(msg);
                 }
             }

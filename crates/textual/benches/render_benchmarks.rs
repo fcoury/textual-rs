@@ -7,7 +7,7 @@
 
 use std::collections::VecDeque;
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use textual::canvas::{Canvas, Region, Size};
 use textual::style_resolver::resolve_styles;
 use textual::testing::{build_combined_css, render_to_canvas};
@@ -215,9 +215,7 @@ fn bench_simple_render(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("simple", format!("{}x{}", w, h)),
             &(w, h),
-            |b, &(w, h)| {
-                b.iter(|| render_to_canvas(black_box(&app), simple_app::CSS, w, h))
-            },
+            |b, &(w, h)| b.iter(|| render_to_canvas(black_box(&app), simple_app::CSS, w, h)),
         );
     }
 
@@ -235,9 +233,7 @@ fn bench_border_render(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("border", format!("{}x{}", w, h)),
             &(w, h),
-            |b, &(w, h)| {
-                b.iter(|| render_to_canvas(black_box(&app), border_app::CSS, w, h))
-            },
+            |b, &(w, h)| b.iter(|| render_to_canvas(black_box(&app), border_app::CSS, w, h)),
         );
     }
 
@@ -255,9 +251,7 @@ fn bench_grid_render(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("grid", format!("{}x{}", w, h)),
             &(w, h),
-            |b, &(w, h)| {
-                b.iter(|| render_to_canvas(black_box(&app), grid_app::CSS, w, h))
-            },
+            |b, &(w, h)| b.iter(|| render_to_canvas(black_box(&app), grid_app::CSS, w, h)),
         );
     }
 
@@ -276,9 +270,7 @@ fn bench_text_heavy_render(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("text_heavy", format!("{}_lines", lines)),
             &app,
-            |b, app| {
-                b.iter(|| render_to_canvas(black_box(app), text_heavy_app::CSS, 80, h))
-            },
+            |b, app| b.iter(|| render_to_canvas(black_box(app), text_heavy_app::CSS, 80, h)),
         );
     }
 

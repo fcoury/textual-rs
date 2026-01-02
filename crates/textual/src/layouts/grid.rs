@@ -243,7 +243,12 @@ impl GridLayout {
     ///
     /// Returns a vector of `ResolvedTrack` with pre-computed offsets,
     /// matching Python Textual's `_resolve.py` output format.
-    fn resolve_tracks(specs: &[Scalar], count: usize, available: i32, gutter: i32) -> Vec<ResolvedTrack> {
+    fn resolve_tracks(
+        specs: &[Scalar],
+        count: usize,
+        available: i32,
+        gutter: i32,
+    ) -> Vec<ResolvedTrack> {
         let sizes = Self::distribute_space(specs, count, available, gutter);
         let mut offset = 0;
         sizes
@@ -282,7 +287,8 @@ impl GridLayout {
                     .iter()
                     .map(|&size| {
                         if total_content > 0 {
-                            (size as i64 * available_for_tracks as i64 / total_content as i64) as i32
+                            (size as i64 * available_for_tracks as i64 / total_content as i64)
+                                as i32
                         } else {
                             1
                         }
@@ -294,7 +300,10 @@ impl GridLayout {
             sizes
                 .into_iter()
                 .map(|size| {
-                    let track = ResolvedTrack { offset, size: size.max(1) };
+                    let track = ResolvedTrack {
+                        offset,
+                        size: size.max(1),
+                    };
                     offset += size.max(1) + gutter;
                     track
                 })
@@ -330,9 +339,24 @@ impl GridLayout {
                         let effective_col_span = col_span.min(cols - current_col);
                         let effective_row_span = row_span.min(rows - current_row);
 
-                        if occupancy.can_fit(current_row, current_col, effective_row_span, effective_col_span) {
-                            occupancy.occupy(current_row, current_col, effective_row_span, effective_col_span);
-                            assignments.push((current_row, current_col, effective_row_span, effective_col_span));
+                        if occupancy.can_fit(
+                            current_row,
+                            current_col,
+                            effective_row_span,
+                            effective_col_span,
+                        ) {
+                            occupancy.occupy(
+                                current_row,
+                                current_col,
+                                effective_row_span,
+                                effective_col_span,
+                            );
+                            assignments.push((
+                                current_row,
+                                current_col,
+                                effective_row_span,
+                                effective_col_span,
+                            ));
 
                             current_col += 1;
                             if current_col >= cols {
@@ -417,8 +441,14 @@ impl GridLayout {
         let gutter_v = Self::resolve_scalar(&grid.gutter.0, available.height);
         let gutter_h = Self::resolve_scalar(&grid.gutter.1, available.width);
 
-        let is_auto_width = parent_style.width.as_ref().map_or(false, |w| w.unit == Unit::Auto);
-        let is_auto_height = parent_style.height.as_ref().map_or(false, |h| h.unit == Unit::Auto);
+        let is_auto_width = parent_style
+            .width
+            .as_ref()
+            .map_or(false, |w| w.unit == Unit::Auto);
+        let is_auto_height = parent_style
+            .height
+            .as_ref()
+            .map_or(false, |h| h.unit == Unit::Auto);
 
         let use_auto_cols = grid.column_widths.is_empty() && is_auto_width;
         let use_auto_rows = grid.row_heights.is_empty() && is_auto_height;
@@ -475,7 +505,13 @@ impl GridLayout {
             }
         }
 
-        GridTrackInfo::from_tracks(&columns, &row_tracks, available.width, available.height, cell_occupancy)
+        GridTrackInfo::from_tracks(
+            &columns,
+            &row_tracks,
+            available.width,
+            available.height,
+            cell_occupancy,
+        )
     }
 }
 
@@ -567,8 +603,14 @@ impl Layout for GridLayout {
         // - If NOT specified AND parent has fixed/fr height/width → use 1fr (expand)
         //
         // Check if parent has auto width/height
-        let is_auto_width = parent_style.width.as_ref().map_or(false, |w| w.unit == Unit::Auto);
-        let is_auto_height = parent_style.height.as_ref().map_or(false, |h| h.unit == Unit::Auto);
+        let is_auto_width = parent_style
+            .width
+            .as_ref()
+            .map_or(false, |w| w.unit == Unit::Auto);
+        let is_auto_height = parent_style
+            .height
+            .as_ref()
+            .map_or(false, |h| h.unit == Unit::Auto);
 
         // Determine if we should use auto (content) sizing for tracks
         // Only use auto when specs are empty AND parent has auto dimension
@@ -670,8 +712,10 @@ impl Layout for GridLayout {
                             //   intrinsic size and get positioned within the cell
                             use tcss::types::text::{AlignHorizontal, AlignVertical};
 
-                            let has_h_align = !matches!(parent_style.align_horizontal, AlignHorizontal::Left);
-                            let has_v_align = !matches!(parent_style.align_vertical, AlignVertical::Top);
+                            let has_h_align =
+                                !matches!(parent_style.align_horizontal, AlignHorizontal::Left);
+                            let has_v_align =
+                                !matches!(parent_style.align_vertical, AlignVertical::Top);
 
                             let mut child_width = if child_style.width.is_none() && has_h_align {
                                 // No width + non-default h-align: use intrinsic size
@@ -693,7 +737,9 @@ impl Layout for GridLayout {
                                 .as_ref()
                                 .map_or(false, |h| h.unit == Unit::Auto);
 
-                            let child_height = if (child_style.height.is_none() && has_v_align) || height_is_auto {
+                            let child_height = if (child_style.height.is_none() && has_v_align)
+                                || height_is_auto
+                            {
                                 // Auto height (or intrinsic height for aligned children) depends on width
                                 child.node.intrinsic_height_for_width(child_width as u16) as i32
                             } else {
@@ -715,8 +761,10 @@ impl Layout for GridLayout {
                             let child_height = (child_height - margin_top - margin_bottom).max(0);
 
                             // Calculate effective cell region after margins
-                            let effective_cell_width = cell_region.width - margin_left - margin_right;
-                            let effective_cell_height = cell_region.height - margin_top - margin_bottom;
+                            let effective_cell_width =
+                                cell_region.width - margin_left - margin_right;
+                            let effective_cell_height =
+                                cell_region.height - margin_top - margin_bottom;
 
                             // Apply alignment within the margin-adjusted cell
                             let x_offset = match parent_style.align_horizontal {
@@ -724,7 +772,9 @@ impl Layout for GridLayout {
                                 AlignHorizontal::Center => {
                                     (effective_cell_width - child_width).max(0) / 2
                                 }
-                                AlignHorizontal::Right => (effective_cell_width - child_width).max(0),
+                                AlignHorizontal::Right => {
+                                    (effective_cell_width - child_width).max(0)
+                                }
                             };
 
                             let y_offset = match parent_style.align_vertical {
@@ -732,7 +782,9 @@ impl Layout for GridLayout {
                                 AlignVertical::Middle => {
                                     (effective_cell_height - child_height).max(0) / 2
                                 }
-                                AlignVertical::Bottom => (effective_cell_height - child_height).max(0),
+                                AlignVertical::Bottom => {
+                                    (effective_cell_height - child_height).max(0)
+                                }
                             };
 
                             let final_region = Region {
@@ -805,10 +857,7 @@ fn child_region(
             columns[end_col].offset - start_offset - gutter_h
         } else {
             // Spans to edge: sum remaining sizes + gutters
-            columns[col..]
-                .iter()
-                .map(|t| t.size)
-                .sum::<i32>()
+            columns[col..].iter().map(|t| t.size).sum::<i32>()
                 + (end_col - col).saturating_sub(1) as i32 * gutter_h
         }
     } else {
@@ -865,9 +914,18 @@ mod tests {
     fn test_resolved_track_offsets() {
         // Simulating 3 columns of 26 each with gutter 1
         let tracks = vec![
-            ResolvedTrack { offset: 0, size: 26 },
-            ResolvedTrack { offset: 27, size: 26 },
-            ResolvedTrack { offset: 54, size: 26 },
+            ResolvedTrack {
+                offset: 0,
+                size: 26,
+            },
+            ResolvedTrack {
+                offset: 27,
+                size: 26,
+            },
+            ResolvedTrack {
+                offset: 54,
+                size: 26,
+            },
         ];
 
         // Verify offset progression includes gutter
@@ -879,9 +937,18 @@ mod tests {
     #[test]
     fn test_span_width_calculation() {
         let tracks = vec![
-            ResolvedTrack { offset: 0, size: 26 },
-            ResolvedTrack { offset: 27, size: 26 },
-            ResolvedTrack { offset: 54, size: 26 },
+            ResolvedTrack {
+                offset: 0,
+                size: 26,
+            },
+            ResolvedTrack {
+                offset: 27,
+                size: 26,
+            },
+            ResolvedTrack {
+                offset: 54,
+                size: 26,
+            },
         ];
         let gutter = 1;
 
@@ -914,8 +981,14 @@ mod tests {
     #[test]
     fn test_child_region_single_cell() {
         let columns = vec![
-            ResolvedTrack { offset: 0, size: 10 },
-            ResolvedTrack { offset: 11, size: 10 },
+            ResolvedTrack {
+                offset: 0,
+                size: 10,
+            },
+            ResolvedTrack {
+                offset: 11,
+                size: 10,
+            },
         ];
         let rows = vec![
             ResolvedTrack { offset: 0, size: 5 },
@@ -946,14 +1019,26 @@ mod tests {
     #[test]
     fn test_child_region_spanning() {
         let columns = vec![
-            ResolvedTrack { offset: 0, size: 10 },
-            ResolvedTrack { offset: 11, size: 10 },
-            ResolvedTrack { offset: 22, size: 10 },
+            ResolvedTrack {
+                offset: 0,
+                size: 10,
+            },
+            ResolvedTrack {
+                offset: 11,
+                size: 10,
+            },
+            ResolvedTrack {
+                offset: 22,
+                size: 10,
+            },
         ];
         let rows = vec![
             ResolvedTrack { offset: 0, size: 5 },
             ResolvedTrack { offset: 6, size: 5 },
-            ResolvedTrack { offset: 12, size: 5 },
+            ResolvedTrack {
+                offset: 12,
+                size: 5,
+            },
         ];
         let region = Region {
             x: 0,
@@ -977,14 +1062,26 @@ mod tests {
         // Test case: span reaches exactly to the grid edge
         // This exercises the summation-based calculation branch
         let columns = vec![
-            ResolvedTrack { offset: 0, size: 10 },
-            ResolvedTrack { offset: 11, size: 10 },
-            ResolvedTrack { offset: 22, size: 10 },
+            ResolvedTrack {
+                offset: 0,
+                size: 10,
+            },
+            ResolvedTrack {
+                offset: 11,
+                size: 10,
+            },
+            ResolvedTrack {
+                offset: 22,
+                size: 10,
+            },
         ];
         let rows = vec![
             ResolvedTrack { offset: 0, size: 5 },
             ResolvedTrack { offset: 6, size: 5 },
-            ResolvedTrack { offset: 12, size: 5 },
+            ResolvedTrack {
+                offset: 12,
+                size: 5,
+            },
         ];
         let region = Region {
             x: 0,
@@ -1025,9 +1122,18 @@ mod tests {
     fn test_child_region_span_exceeds_grid() {
         // Test case: span would exceed grid boundary (gets clamped)
         let columns = vec![
-            ResolvedTrack { offset: 0, size: 10 },
-            ResolvedTrack { offset: 11, size: 10 },
-            ResolvedTrack { offset: 22, size: 10 },
+            ResolvedTrack {
+                offset: 0,
+                size: 10,
+            },
+            ResolvedTrack {
+                offset: 11,
+                size: 10,
+            },
+            ResolvedTrack {
+                offset: 22,
+                size: 10,
+            },
         ];
         let rows = vec![
             ResolvedTrack { offset: 0, size: 5 },

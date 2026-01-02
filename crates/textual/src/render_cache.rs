@@ -48,10 +48,20 @@ impl RenderCache {
     /// Creates a new render cache from a computed style.
     pub fn new(style: &ComputedStyle) -> Self {
         // Check which edges have visible borders
-        let has_top_border = !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden);
-        let has_right_border = !matches!(style.border.right.kind, BorderKind::None | BorderKind::Hidden);
-        let has_bottom_border = !matches!(style.border.bottom.kind, BorderKind::None | BorderKind::Hidden);
-        let has_left_border = !matches!(style.border.left.kind, BorderKind::None | BorderKind::Hidden);
+        let has_top_border =
+            !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden);
+        let has_right_border = !matches!(
+            style.border.right.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_bottom_border = !matches!(
+            style.border.bottom.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_left_border = !matches!(
+            style.border.left.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
         let has_border = has_top_border || has_right_border || has_bottom_border || has_left_border;
 
         // Use top border kind as the primary style (for box character selection)
@@ -67,7 +77,12 @@ impl RenderCache {
             // Python applies opacity twice: once in multiply_alpha when computing border_color,
             // then again in _apply_opacity (post-processing) which blends ALL segments.
             // Two sequential blends at factor f equals one blend at f².
-            let base_border_color = style.border.top.color.clone().or_else(|| style.color.clone());
+            let base_border_color = style
+                .border
+                .top
+                .color
+                .clone()
+                .or_else(|| style.color.clone());
             let effective_opacity = style.opacity * style.opacity;
             let border_color = match (&base_border_color, &style.inherited_background) {
                 (Some(color), Some(bg)) => Some(color.blend_toward(bg, effective_opacity)),
@@ -98,18 +113,36 @@ impl RenderCache {
         let padding_left = style.padding.left.value as usize;
 
         // Check which edges have visible outlines
-        let has_top_outline = !matches!(style.outline.top.kind, BorderKind::None | BorderKind::Hidden);
-        let has_right_outline = !matches!(style.outline.right.kind, BorderKind::None | BorderKind::Hidden);
-        let has_bottom_outline = !matches!(style.outline.bottom.kind, BorderKind::None | BorderKind::Hidden);
-        let has_left_outline = !matches!(style.outline.left.kind, BorderKind::None | BorderKind::Hidden);
-        let has_outline = has_top_outline || has_right_outline || has_bottom_outline || has_left_outline;
+        let has_top_outline = !matches!(
+            style.outline.top.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_right_outline = !matches!(
+            style.outline.right.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_bottom_outline = !matches!(
+            style.outline.bottom.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_left_outline = !matches!(
+            style.outline.left.kind,
+            BorderKind::None | BorderKind::Hidden
+        );
+        let has_outline =
+            has_top_outline || has_right_outline || has_bottom_outline || has_left_outline;
 
         // Build outline box segments if any outline edge is visible
         let outline_box = if has_outline {
             let outline_kind = style.outline.top.kind;
             let outline_type = border_kind_to_str(outline_kind);
             // Outline color, falling back to text color
-            let outline_color = style.outline.top.color.clone().or_else(|| style.color.clone());
+            let outline_color = style
+                .outline
+                .top
+                .color
+                .clone()
+                .or_else(|| style.color.clone());
             let outline_inner_style = Style {
                 fg: outline_color.clone(),
                 bg: effective_bg.clone(),
@@ -121,7 +154,11 @@ impl RenderCache {
                 bg: style.inherited_background.clone(),
                 ..Default::default()
             };
-            Some(get_box(outline_type, &outline_inner_style, &outline_outer_style))
+            Some(get_box(
+                outline_type,
+                &outline_inner_style,
+                &outline_outer_style,
+            ))
         } else {
             None
         };
@@ -274,15 +311,13 @@ impl RenderCache {
                         self.style.border_subtitle_align,
                     )
                 }
-            } else if y >= content_row_offset && y < height - if self.has_bottom_border { 1 } else { 0 } {
+            } else if y >= content_row_offset
+                && y < height - if self.has_bottom_border { 1 } else { 0 }
+            {
                 // Content row - check if we have side borders
                 if self.has_left_border || self.has_right_border {
                     // Has at least one side border
-                    self.render_partial_middle_row(
-                        &box_segs[1],
-                        content_line,
-                        width,
-                    )
+                    self.render_partial_middle_row(&box_segs[1], content_line, width)
                 } else {
                     // No side borders - just content with padding
                     self.render_content_row(width, content_line)
@@ -356,7 +391,9 @@ impl RenderCache {
 
                 let mut segments = Vec::new();
                 segments.push(Segment::styled(
-                    std::iter::repeat(fill_char).take(min_padding).collect::<String>(),
+                    std::iter::repeat(fill_char)
+                        .take(min_padding)
+                        .collect::<String>(),
                     fill_style.clone().unwrap_or_default(),
                 ));
 
@@ -375,7 +412,9 @@ impl RenderCache {
                 let remaining = width.saturating_sub(used);
                 if remaining > 0 {
                     segments.push(Segment::styled(
-                        std::iter::repeat(fill_char).take(remaining).collect::<String>(),
+                        std::iter::repeat(fill_char)
+                            .take(remaining)
+                            .collect::<String>(),
                         fill_style.unwrap_or_default(),
                     ));
                 }
@@ -400,7 +439,9 @@ impl RenderCache {
             let mut segments = Vec::new();
             if left_padding > 0 {
                 segments.push(Segment::styled(
-                    std::iter::repeat(fill_char).take(left_padding).collect::<String>(),
+                    std::iter::repeat(fill_char)
+                        .take(left_padding)
+                        .collect::<String>(),
                     fill_style.clone().unwrap_or_default(),
                 ));
             }
@@ -409,7 +450,9 @@ impl RenderCache {
 
             if right_padding > 0 {
                 segments.push(Segment::styled(
-                    std::iter::repeat(fill_char).take(right_padding).collect::<String>(),
+                    std::iter::repeat(fill_char)
+                        .take(right_padding)
+                        .collect::<String>(),
                     fill_style.unwrap_or_default(),
                 ));
             }
@@ -509,7 +552,9 @@ impl RenderCache {
                 .saturating_sub(if self.has_right_outline { 1 } else { 0 });
             if inner_width > 0 {
                 segments.push(Segment::styled(
-                    std::iter::repeat(fill_char).take(inner_width).collect::<String>(),
+                    std::iter::repeat(fill_char)
+                        .take(inner_width)
+                        .collect::<String>(),
                     fill_style.unwrap_or_default(),
                 ));
             }
@@ -532,7 +577,9 @@ impl RenderCache {
                 .saturating_sub(if self.has_right_outline { 1 } else { 0 });
             if inner_width > 0 {
                 segments.push(Segment::styled(
-                    std::iter::repeat(fill_char).take(inner_width).collect::<String>(),
+                    std::iter::repeat(fill_char)
+                        .take(inner_width)
+                        .collect::<String>(),
                     fill_style.unwrap_or_default(),
                 ));
             }
@@ -671,9 +718,21 @@ mod tests {
 
         let fg_color = fg.unwrap();
         // dodgerblue is RGB(30, 144, 255)
-        assert_eq!(fg_color.r, 30, "Red channel should be 30, got {}", fg_color.r);
-        assert_eq!(fg_color.g, 144, "Green channel should be 144, got {}", fg_color.g);
-        assert_eq!(fg_color.b, 255, "Blue channel should be 255, got {}", fg_color.b);
+        assert_eq!(
+            fg_color.r, 30,
+            "Red channel should be 30, got {}",
+            fg_color.r
+        );
+        assert_eq!(
+            fg_color.g, 144,
+            "Green channel should be 144, got {}",
+            fg_color.g
+        );
+        assert_eq!(
+            fg_color.b, 255,
+            "Blue channel should be 255, got {}",
+            fg_color.b
+        );
     }
 
     #[test]

@@ -22,8 +22,8 @@
 //! - 2 values: vertical, horizontal (`margin: 1 2`)
 //! - 4 values: top, right, bottom, left (`margin: 1 2 3 4`)
 
-use crate::types::geometry::{Scalar, Spacing, Unit};
 use crate::types::Layout;
+use crate::types::geometry::{Scalar, Spacing, Unit};
 use nom::{
     IResult,
     branch::alt,

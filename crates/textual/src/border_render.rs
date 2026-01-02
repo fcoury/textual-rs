@@ -292,7 +292,14 @@ mod tests {
     #[test]
     fn render_row_basic() {
         let top = make_round_top();
-        let row = render_row(&top, 10, None, None, AlignHorizontal::Left, AlignHorizontal::Left);
+        let row = render_row(
+            &top,
+            10,
+            None,
+            None,
+            AlignHorizontal::Left,
+            AlignHorizontal::Left,
+        );
         assert_eq!(row.text(), "╭────────╮");
         assert_eq!(row.cell_length(), 10);
     }
@@ -301,7 +308,14 @@ mod tests {
     fn render_row_with_title_centered() {
         let top = make_round_top();
         let title = Strip::from_segment(Segment::new("Hi"));
-        let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Center, AlignHorizontal::Left);
+        let row = render_row(
+            &top,
+            10,
+            Some(&title),
+            None,
+            AlignHorizontal::Center,
+            AlignHorizontal::Left,
+        );
         // "╭───Hi───╮" with centered title
         assert_eq!(row.cell_length(), 10);
         assert!(row.text().contains("Hi"));
@@ -311,7 +325,14 @@ mod tests {
     fn render_row_with_title_left() {
         let top = make_round_top();
         let title = Strip::from_segment(Segment::new("Hi"));
-        let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Left, AlignHorizontal::Left);
+        let row = render_row(
+            &top,
+            10,
+            Some(&title),
+            None,
+            AlignHorizontal::Left,
+            AlignHorizontal::Left,
+        );
         // "╭─ Hi ───╮" with left-aligned title (1 fill char + space + text + space + fill)
         assert_eq!(row.cell_length(), 10);
         assert_eq!(row.text(), "╭─ Hi ───╮");
@@ -321,7 +342,14 @@ mod tests {
     fn render_row_with_title_right() {
         let top = make_round_top();
         let title = Strip::from_segment(Segment::new("Hi"));
-        let row = render_row(&top, 10, Some(&title), None, AlignHorizontal::Right, AlignHorizontal::Left);
+        let row = render_row(
+            &top,
+            10,
+            Some(&title),
+            None,
+            AlignHorizontal::Right,
+            AlignHorizontal::Left,
+        );
         // "╭─── Hi ─╮" with right-aligned title (fill + space + text + space + 1 fill char)
         assert_eq!(row.cell_length(), 10);
         assert_eq!(row.text(), "╭─── Hi ─╮");
@@ -330,14 +358,28 @@ mod tests {
     #[test]
     fn render_row_width_2() {
         let top = make_round_top();
-        let row = render_row(&top, 2, None, None, AlignHorizontal::Left, AlignHorizontal::Left);
+        let row = render_row(
+            &top,
+            2,
+            None,
+            None,
+            AlignHorizontal::Left,
+            AlignHorizontal::Left,
+        );
         assert_eq!(row.text(), "╭╮");
     }
 
     #[test]
     fn render_row_width_1() {
         let top = make_round_top();
-        let row = render_row(&top, 1, None, None, AlignHorizontal::Left, AlignHorizontal::Left);
+        let row = render_row(
+            &top,
+            1,
+            None,
+            None,
+            AlignHorizontal::Left,
+            AlignHorizontal::Left,
+        );
         assert_eq!(row.text(), "╭");
     }
 
@@ -382,7 +424,14 @@ mod tests {
         let top = make_round_top();
         // Title is 30 chars, but width is only 15
         let title = Strip::from_segment(Segment::new("This is a very long title text"));
-        let row = render_row(&top, 15, Some(&title), None, AlignHorizontal::Left, AlignHorizontal::Left);
+        let row = render_row(
+            &top,
+            15,
+            Some(&title),
+            None,
+            AlignHorizontal::Left,
+            AlignHorizontal::Left,
+        );
 
         // Width 15: ╭(1) + inner(13) + ╮(1)
         // Inner has min_padding of 1 on each side, so available = 13 - 2 = 11
@@ -390,6 +439,10 @@ mod tests {
         // Result should be: ╭ + ─ + 10 chars + … + ─ + ╮
         println!("Row text: '{}' (len {})", row.text(), row.cell_length());
         assert_eq!(row.cell_length(), 15);
-        assert!(row.text().contains("…"), "Should contain ellipsis, got: '{}'", row.text());
+        assert!(
+            row.text().contains("…"),
+            "Should contain ellipsis, got: '{}'",
+            row.text()
+        );
     }
 }

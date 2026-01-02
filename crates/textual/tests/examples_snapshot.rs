@@ -308,7 +308,10 @@ mod grid_example {
 
         fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
             let labels: Vec<Box<dyn Widget<Message>>> = (1..=12)
-                .map(|i| Box::new(Label::new(format!("Item {}", i)).with_classes("cell")) as Box<dyn Widget<Message>>)
+                .map(|i| {
+                    Box::new(Label::new(format!("Item {}", i)).with_classes("cell"))
+                        as Box<dyn Widget<Message>>
+                })
                 .collect();
             vec![Box::new(Grid::new(labels))]
         }
@@ -520,18 +523,8 @@ mod border_sub_title_align_all_example {
                     "",
                     "[link='https://textual.textualize.io']Left[/]",
                 ),
-                make_label_container(
-                    "nine labels",
-                    "lbl5",
-                    "Title",
-                    "Subtitle",
-                ),
-                make_label_container(
-                    "and ended up redoing it",
-                    "lbl6",
-                    "Title",
-                    "Subtitle",
-                ),
+                make_label_container("nine labels", "lbl5", "Title", "Subtitle"),
+                make_label_container("and ended up redoing it", "lbl6", "Title", "Subtitle"),
                 make_label_container(
                     "because the first try",
                     "lbl7",
@@ -2282,14 +2275,16 @@ fn snapshot_opacity_example_ansi() {
 
 #[test]
 fn debug_opacity_border_color() {
+    use std::collections::VecDeque;
+    use textual::style_resolver::resolve_styles;
+    use textual::testing::build_combined_css;
     use textual::tree::WidgetTree;
     use textual::widget::screen::Screen;
-    use textual::style_resolver::resolve_styles;
-    use std::collections::VecDeque;
-    use textual::testing::build_combined_css;
 
     let themes = tcss::types::Theme::standard_themes();
-    let theme = themes.get("textual-dark").cloned()
+    let theme = themes
+        .get("textual-dark")
+        .cloned()
         .unwrap_or_else(|| tcss::types::Theme::new("default", true));
 
     // Build widget tree
@@ -2323,9 +2318,15 @@ fn debug_opacity_border_color() {
 
     eprintln!("=== FIRST LABEL STYLE ===");
     eprintln!("  border.top.kind: {:?}", first_label_style.border.top.kind);
-    eprintln!("  border.top.color: {:?}", first_label_style.border.top.color);
+    eprintln!(
+        "  border.top.color: {:?}",
+        first_label_style.border.top.color
+    );
     eprintln!("  background: {:?}", first_label_style.background);
-    eprintln!("  inherited_background: {:?}", first_label_style.inherited_background);
+    eprintln!(
+        "  inherited_background: {:?}",
+        first_label_style.inherited_background
+    );
     eprintln!("  opacity: {}", first_label_style.opacity);
 
     // Now render and check canvas
@@ -2334,8 +2335,10 @@ fn debug_opacity_border_color() {
     // Check the first cell on row 0 - should be the border corner (▛)
     let first_cell = canvas.cell_at(0);
     eprintln!("=== CANVAS OUTPUT ===");
-    eprintln!("Cell at (0,0): symbol='{}', fg={:?}, bg={:?}",
-        first_cell.symbol, first_cell.fg, first_cell.bg);
+    eprintln!(
+        "Cell at (0,0): symbol='{}', fg={:?}, bg={:?}",
+        first_cell.symbol, first_cell.fg, first_cell.bg
+    );
 
     // At 0% opacity, the border should blend to match the inherited background (black)
     // This is the correct behavior - borders fade with the widget
@@ -2344,9 +2347,21 @@ fn debug_opacity_border_color() {
             crossterm::style::Color::Rgb { r, g, b } => {
                 eprintln!("  -> foreground RGB: r={}, g={}, b={}", r, g, b);
                 // At 0% opacity, dodgerblue should blend to black (inherited background)
-                assert_eq!(*r, 0, "Expected red=0 (blended to black at 0% opacity), got {}", r);
-                assert_eq!(*g, 0, "Expected green=0 (blended to black at 0% opacity), got {}", g);
-                assert_eq!(*b, 0, "Expected blue=0 (blended to black at 0% opacity), got {}", b);
+                assert_eq!(
+                    *r, 0,
+                    "Expected red=0 (blended to black at 0% opacity), got {}",
+                    r
+                );
+                assert_eq!(
+                    *g, 0,
+                    "Expected green=0 (blended to black at 0% opacity), got {}",
+                    g
+                );
+                assert_eq!(
+                    *b, 0,
+                    "Expected blue=0 (blended to black at 0% opacity), got {}",
+                    b
+                );
             }
             _ => panic!("Expected RGB color, got {:?}", fg),
         }

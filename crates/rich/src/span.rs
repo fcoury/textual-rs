@@ -35,7 +35,12 @@ impl Span {
     }
 
     /// Create a new span with style and metadata.
-    pub fn with_meta(start: usize, end: usize, style: Style, meta: HashMap<String, String>) -> Self {
+    pub fn with_meta(
+        start: usize,
+        end: usize,
+        style: Style,
+        meta: HashMap<String, String>,
+    ) -> Self {
         Self {
             start,
             end,

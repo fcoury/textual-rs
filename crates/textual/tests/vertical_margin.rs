@@ -234,12 +234,16 @@ fn test_vertical_margin_collapsing_between_siblings() {
 
     // Child 1 at y=0, height=10
     assert_eq!(placements[0].region.y, 0, "First child should start at y=0");
-    assert_eq!(placements[0].region.height, 10, "First child height should be 10");
+    assert_eq!(
+        placements[0].region.height, 10,
+        "First child height should be 10"
+    );
 
     // Child 2 should start at y = 0 + 10 + max(3, 5) = 15
     // NOT y = 0 + 10 + 3 + 5 = 18 (additive)
     assert_eq!(
-        placements[1].region.y, 15,
+        placements[1].region.y,
+        15,
         "Second child y should be 15 (margin collapsing: max(3,5)=5), but got {}. Gap is {} instead of expected 5.",
         placements[1].region.y,
         placements[1].region.y - 10
@@ -274,7 +278,8 @@ fn test_vertical_margin_collapsing_equal_margins() {
 
     // Child 2 at y = 0 + 10 + max(4,4) = 14
     assert_eq!(
-        placements[1].region.y, 14,
+        placements[1].region.y,
+        14,
         "Second child y should be 14 (collapsed margin=4), but got {}. Gap is {} instead of expected 4.",
         placements[1].region.y,
         placements[1].region.y - 10

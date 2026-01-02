@@ -204,8 +204,14 @@ impl ColorSystem {
         let dark = self.dark;
         let luminosity_spread = self.luminosity_spread;
 
-        let background = self.background.clone().unwrap_or_else(|| self.default_background());
-        let surface = self.surface.clone().unwrap_or_else(|| self.default_surface());
+        let background = self
+            .background
+            .clone()
+            .unwrap_or_else(|| self.default_background());
+        let surface = self
+            .surface
+            .clone()
+            .unwrap_or_else(|| self.default_surface());
         let foreground = self
             .foreground
             .clone()
@@ -254,11 +260,7 @@ impl ColorSystem {
                 let key = format!("{name}{suffix}");
                 let shade_color = if is_dark_shade {
                     let dark_background = background.blend(&color, 0.15, Some(1.0));
-                    dark_background.blend(
-                        &RgbaColor::white(),
-                        luminosity_spread + delta,
-                        Some(1.0),
-                    )
+                    dark_background.blend(&RgbaColor::white(), luminosity_spread + delta, Some(1.0))
                 } else {
                     color.lighten(delta)
                 };
@@ -312,18 +314,12 @@ impl ColorSystem {
             "secondary-muted".into(),
             secondary.blend(&background, 0.7, None),
         );
-        vars.insert(
-            "accent-muted".into(),
-            accent.blend(&background, 0.7, None),
-        );
+        vars.insert("accent-muted".into(), accent.blend(&background, 0.7, None));
         vars.insert(
             "warning-muted".into(),
             warning.blend(&background, 0.7, None),
         );
-        vars.insert(
-            "error-muted".into(),
-            error.blend(&background, 0.7, None),
-        );
+        vars.insert("error-muted".into(), error.blend(&background, 0.7, None));
         vars.insert(
             "success-muted".into(),
             success.blend(&background, 0.7, None),
@@ -342,10 +338,7 @@ impl ColorSystem {
         vars.insert("scrollbar-hover".into(), scrollbar_hover);
         vars.insert("scrollbar-active".into(), primary.clone());
         vars.insert("scrollbar-background".into(), background_darken_1.clone());
-        vars.insert(
-            "scrollbar-corner-color".into(),
-            background_darken_1.clone(),
-        );
+        vars.insert("scrollbar-corner-color".into(), background_darken_1.clone());
         vars.insert(
             "scrollbar-background-hover".into(),
             background_darken_1.clone(),
@@ -385,53 +378,29 @@ impl ColorSystem {
         vars.insert("footer-background".into(), panel.clone());
         vars.insert("footer-key-foreground".into(), accent.clone());
         vars.insert("footer-key-background".into(), RgbaColor::transparent());
+        vars.insert("footer-description-foreground".into(), foreground.clone());
         vars.insert(
-            "footer-description-foreground".into(),
-            foreground.clone(),
+            "footer-description-background".into(),
+            RgbaColor::transparent(),
         );
-        vars.insert("footer-description-background".into(), RgbaColor::transparent());
         vars.insert("footer-item-background".into(), RgbaColor::transparent());
 
         vars.insert("input-cursor-background".into(), foreground.clone());
         vars.insert("input-cursor-foreground".into(), background.clone());
-        vars.insert(
-            "input-selection-background".into(),
-            primary.with_alpha(0.4),
-        );
+        vars.insert("input-selection-background".into(), primary.with_alpha(0.4));
 
         vars.insert("markdown-h1-color".into(), primary.clone());
-        vars.insert(
-            "markdown-h1-background".into(),
-            RgbaColor::transparent(),
-        );
+        vars.insert("markdown-h1-background".into(), RgbaColor::transparent());
         vars.insert("markdown-h2-color".into(), primary.clone());
-        vars.insert(
-            "markdown-h2-background".into(),
-            RgbaColor::transparent(),
-        );
+        vars.insert("markdown-h2-background".into(), RgbaColor::transparent());
         vars.insert("markdown-h3-color".into(), primary.clone());
-        vars.insert(
-            "markdown-h3-background".into(),
-            RgbaColor::transparent(),
-        );
+        vars.insert("markdown-h3-background".into(), RgbaColor::transparent());
         vars.insert("markdown-h4-color".into(), foreground.clone());
-        vars.insert(
-            "markdown-h4-background".into(),
-            RgbaColor::transparent(),
-        );
+        vars.insert("markdown-h4-background".into(), RgbaColor::transparent());
         vars.insert("markdown-h5-color".into(), foreground.clone());
-        vars.insert(
-            "markdown-h5-background".into(),
-            RgbaColor::transparent(),
-        );
-        vars.insert(
-            "markdown-h6-color".into(),
-            vars["foreground-muted"].clone(),
-        );
-        vars.insert(
-            "markdown-h6-background".into(),
-            RgbaColor::transparent(),
-        );
+        vars.insert("markdown-h5-background".into(), RgbaColor::transparent());
+        vars.insert("markdown-h6-color".into(), vars["foreground-muted"].clone());
+        vars.insert("markdown-h6-background".into(), RgbaColor::transparent());
 
         vars.insert("button-foreground".into(), foreground.clone());
         vars.insert("button-color-foreground".into(), vars["text"].clone());
@@ -457,7 +426,10 @@ impl ColorSystem {
         let mut block_cursor = TextStyle::default();
         block_cursor.bold = true;
         styles.insert("block-cursor-text-style".into(), block_cursor);
-        styles.insert("block-cursor-blurred-text-style".into(), TextStyle::default());
+        styles.insert(
+            "block-cursor-blurred-text-style".into(),
+            TextStyle::default(),
+        );
 
         // Input cursor text style
         styles.insert("input-cursor-text-style".into(), TextStyle::default());
@@ -496,7 +468,6 @@ impl ColorSystem {
 
         styles
     }
-
 }
 
 /// A named color theme for styling widgets.
@@ -553,236 +524,284 @@ impl Theme {
         // textual-dark (default dark theme)
         // Uses blue-tinted grays matching Python Textual's color palette
         // background defaults to #121212 from ColorSystem::default_background()
-        themes.insert("textual-dark".into(), Theme::from_color_system(
-            "textual-dark",
-            ColorSystem::new(RgbaColor::hex("#0178D4"), true)
-                .with_secondary(RgbaColor::hex("#004578"))
-                .with_warning(RgbaColor::hex("#ffa62b"))
-                .with_error(RgbaColor::hex("#ba3c5b"))
-                .with_success(RgbaColor::hex("#4EBF71"))
-                .with_accent(RgbaColor::hex("#ffa62b"))
-                .with_foreground(RgbaColor::hex("#e0e0e0"))
-        ));
+        themes.insert(
+            "textual-dark".into(),
+            Theme::from_color_system(
+                "textual-dark",
+                ColorSystem::new(RgbaColor::hex("#0178D4"), true)
+                    .with_secondary(RgbaColor::hex("#004578"))
+                    .with_warning(RgbaColor::hex("#ffa62b"))
+                    .with_error(RgbaColor::hex("#ba3c5b"))
+                    .with_success(RgbaColor::hex("#4EBF71"))
+                    .with_accent(RgbaColor::hex("#ffa62b"))
+                    .with_foreground(RgbaColor::hex("#e0e0e0")),
+            ),
+        );
 
         // textual-light (default light theme)
-        themes.insert("textual-light".into(), Theme::from_color_system(
-            "textual-light",
-            ColorSystem::new(RgbaColor::hex("#004578"), false)
-                .with_secondary(RgbaColor::hex("#0178D4"))
-                .with_warning(RgbaColor::hex("#ffa62b"))
-                .with_error(RgbaColor::hex("#ba3c5b"))
-                .with_success(RgbaColor::hex("#4EBF71"))
-                .with_accent(RgbaColor::hex("#ffa62b"))
-                .with_background(RgbaColor::hex("#E0E0E0"))
-                .with_surface(RgbaColor::hex("#D8D8D8"))
-                .with_panel(RgbaColor::hex("#D0D0D0"))
-        ));
+        themes.insert(
+            "textual-light".into(),
+            Theme::from_color_system(
+                "textual-light",
+                ColorSystem::new(RgbaColor::hex("#004578"), false)
+                    .with_secondary(RgbaColor::hex("#0178D4"))
+                    .with_warning(RgbaColor::hex("#ffa62b"))
+                    .with_error(RgbaColor::hex("#ba3c5b"))
+                    .with_success(RgbaColor::hex("#4EBF71"))
+                    .with_accent(RgbaColor::hex("#ffa62b"))
+                    .with_background(RgbaColor::hex("#E0E0E0"))
+                    .with_surface(RgbaColor::hex("#D8D8D8"))
+                    .with_panel(RgbaColor::hex("#D0D0D0")),
+            ),
+        );
 
         // nord
-        themes.insert("nord".into(), Theme::from_color_system(
-            "nord",
-            ColorSystem::new(RgbaColor::hex("#88C0D0"), true)
-                .with_secondary(RgbaColor::hex("#81A1C1"))
-                .with_warning(RgbaColor::hex("#EBCB8B"))
-                .with_error(RgbaColor::hex("#BF616A"))
-                .with_success(RgbaColor::hex("#A3BE8C"))
-                .with_accent(RgbaColor::hex("#B48EAD"))
-                .with_foreground(RgbaColor::hex("#D8DEE9"))
-                .with_background(RgbaColor::hex("#2E3440"))
-                .with_surface(RgbaColor::hex("#3B4252"))
-                .with_panel(RgbaColor::hex("#434C5E"))
-        ));
+        themes.insert(
+            "nord".into(),
+            Theme::from_color_system(
+                "nord",
+                ColorSystem::new(RgbaColor::hex("#88C0D0"), true)
+                    .with_secondary(RgbaColor::hex("#81A1C1"))
+                    .with_warning(RgbaColor::hex("#EBCB8B"))
+                    .with_error(RgbaColor::hex("#BF616A"))
+                    .with_success(RgbaColor::hex("#A3BE8C"))
+                    .with_accent(RgbaColor::hex("#B48EAD"))
+                    .with_foreground(RgbaColor::hex("#D8DEE9"))
+                    .with_background(RgbaColor::hex("#2E3440"))
+                    .with_surface(RgbaColor::hex("#3B4252"))
+                    .with_panel(RgbaColor::hex("#434C5E")),
+            ),
+        );
 
         // gruvbox
-        themes.insert("gruvbox".into(), Theme::from_color_system(
-            "gruvbox",
-            ColorSystem::new(RgbaColor::hex("#85A598"), true)
-                .with_secondary(RgbaColor::hex("#A89A85"))
-                .with_warning(RgbaColor::hex("#fe8019"))
-                .with_error(RgbaColor::hex("#fb4934"))
-                .with_success(RgbaColor::hex("#b8bb26"))
-                .with_accent(RgbaColor::hex("#fabd2f"))
-                .with_foreground(RgbaColor::hex("#fbf1c7"))
-                .with_background(RgbaColor::hex("#282828"))
-                .with_surface(RgbaColor::hex("#3c3836"))
-                .with_panel(RgbaColor::hex("#504945"))
-        ));
+        themes.insert(
+            "gruvbox".into(),
+            Theme::from_color_system(
+                "gruvbox",
+                ColorSystem::new(RgbaColor::hex("#85A598"), true)
+                    .with_secondary(RgbaColor::hex("#A89A85"))
+                    .with_warning(RgbaColor::hex("#fe8019"))
+                    .with_error(RgbaColor::hex("#fb4934"))
+                    .with_success(RgbaColor::hex("#b8bb26"))
+                    .with_accent(RgbaColor::hex("#fabd2f"))
+                    .with_foreground(RgbaColor::hex("#fbf1c7"))
+                    .with_background(RgbaColor::hex("#282828"))
+                    .with_surface(RgbaColor::hex("#3c3836"))
+                    .with_panel(RgbaColor::hex("#504945")),
+            ),
+        );
 
         // catppuccin-mocha
-        themes.insert("catppuccin-mocha".into(), Theme::from_color_system(
-            "catppuccin-mocha",
-            ColorSystem::new(RgbaColor::hex("#F5C2E7"), true)
-                .with_secondary(RgbaColor::hex("#cba6f7"))
-                .with_warning(RgbaColor::hex("#FAE3B0"))
-                .with_error(RgbaColor::hex("#F28FAD"))
-                .with_success(RgbaColor::hex("#ABE9B3"))
-                .with_accent(RgbaColor::hex("#fab387"))
-                .with_foreground(RgbaColor::hex("#cdd6f4"))
-                .with_background(RgbaColor::hex("#181825"))
-                .with_surface(RgbaColor::hex("#313244"))
-                .with_panel(RgbaColor::hex("#45475a"))
-        ));
+        themes.insert(
+            "catppuccin-mocha".into(),
+            Theme::from_color_system(
+                "catppuccin-mocha",
+                ColorSystem::new(RgbaColor::hex("#F5C2E7"), true)
+                    .with_secondary(RgbaColor::hex("#cba6f7"))
+                    .with_warning(RgbaColor::hex("#FAE3B0"))
+                    .with_error(RgbaColor::hex("#F28FAD"))
+                    .with_success(RgbaColor::hex("#ABE9B3"))
+                    .with_accent(RgbaColor::hex("#fab387"))
+                    .with_foreground(RgbaColor::hex("#cdd6f4"))
+                    .with_background(RgbaColor::hex("#181825"))
+                    .with_surface(RgbaColor::hex("#313244"))
+                    .with_panel(RgbaColor::hex("#45475a")),
+            ),
+        );
 
         // catppuccin-latte
-        themes.insert("catppuccin-latte".into(), Theme::from_color_system(
-            "catppuccin-latte",
-            ColorSystem::new(RgbaColor::hex("#8839EF"), false)
-                .with_secondary(RgbaColor::hex("#DC8A78"))
-                .with_warning(RgbaColor::hex("#DF8E1D"))
-                .with_error(RgbaColor::hex("#D20F39"))
-                .with_success(RgbaColor::hex("#40A02B"))
-                .with_accent(RgbaColor::hex("#FE640B"))
-                .with_foreground(RgbaColor::hex("#4C4F69"))
-                .with_background(RgbaColor::hex("#EFF1F5"))
-                .with_surface(RgbaColor::hex("#E6E9EF"))
-                .with_panel(RgbaColor::hex("#CCD0DA"))
-        ));
+        themes.insert(
+            "catppuccin-latte".into(),
+            Theme::from_color_system(
+                "catppuccin-latte",
+                ColorSystem::new(RgbaColor::hex("#8839EF"), false)
+                    .with_secondary(RgbaColor::hex("#DC8A78"))
+                    .with_warning(RgbaColor::hex("#DF8E1D"))
+                    .with_error(RgbaColor::hex("#D20F39"))
+                    .with_success(RgbaColor::hex("#40A02B"))
+                    .with_accent(RgbaColor::hex("#FE640B"))
+                    .with_foreground(RgbaColor::hex("#4C4F69"))
+                    .with_background(RgbaColor::hex("#EFF1F5"))
+                    .with_surface(RgbaColor::hex("#E6E9EF"))
+                    .with_panel(RgbaColor::hex("#CCD0DA")),
+            ),
+        );
 
         // dracula
-        themes.insert("dracula".into(), Theme::from_color_system(
-            "dracula",
-            ColorSystem::new(RgbaColor::hex("#BD93F9"), true)
-                .with_secondary(RgbaColor::hex("#6272A4"))
-                .with_warning(RgbaColor::hex("#FFB86C"))
-                .with_error(RgbaColor::hex("#FF5555"))
-                .with_success(RgbaColor::hex("#50FA7B"))
-                .with_accent(RgbaColor::hex("#FF79C6"))
-                .with_foreground(RgbaColor::hex("#F8F8F2"))
-                .with_background(RgbaColor::hex("#282A36"))
-                .with_surface(RgbaColor::hex("#2B2E3B"))
-                .with_panel(RgbaColor::hex("#313442"))
-        ));
+        themes.insert(
+            "dracula".into(),
+            Theme::from_color_system(
+                "dracula",
+                ColorSystem::new(RgbaColor::hex("#BD93F9"), true)
+                    .with_secondary(RgbaColor::hex("#6272A4"))
+                    .with_warning(RgbaColor::hex("#FFB86C"))
+                    .with_error(RgbaColor::hex("#FF5555"))
+                    .with_success(RgbaColor::hex("#50FA7B"))
+                    .with_accent(RgbaColor::hex("#FF79C6"))
+                    .with_foreground(RgbaColor::hex("#F8F8F2"))
+                    .with_background(RgbaColor::hex("#282A36"))
+                    .with_surface(RgbaColor::hex("#2B2E3B"))
+                    .with_panel(RgbaColor::hex("#313442")),
+            ),
+        );
 
         // tokyo-night
-        themes.insert("tokyo-night".into(), Theme::from_color_system(
-            "tokyo-night",
-            ColorSystem::new(RgbaColor::hex("#BB9AF7"), true)
-                .with_secondary(RgbaColor::hex("#7AA2F7"))
-                .with_warning(RgbaColor::hex("#E0AF68"))
-                .with_error(RgbaColor::hex("#F7768E"))
-                .with_success(RgbaColor::hex("#9ECE6A"))
-                .with_accent(RgbaColor::hex("#FF9E64"))
-                .with_foreground(RgbaColor::hex("#a9b1d6"))
-                .with_background(RgbaColor::hex("#1A1B26"))
-                .with_surface(RgbaColor::hex("#24283B"))
-                .with_panel(RgbaColor::hex("#414868"))
-        ));
+        themes.insert(
+            "tokyo-night".into(),
+            Theme::from_color_system(
+                "tokyo-night",
+                ColorSystem::new(RgbaColor::hex("#BB9AF7"), true)
+                    .with_secondary(RgbaColor::hex("#7AA2F7"))
+                    .with_warning(RgbaColor::hex("#E0AF68"))
+                    .with_error(RgbaColor::hex("#F7768E"))
+                    .with_success(RgbaColor::hex("#9ECE6A"))
+                    .with_accent(RgbaColor::hex("#FF9E64"))
+                    .with_foreground(RgbaColor::hex("#a9b1d6"))
+                    .with_background(RgbaColor::hex("#1A1B26"))
+                    .with_surface(RgbaColor::hex("#24283B"))
+                    .with_panel(RgbaColor::hex("#414868")),
+            ),
+        );
 
         // monokai
-        themes.insert("monokai".into(), Theme::from_color_system(
-            "monokai",
-            ColorSystem::new(RgbaColor::hex("#AE81FF"), true)
-                .with_secondary(RgbaColor::hex("#F92672"))
-                .with_warning(RgbaColor::hex("#FD971F"))
-                .with_error(RgbaColor::hex("#F92672"))
-                .with_success(RgbaColor::hex("#A6E22E"))
-                .with_accent(RgbaColor::hex("#66D9EF"))
-                .with_foreground(RgbaColor::hex("#d6d6d6"))
-                .with_background(RgbaColor::hex("#272822"))
-                .with_surface(RgbaColor::hex("#2e2e2e"))
-                .with_panel(RgbaColor::hex("#3E3D32"))
-        ));
+        themes.insert(
+            "monokai".into(),
+            Theme::from_color_system(
+                "monokai",
+                ColorSystem::new(RgbaColor::hex("#AE81FF"), true)
+                    .with_secondary(RgbaColor::hex("#F92672"))
+                    .with_warning(RgbaColor::hex("#FD971F"))
+                    .with_error(RgbaColor::hex("#F92672"))
+                    .with_success(RgbaColor::hex("#A6E22E"))
+                    .with_accent(RgbaColor::hex("#66D9EF"))
+                    .with_foreground(RgbaColor::hex("#d6d6d6"))
+                    .with_background(RgbaColor::hex("#272822"))
+                    .with_surface(RgbaColor::hex("#2e2e2e"))
+                    .with_panel(RgbaColor::hex("#3E3D32")),
+            ),
+        );
 
         // flexoki
-        themes.insert("flexoki".into(), Theme::from_color_system(
-            "flexoki",
-            ColorSystem::new(RgbaColor::hex("#205EA6"), true)
-                .with_secondary(RgbaColor::hex("#24837B"))
-                .with_warning(RgbaColor::hex("#AD8301"))
-                .with_error(RgbaColor::hex("#AF3029"))
-                .with_success(RgbaColor::hex("#66800B"))
-                .with_accent(RgbaColor::hex("#9B76C8"))
-                .with_foreground(RgbaColor::hex("#FFFCF0"))
-                .with_background(RgbaColor::hex("#100F0F"))
-                .with_surface(RgbaColor::hex("#1C1B1A"))
-                .with_panel(RgbaColor::hex("#282726"))
-        ));
+        themes.insert(
+            "flexoki".into(),
+            Theme::from_color_system(
+                "flexoki",
+                ColorSystem::new(RgbaColor::hex("#205EA6"), true)
+                    .with_secondary(RgbaColor::hex("#24837B"))
+                    .with_warning(RgbaColor::hex("#AD8301"))
+                    .with_error(RgbaColor::hex("#AF3029"))
+                    .with_success(RgbaColor::hex("#66800B"))
+                    .with_accent(RgbaColor::hex("#9B76C8"))
+                    .with_foreground(RgbaColor::hex("#FFFCF0"))
+                    .with_background(RgbaColor::hex("#100F0F"))
+                    .with_surface(RgbaColor::hex("#1C1B1A"))
+                    .with_panel(RgbaColor::hex("#282726")),
+            ),
+        );
 
         // solarized-light
-        themes.insert("solarized-light".into(), Theme::from_color_system(
-            "solarized-light",
-            ColorSystem::new(RgbaColor::hex("#268bd2"), false)
-                .with_secondary(RgbaColor::hex("#2aa198"))
-                .with_warning(RgbaColor::hex("#cb4b16"))
-                .with_error(RgbaColor::hex("#dc322f"))
-                .with_success(RgbaColor::hex("#859900"))
-                .with_accent(RgbaColor::hex("#6c71c4"))
-                .with_foreground(RgbaColor::hex("#586e75"))
-                .with_background(RgbaColor::hex("#fdf6e3"))
-                .with_surface(RgbaColor::hex("#eee8d5"))
-                .with_panel(RgbaColor::hex("#eee8d5"))
-        ));
+        themes.insert(
+            "solarized-light".into(),
+            Theme::from_color_system(
+                "solarized-light",
+                ColorSystem::new(RgbaColor::hex("#268bd2"), false)
+                    .with_secondary(RgbaColor::hex("#2aa198"))
+                    .with_warning(RgbaColor::hex("#cb4b16"))
+                    .with_error(RgbaColor::hex("#dc322f"))
+                    .with_success(RgbaColor::hex("#859900"))
+                    .with_accent(RgbaColor::hex("#6c71c4"))
+                    .with_foreground(RgbaColor::hex("#586e75"))
+                    .with_background(RgbaColor::hex("#fdf6e3"))
+                    .with_surface(RgbaColor::hex("#eee8d5"))
+                    .with_panel(RgbaColor::hex("#eee8d5")),
+            ),
+        );
 
         // solarized-dark
-        themes.insert("solarized-dark".into(), Theme::from_color_system(
-            "solarized-dark",
-            ColorSystem::new(RgbaColor::hex("#268bd2"), true)
-                .with_secondary(RgbaColor::hex("#2aa198"))
-                .with_warning(RgbaColor::hex("#cb4b16"))
-                .with_error(RgbaColor::hex("#dc322f"))
-                .with_success(RgbaColor::hex("#859900"))
-                .with_accent(RgbaColor::hex("#6c71c4"))
-                .with_foreground(RgbaColor::hex("#839496"))
-                .with_background(RgbaColor::hex("#002b36"))
-                .with_surface(RgbaColor::hex("#073642"))
-                .with_panel(RgbaColor::hex("#073642"))
-        ));
+        themes.insert(
+            "solarized-dark".into(),
+            Theme::from_color_system(
+                "solarized-dark",
+                ColorSystem::new(RgbaColor::hex("#268bd2"), true)
+                    .with_secondary(RgbaColor::hex("#2aa198"))
+                    .with_warning(RgbaColor::hex("#cb4b16"))
+                    .with_error(RgbaColor::hex("#dc322f"))
+                    .with_success(RgbaColor::hex("#859900"))
+                    .with_accent(RgbaColor::hex("#6c71c4"))
+                    .with_foreground(RgbaColor::hex("#839496"))
+                    .with_background(RgbaColor::hex("#002b36"))
+                    .with_surface(RgbaColor::hex("#073642"))
+                    .with_panel(RgbaColor::hex("#073642")),
+            ),
+        );
 
         // rose-pine
-        themes.insert("rose-pine".into(), Theme::from_color_system(
-            "rose-pine",
-            ColorSystem::new(RgbaColor::hex("#c4a7e7"), true)
-                .with_secondary(RgbaColor::hex("#31748f"))
-                .with_warning(RgbaColor::hex("#f6c177"))
-                .with_error(RgbaColor::hex("#eb6f92"))
-                .with_success(RgbaColor::hex("#9ccfd8"))
-                .with_accent(RgbaColor::hex("#ebbcba"))
-                .with_foreground(RgbaColor::hex("#e0def4"))
-                .with_background(RgbaColor::hex("#191724"))
-                .with_surface(RgbaColor::hex("#1f1d2e"))
-                .with_panel(RgbaColor::hex("#26233a"))
-        ));
+        themes.insert(
+            "rose-pine".into(),
+            Theme::from_color_system(
+                "rose-pine",
+                ColorSystem::new(RgbaColor::hex("#c4a7e7"), true)
+                    .with_secondary(RgbaColor::hex("#31748f"))
+                    .with_warning(RgbaColor::hex("#f6c177"))
+                    .with_error(RgbaColor::hex("#eb6f92"))
+                    .with_success(RgbaColor::hex("#9ccfd8"))
+                    .with_accent(RgbaColor::hex("#ebbcba"))
+                    .with_foreground(RgbaColor::hex("#e0def4"))
+                    .with_background(RgbaColor::hex("#191724"))
+                    .with_surface(RgbaColor::hex("#1f1d2e"))
+                    .with_panel(RgbaColor::hex("#26233a")),
+            ),
+        );
 
         // rose-pine-moon
-        themes.insert("rose-pine-moon".into(), Theme::from_color_system(
-            "rose-pine-moon",
-            ColorSystem::new(RgbaColor::hex("#c4a7e7"), true)
-                .with_secondary(RgbaColor::hex("#3e8fb0"))
-                .with_warning(RgbaColor::hex("#f6c177"))
-                .with_error(RgbaColor::hex("#eb6f92"))
-                .with_success(RgbaColor::hex("#9ccfd8"))
-                .with_accent(RgbaColor::hex("#ea9a97"))
-                .with_foreground(RgbaColor::hex("#e0def4"))
-                .with_background(RgbaColor::hex("#232136"))
-                .with_surface(RgbaColor::hex("#2a273f"))
-                .with_panel(RgbaColor::hex("#393552"))
-        ));
+        themes.insert(
+            "rose-pine-moon".into(),
+            Theme::from_color_system(
+                "rose-pine-moon",
+                ColorSystem::new(RgbaColor::hex("#c4a7e7"), true)
+                    .with_secondary(RgbaColor::hex("#3e8fb0"))
+                    .with_warning(RgbaColor::hex("#f6c177"))
+                    .with_error(RgbaColor::hex("#eb6f92"))
+                    .with_success(RgbaColor::hex("#9ccfd8"))
+                    .with_accent(RgbaColor::hex("#ea9a97"))
+                    .with_foreground(RgbaColor::hex("#e0def4"))
+                    .with_background(RgbaColor::hex("#232136"))
+                    .with_surface(RgbaColor::hex("#2a273f"))
+                    .with_panel(RgbaColor::hex("#393552")),
+            ),
+        );
 
         // rose-pine-dawn
-        themes.insert("rose-pine-dawn".into(), Theme::from_color_system(
-            "rose-pine-dawn",
-            ColorSystem::new(RgbaColor::hex("#907aa9"), false)
-                .with_secondary(RgbaColor::hex("#286983"))
-                .with_warning(RgbaColor::hex("#ea9d34"))
-                .with_error(RgbaColor::hex("#b4637a"))
-                .with_success(RgbaColor::hex("#56949f"))
-                .with_accent(RgbaColor::hex("#d7827e"))
-                .with_foreground(RgbaColor::hex("#575279"))
-                .with_background(RgbaColor::hex("#faf4ed"))
-                .with_surface(RgbaColor::hex("#fffaf3"))
-                .with_panel(RgbaColor::hex("#f2e9e1"))
-        ));
+        themes.insert(
+            "rose-pine-dawn".into(),
+            Theme::from_color_system(
+                "rose-pine-dawn",
+                ColorSystem::new(RgbaColor::hex("#907aa9"), false)
+                    .with_secondary(RgbaColor::hex("#286983"))
+                    .with_warning(RgbaColor::hex("#ea9d34"))
+                    .with_error(RgbaColor::hex("#b4637a"))
+                    .with_success(RgbaColor::hex("#56949f"))
+                    .with_accent(RgbaColor::hex("#d7827e"))
+                    .with_foreground(RgbaColor::hex("#575279"))
+                    .with_background(RgbaColor::hex("#faf4ed"))
+                    .with_surface(RgbaColor::hex("#fffaf3"))
+                    .with_panel(RgbaColor::hex("#f2e9e1")),
+            ),
+        );
 
         // textual-ansi (uses ANSI terminal colors - placeholder with approximations)
-        themes.insert("textual-ansi".into(), Theme::from_color_system(
-            "textual-ansi",
-            ColorSystem::new(RgbaColor::hex("#0000ff"), true) // ansi_blue
-                .with_secondary(RgbaColor::hex("#00ffff")) // ansi_cyan
-                .with_warning(RgbaColor::hex("#ffff00")) // ansi_yellow
-                .with_error(RgbaColor::hex("#ff0000")) // ansi_red
-                .with_success(RgbaColor::hex("#00ff00")) // ansi_green
-                .with_accent(RgbaColor::hex("#5555ff")) // ansi_bright_blue
-        ));
+        themes.insert(
+            "textual-ansi".into(),
+            Theme::from_color_system(
+                "textual-ansi",
+                ColorSystem::new(RgbaColor::hex("#0000ff"), true) // ansi_blue
+                    .with_secondary(RgbaColor::hex("#00ffff")) // ansi_cyan
+                    .with_warning(RgbaColor::hex("#ffff00")) // ansi_yellow
+                    .with_error(RgbaColor::hex("#ff0000")) // ansi_red
+                    .with_success(RgbaColor::hex("#00ff00")) // ansi_green
+                    .with_accent(RgbaColor::hex("#5555ff")), // ansi_bright_blue
+            ),
+        );
 
         themes
     }

@@ -2,8 +2,8 @@
 //!
 //! Ensures App::run() works in various runtime configurations.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Test helper that mimics the runtime detection logic from App::run().
 /// Returns Ok(value) on success, Err(message) for unsupported runtime.
@@ -18,7 +18,9 @@ where
             match handle.runtime_flavor() {
                 RuntimeFlavor::MultiThread => {
                     // Multi-thread runtime - safe to use block_in_place
-                    Ok(tokio::task::block_in_place(|| handle.block_on(async { f() })))
+                    Ok(tokio::task::block_in_place(|| {
+                        handle.block_on(async { f() })
+                    }))
                 }
                 RuntimeFlavor::CurrentThread | _ => {
                     // Current-thread runtime - return error like App::run() does
@@ -42,7 +44,10 @@ async fn test_current_thread_runtime_returns_error() {
     // In current-thread runtime, run() should return an error (not panic)
     let result = run_with_runtime_detection(|| 42);
 
-    assert!(result.is_err(), "Should return error in current-thread runtime");
+    assert!(
+        result.is_err(),
+        "Should return error in current-thread runtime"
+    );
     assert!(
         result.unwrap_err().contains("current-thread"),
         "Error should mention current-thread"

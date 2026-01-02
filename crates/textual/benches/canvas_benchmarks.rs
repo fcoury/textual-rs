@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use textual::canvas::{Canvas, TextAttributes};
 use textual::segment::{Segment, Style};
 use textual::strip::Strip;
@@ -234,7 +234,14 @@ fn bench_canvas_clear(c: &mut Criterion) {
         let mut canvas = Canvas::new(w, h);
         // Fill with some content first
         for y in 0..h {
-            canvas.put_str(0, y as i32, &"X".repeat(w as usize), None, None, TextAttributes::default());
+            canvas.put_str(
+                0,
+                y as i32,
+                &"X".repeat(w as usize),
+                None,
+                None,
+                TextAttributes::default(),
+            );
         }
 
         group.bench_with_input(
@@ -307,9 +314,7 @@ fn bench_canvas_to_snapshot(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("to_snapshot", format!("{}x{}", w, h)),
             &canvas,
-            |b, canvas| {
-                b.iter(|| black_box(canvas).to_snapshot())
-            },
+            |b, canvas| b.iter(|| black_box(canvas).to_snapshot()),
         );
     }
 
@@ -363,7 +368,14 @@ fn bench_differential_rendering(c: &mut Criterion) {
     // Simulate differential: only generate output for changed portion
     group.bench_function("partial_frame_96_cells", |b| {
         let mut small_canvas = Canvas::new(w, 2); // Just 2 rows = ~160 cells
-        small_canvas.put_str(0, 0, &"Changed!".repeat(10), None, None, TextAttributes::default());
+        small_canvas.put_str(
+            0,
+            0,
+            &"Changed!".repeat(10),
+            None,
+            None,
+            TextAttributes::default(),
+        );
         b.iter(|| black_box(&small_canvas).to_ansi_snapshot())
     });
 

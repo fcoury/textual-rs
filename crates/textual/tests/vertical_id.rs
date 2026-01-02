@@ -1,13 +1,12 @@
-use textual::{Vertical, Widget, Label};
+use textual::{Label, Vertical, Widget};
 
 #[test]
 fn test_vertical_with_id() {
-    let v: Vertical<()> = Vertical::new(vec![
-        Box::new(Label::new("test")) as Box<dyn Widget<()>>
-    ]).with_id("my-id");
-    
+    let v: Vertical<()> =
+        Vertical::new(vec![Box::new(Label::new("test")) as Box<dyn Widget<()>>]).with_id("my-id");
+
     assert_eq!(v.id(), Some("my-id"));
-    
+
     let meta = v.get_meta();
     println!("meta.id = {:?}", meta.id);
     assert_eq!(meta.id, Some("my-id".to_string()));
@@ -16,14 +15,13 @@ fn test_vertical_with_id() {
 #[test]
 fn test_vertical_boxed_with_id() {
     let v: Box<dyn Widget<()>> = Box::new(
-        Vertical::new(vec![
-            Box::new(Label::new("test")) as Box<dyn Widget<()>>
-        ]).with_id("boxed-id")
+        Vertical::new(vec![Box::new(Label::new("test")) as Box<dyn Widget<()>>])
+            .with_id("boxed-id"),
     );
-    
+
     // Check through the dyn trait
     assert_eq!(v.id(), Some("boxed-id"));
-    
+
     let meta = v.get_meta();
     println!("boxed meta.id = {:?}", meta.id);
     assert_eq!(meta.id, Some("boxed-id".to_string()));
@@ -31,32 +29,36 @@ fn test_vertical_boxed_with_id() {
 
 #[test]
 fn test_vertical_style_resolution_with_id() {
-    use tcss::parser::{parse_stylesheet, cascade::{compute_style, WidgetMeta, WidgetStates}};
+    use tcss::parser::{
+        cascade::{WidgetMeta, WidgetStates, compute_style},
+        parse_stylesheet,
+    };
     use tcss::types::Theme;
-    use textual::{Vertical, Widget, Label};
-    
+    use textual::{Label, Vertical, Widget};
+
     let css = r#"
 Vertical {
     background: $panel;
 }
 #tint1 { background-tint: $foreground 25%; }
 "#;
-    
+
     let stylesheet = parse_stylesheet(css).unwrap();
-    let theme = Theme::standard_themes().get("textual-dark").unwrap().clone();
-    
+    let theme = Theme::standard_themes()
+        .get("textual-dark")
+        .unwrap()
+        .clone();
+
     // Create a Vertical with id
     let v: Box<dyn Widget<()>> = Box::new(
-        Vertical::new(vec![
-            Box::new(Label::new("test")) as Box<dyn Widget<()>>
-        ]).with_id("tint1")
+        Vertical::new(vec![Box::new(Label::new("test")) as Box<dyn Widget<()>>]).with_id("tint1"),
     );
-    
+
     // Verify the widget meta has the correct id
     let meta = v.get_meta();
     println!("Widget meta: type={}, id={:?}", meta.type_name, meta.id);
     assert_eq!(meta.id, Some("tint1".to_string()));
-    
+
     // Compute style using the widget's meta
     let tcss_meta = WidgetMeta {
         type_name: meta.type_name,
@@ -64,24 +66,30 @@ Vertical {
         classes: meta.classes,
         states: WidgetStates::empty(),
     };
-    
+
     let style = compute_style(&tcss_meta, &[], &stylesheet, &theme);
     println!("Computed style:");
     println!("  background: {:?}", style.background);
     println!("  background_tint: {:?}", style.background_tint);
-    
-    assert!(style.background.is_some(), "background should be set from Vertical rule");
-    assert!(style.background_tint.is_some(), "background_tint should be set from #tint1 rule");
+
+    assert!(
+        style.background.is_some(),
+        "background should be set from Vertical rule"
+    );
+    assert!(
+        style.background_tint.is_some(),
+        "background_tint should be set from #tint1 rule"
+    );
 }
 
 #[test]
 fn test_style_resolver_applies_styles_correctly() {
-    use tcss::parser::parse_stylesheet;
     use std::collections::VecDeque;
-    use tcss::types::Theme;
-    use textual::{Vertical, Widget, Label};
-    use textual::style_resolver::resolve_styles;
     use tcss::parser::cascade::WidgetMeta;
+    use tcss::parser::parse_stylesheet;
+    use tcss::types::Theme;
+    use textual::style_resolver::resolve_styles;
+    use textual::{Label, Vertical, Widget};
 
     // Use actual CSS from the example
     let css = r#"
@@ -94,23 +102,20 @@ Vertical {
 "#;
 
     let stylesheet = parse_stylesheet(css).unwrap();
-    let theme = Theme::standard_themes().get("textual-dark").unwrap().clone();
+    let theme = Theme::standard_themes()
+        .get("textual-dark")
+        .unwrap()
+        .clone();
 
     // Create a tree similar to what the app would create
     let mut v1: Box<dyn Widget<()>> = Box::new(
-        Vertical::new(vec![
-            Box::new(Label::new("0%")) as Box<dyn Widget<()>>
-        ]).with_id("tint1")
+        Vertical::new(vec![Box::new(Label::new("0%")) as Box<dyn Widget<()>>]).with_id("tint1"),
     );
     let mut v2: Box<dyn Widget<()>> = Box::new(
-        Vertical::new(vec![
-            Box::new(Label::new("25%")) as Box<dyn Widget<()>>
-        ]).with_id("tint2")
+        Vertical::new(vec![Box::new(Label::new("25%")) as Box<dyn Widget<()>>]).with_id("tint2"),
     );
     let mut v3: Box<dyn Widget<()>> = Box::new(
-        Vertical::new(vec![
-            Box::new(Label::new("50%")) as Box<dyn Widget<()>>
-        ]).with_id("tint3")
+        Vertical::new(vec![Box::new(Label::new("50%")) as Box<dyn Widget<()>>]).with_id("tint3"),
     );
 
     // Resolve styles for each widget
@@ -126,18 +131,45 @@ Vertical {
     let style2 = v2.get_style();
     let style3 = v3.get_style();
 
-    println!("v1 (tint1): background={:?}, tint={:?}", style1.background, style1.background_tint);
-    println!("v2 (tint2): background={:?}, tint={:?}", style2.background, style2.background_tint);
-    println!("v3 (tint3): background={:?}, tint={:?}", style3.background, style3.background_tint);
+    println!(
+        "v1 (tint1): background={:?}, tint={:?}",
+        style1.background, style1.background_tint
+    );
+    println!(
+        "v2 (tint2): background={:?}, tint={:?}",
+        style2.background, style2.background_tint
+    );
+    println!(
+        "v3 (tint3): background={:?}, tint={:?}",
+        style3.background, style3.background_tint
+    );
 
-    assert!(style1.background.is_some(), "v1 should have background from Vertical rule");
-    assert!(style1.background_tint.is_some(), "v1 should have background_tint from #tint1 rule");
+    assert!(
+        style1.background.is_some(),
+        "v1 should have background from Vertical rule"
+    );
+    assert!(
+        style1.background_tint.is_some(),
+        "v1 should have background_tint from #tint1 rule"
+    );
 
-    assert!(style2.background.is_some(), "v2 should have background from Vertical rule");
-    assert!(style2.background_tint.is_some(), "v2 should have background_tint from #tint2 rule");
+    assert!(
+        style2.background.is_some(),
+        "v2 should have background from Vertical rule"
+    );
+    assert!(
+        style2.background_tint.is_some(),
+        "v2 should have background_tint from #tint2 rule"
+    );
 
-    assert!(style3.background.is_some(), "v3 should have background from Vertical rule");
-    assert!(style3.background_tint.is_some(), "v3 should have background_tint from #tint3 rule");
+    assert!(
+        style3.background.is_some(),
+        "v3 should have background from Vertical rule"
+    );
+    assert!(
+        style3.background_tint.is_some(),
+        "v3 should have background_tint from #tint3 rule"
+    );
 
     // Verify the tint values are different (different alpha values)
     let tint1 = style1.background_tint.as_ref().unwrap();
@@ -148,14 +180,20 @@ Vertical {
     println!("tint2.a = {}", tint2.a);
     println!("tint3.a = {}", tint3.a);
 
-    assert!(tint1.a < tint2.a, "tint1 (0%) should have lower alpha than tint2 (25%)");
-    assert!(tint2.a < tint3.a, "tint2 (25%) should have lower alpha than tint3 (50%)");
+    assert!(
+        tint1.a < tint2.a,
+        "tint1 (0%) should have lower alpha than tint2 (25%)"
+    );
+    assert!(
+        tint2.a < tint3.a,
+        "tint2 (25%) should have lower alpha than tint3 (50%)"
+    );
 }
 
 #[test]
 fn test_render_cache_produces_tinted_background() {
-    use textual::render_cache::RenderCache;
     use tcss::types::{ComputedStyle, RgbaColor};
+    use textual::render_cache::RenderCache;
 
     // Create a style with background and background_tint
     let mut style = ComputedStyle::default();
@@ -173,7 +211,10 @@ fn test_render_cache_produces_tinted_background() {
     let expected_r: f32 = 31.0 + (224.0 - 31.0) * 0.5;
     let expected_g: f32 = 31.0 + (224.0 - 31.0) * 0.5;
     let expected_b: f32 = 31.0 + (224.0 - 31.0) * 0.5;
-    println!("Expected tinted color: R={} G={} B={}", expected_r, expected_g, expected_b);
+    println!(
+        "Expected tinted color: R={} G={} B={}",
+        expected_r, expected_g, expected_b
+    );
 
     // Create render cache and render a line
     let cache = RenderCache::new(&style);
@@ -191,19 +232,31 @@ fn test_render_cache_produces_tinted_background() {
     let bg_color = seg_bg.unwrap();
 
     // Verify the color is the tinted color (approximately)
-    assert_eq!(bg_color.r, expected_r.round() as u8, "Red component should be tinted");
-    assert_eq!(bg_color.g, expected_g.round() as u8, "Green component should be tinted");
-    assert_eq!(bg_color.b, expected_b.round() as u8, "Blue component should be tinted");
+    assert_eq!(
+        bg_color.r,
+        expected_r.round() as u8,
+        "Red component should be tinted"
+    );
+    assert_eq!(
+        bg_color.g,
+        expected_g.round() as u8,
+        "Green component should be tinted"
+    );
+    assert_eq!(
+        bg_color.b,
+        expected_b.round() as u8,
+        "Blue component should be tinted"
+    );
 }
 
 #[test]
 fn test_auto_color_resolves_against_effective_background() {
-    use tcss::parser::parse_stylesheet;
     use std::collections::VecDeque;
-    use tcss::types::Theme;
-    use textual::{Vertical, Widget, Label};
-    use textual::style_resolver::resolve_styles;
     use tcss::parser::cascade::WidgetMeta;
+    use tcss::parser::parse_stylesheet;
+    use tcss::types::Theme;
+    use textual::style_resolver::resolve_styles;
+    use textual::{Label, Vertical, Widget};
 
     // CSS with auto color on containers with different tint levels
     let css = r#"
@@ -216,18 +269,17 @@ Vertical {
 "#;
 
     let stylesheet = parse_stylesheet(css).unwrap();
-    let theme = Theme::standard_themes().get("textual-dark").unwrap().clone();
+    let theme = Theme::standard_themes()
+        .get("textual-dark")
+        .unwrap()
+        .clone();
 
     // Create containers with different tint levels
     let mut v1: Box<dyn Widget<()>> = Box::new(
-        Vertical::new(vec![
-            Box::new(Label::new("0%")) as Box<dyn Widget<()>>
-        ]).with_id("tint1")
+        Vertical::new(vec![Box::new(Label::new("0%")) as Box<dyn Widget<()>>]).with_id("tint1"),
     );
     let mut v5: Box<dyn Widget<()>> = Box::new(
-        Vertical::new(vec![
-            Box::new(Label::new("100%")) as Box<dyn Widget<()>>
-        ]).with_id("tint5")
+        Vertical::new(vec![Box::new(Label::new("100%")) as Box<dyn Widget<()>>]).with_id("tint5"),
     );
 
     // Resolve styles
@@ -240,8 +292,14 @@ Vertical {
     let style1 = v1.get_style();
     let style5 = v5.get_style();
 
-    println!("v1 (0% tint): auto_color={}, color={:?}", style1.auto_color, style1.color);
-    println!("v5 (100% tint): auto_color={}, color={:?}", style5.auto_color, style5.color);
+    println!(
+        "v1 (0% tint): auto_color={}, color={:?}",
+        style1.auto_color, style1.color
+    );
+    println!(
+        "v5 (100% tint): auto_color={}, color={:?}",
+        style5.auto_color, style5.color
+    );
 
     assert!(style1.auto_color, "v1 should have auto_color set");
     assert!(style5.auto_color, "v5 should have auto_color set");
@@ -251,15 +309,32 @@ Vertical {
     let color5 = style5.color.as_ref().expect("v5 should have color");
 
     // auto 90% should have alpha = 0.9
-    assert!((color1.a - 0.9).abs() < 0.01, "v1 color alpha should be ~0.9, got {}", color1.a);
-    assert!((color5.a - 0.9).abs() < 0.01, "v5 color alpha should be ~0.9, got {}", color5.a);
+    assert!(
+        (color1.a - 0.9).abs() < 0.01,
+        "v1 color alpha should be ~0.9, got {}",
+        color1.a
+    );
+    assert!(
+        (color5.a - 0.9).abs() < 0.01,
+        "v5 color alpha should be ~0.9, got {}",
+        color5.a
+    );
 
     // Check that effective background is computed
     // tint1 has 0% tint - should be close to $panel (dark)
     // tint5 has 100% tint - should be close to $foreground (light)
-    let bg1 = style1.background.as_ref().expect("v1 should have background");
-    let tint1 = style1.background_tint.as_ref().expect("v1 should have background_tint");
-    let tint5 = style5.background_tint.as_ref().expect("v5 should have background_tint");
+    let bg1 = style1
+        .background
+        .as_ref()
+        .expect("v1 should have background");
+    let tint1 = style1
+        .background_tint
+        .as_ref()
+        .expect("v1 should have background_tint");
+    let tint5 = style5
+        .background_tint
+        .as_ref()
+        .expect("v5 should have background_tint");
 
     let effective_bg1 = bg1.tint(tint1);
     let bg5 = style5.background.as_ref().unwrap();
@@ -269,23 +344,45 @@ Vertical {
     println!("effective_bg5 luminance: {}", effective_bg5.luminance());
 
     // 0% tint should have dark background (low luminance)
-    assert!(effective_bg1.luminance() < 0.3, "0% tint should have dark background");
+    assert!(
+        effective_bg1.luminance() < 0.3,
+        "0% tint should have dark background"
+    );
     // 100% tint should have light background (high luminance)
-    assert!(effective_bg5.luminance() > 0.5, "100% tint should have light background");
+    assert!(
+        effective_bg5.luminance() > 0.5,
+        "100% tint should have light background"
+    );
 
     // Now test that contrasting colors are computed correctly
     let contrast1 = effective_bg1.get_contrasting_color(0.9);
     let contrast5 = effective_bg5.get_contrasting_color(0.9);
 
-    println!("contrast1 (dark bg): r={}, g={}, b={}", contrast1.r, contrast1.g, contrast1.b);
-    println!("contrast5 (light bg): r={}, g={}, b={}", contrast5.r, contrast5.g, contrast5.b);
+    println!(
+        "contrast1 (dark bg): r={}, g={}, b={}",
+        contrast1.r, contrast1.g, contrast1.b
+    );
+    println!(
+        "contrast5 (light bg): r={}, g={}, b={}",
+        contrast5.r, contrast5.g, contrast5.b
+    );
 
     // Dark background should get light text
-    assert!(contrast1.r > 200 && contrast1.g > 200 && contrast1.b > 200,
-        "Dark background should get light text, got r={} g={} b={}", contrast1.r, contrast1.g, contrast1.b);
+    assert!(
+        contrast1.r > 200 && contrast1.g > 200 && contrast1.b > 200,
+        "Dark background should get light text, got r={} g={} b={}",
+        contrast1.r,
+        contrast1.g,
+        contrast1.b
+    );
     // Light background should get dark text
-    assert!(contrast5.r < 100 && contrast5.g < 100 && contrast5.b < 100,
-        "Light background should get dark text, got r={} g={} b={}", contrast5.r, contrast5.g, contrast5.b);
+    assert!(
+        contrast5.r < 100 && contrast5.g < 100 && contrast5.b < 100,
+        "Light background should get dark text, got r={} g={} b={}",
+        contrast5.r,
+        contrast5.g,
+        contrast5.b
+    );
 }
 
 #[test]

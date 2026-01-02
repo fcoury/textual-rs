@@ -23,9 +23,9 @@ mod vertical;
 pub use grid::{GridLayout, GridTrackInfo};
 pub use horizontal::HorizontalLayout;
 pub use size_resolver::{
-    resolve_height, resolve_height_fill, resolve_height_fixed, resolve_height_with_intrinsic,
-    resolve_width, resolve_width_fill, resolve_width_fixed, resolve_width_with_intrinsic,
-    DEFAULT_FIXED_HEIGHT, DEFAULT_FIXED_WIDTH,
+    DEFAULT_FIXED_HEIGHT, DEFAULT_FIXED_WIDTH, resolve_height, resolve_height_fill,
+    resolve_height_fixed, resolve_height_with_intrinsic, resolve_width, resolve_width_fill,
+    resolve_width_fixed, resolve_width_with_intrinsic,
 };
 pub use vertical::VerticalLayout;
 
@@ -164,8 +164,9 @@ pub fn arrange_children_with_viewport(
     viewport: Viewport,
 ) -> Vec<WidgetPlacement> {
     // Separate docked widgets from layout widgets
-    let (docked, non_docked): (Vec<_>, Vec<_>) =
-        children.iter().partition(|child| child.style.dock.is_some());
+    let (docked, non_docked): (Vec<_>, Vec<_>) = children
+        .iter()
+        .partition(|child| child.style.dock.is_some());
 
     // Absolute-positioned widgets are removed from normal flow
     let (absolute_children, layout_children): (Vec<&LayoutChild>, Vec<&LayoutChild>) = non_docked
@@ -369,8 +370,9 @@ where
     let viewport: Viewport = available.into();
 
     // Separate docked widgets from layout widgets
-    let (docked, layout_children): (Vec<_>, Vec<_>) =
-        children.iter().partition(|child| child.style.dock.is_some());
+    let (docked, layout_children): (Vec<_>, Vec<_>) = children
+        .iter()
+        .partition(|child| child.style.dock.is_some());
 
     // Process docked widgets first
     let docked_vec: Vec<LayoutChild> = docked
@@ -550,25 +552,28 @@ fn get_placement_bounds_with_margins(
 /// * `placements` - The widget placements to modify
 /// * `children` - The original children array to find styles
 /// * `viewport` - Viewport for resolving viewport-relative units
-fn apply_offset(
-    placements: &mut [WidgetPlacement],
-    children: &[LayoutChild],
-    viewport: Viewport,
-) {
+fn apply_offset(placements: &mut [WidgetPlacement], children: &[LayoutChild], viewport: Viewport) {
     use tcss::types::geometry::Unit;
 
     for placement in placements {
         // Find the style for this child
-        if let Some(child) = children.iter().find(|child| child.index == placement.child_index) {
+        if let Some(child) = children
+            .iter()
+            .find(|child| child.index == placement.child_index)
+        {
             // Resolve offset_x
             let offset_x = if let Some(scalar) = &child.style.offset_x {
                 match scalar.unit {
                     Unit::Cells => scalar.value as i32,
-                    Unit::Percent => ((scalar.value / 100.0) * placement.region.width as f64) as i32,
+                    Unit::Percent => {
+                        ((scalar.value / 100.0) * placement.region.width as f64) as i32
+                    }
                     Unit::ViewWidth => ((scalar.value / 100.0) * viewport.width as f64) as i32,
                     Unit::ViewHeight => ((scalar.value / 100.0) * viewport.height as f64) as i32,
                     Unit::Width => ((scalar.value / 100.0) * placement.region.width as f64) as i32,
-                    Unit::Height => ((scalar.value / 100.0) * placement.region.height as f64) as i32,
+                    Unit::Height => {
+                        ((scalar.value / 100.0) * placement.region.height as f64) as i32
+                    }
                     _ => scalar.value as i32,
                 }
             } else {
@@ -579,11 +584,15 @@ fn apply_offset(
             let offset_y = if let Some(scalar) = &child.style.offset_y {
                 match scalar.unit {
                     Unit::Cells => scalar.value as i32,
-                    Unit::Percent => ((scalar.value / 100.0) * placement.region.height as f64) as i32,
+                    Unit::Percent => {
+                        ((scalar.value / 100.0) * placement.region.height as f64) as i32
+                    }
                     Unit::ViewWidth => ((scalar.value / 100.0) * viewport.width as f64) as i32,
                     Unit::ViewHeight => ((scalar.value / 100.0) * viewport.height as f64) as i32,
                     Unit::Width => ((scalar.value / 100.0) * placement.region.width as f64) as i32,
-                    Unit::Height => ((scalar.value / 100.0) * placement.region.height as f64) as i32,
+                    Unit::Height => {
+                        ((scalar.value / 100.0) * placement.region.height as f64) as i32
+                    }
                     _ => scalar.value as i32,
                 }
             } else {
@@ -744,8 +753,8 @@ pub fn arrange_children_with_layers(
 ) -> Vec<WidgetPlacement> {
     // Fast path: if no layers defined and no children have layer assignments,
     // use the standard arrangement to avoid overhead
-    let needs_layers = parent_style.layers.is_some()
-        || children.iter().any(|child| child.style.layer.is_some());
+    let needs_layers =
+        parent_style.layers.is_some() || children.iter().any(|child| child.style.layer.is_some());
 
     if !needs_layers {
         return arrange_children_with_viewport(parent_style, children, available, viewport);

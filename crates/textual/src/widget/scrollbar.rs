@@ -18,7 +18,9 @@ enum ScrollBarState {
     Normal,
     Hover,
     /// Dragging with grab position (offset within thumb where grab started)
-    Grabbed { grab_position: i32 },
+    Grabbed {
+        grab_position: i32,
+    },
 }
 
 /// A scrollbar widget that emits scroll messages.
@@ -122,7 +124,12 @@ where
         } else {
             region.width
         };
-        ScrollBarRender::thumb_bounds(track_size, self.virtual_size, self.window_size, self.position)
+        ScrollBarRender::thumb_bounds(
+            track_size,
+            self.virtual_size,
+            self.window_size,
+            self.position,
+        )
     }
 
     /// Get current colors based on state.

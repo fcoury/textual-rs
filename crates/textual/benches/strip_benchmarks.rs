@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use textual::segment::{Segment, Style};
 use textual::strip::Strip;
 
@@ -30,21 +30,12 @@ fn bench_strip_inline_creation(c: &mut Criterion) {
 
     // 1 segment (most common case)
     group.bench_function("inline_1_segment", |b| {
-        b.iter(|| {
-            Strip::from_iter([
-                Segment::new("Hello"),
-            ])
-        })
+        b.iter(|| Strip::from_iter([Segment::new("Hello")]))
     });
 
     // 2 segments (e.g., "Label: " + "value")
     group.bench_function("inline_2_segments", |b| {
-        b.iter(|| {
-            Strip::from_iter([
-                Segment::new("Label: "),
-                Segment::new("value"),
-            ])
-        })
+        b.iter(|| Strip::from_iter([Segment::new("Label: "), Segment::new("value")]))
     });
 
     // 3 segments
@@ -149,7 +140,10 @@ fn bench_strip_cell_length(c: &mut Criterion) {
     group.bench_function("cell_length_from_segments_sum", |b| {
         b.iter(|| {
             let s = black_box(&strip);
-            s.segments().iter().map(|seg| seg.cell_length()).sum::<usize>()
+            s.segments()
+                .iter()
+                .map(|seg| seg.cell_length())
+                .sum::<usize>()
         })
     });
 

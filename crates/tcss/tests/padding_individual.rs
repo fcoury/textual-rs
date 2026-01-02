@@ -5,8 +5,8 @@
 
 use tcss::parser::cascade::{WidgetMeta, compute_style};
 use tcss::parser::parse_stylesheet;
-use tcss::types::theme::Theme;
 use tcss::types::Unit;
+use tcss::types::theme::Theme;
 
 fn get_theme() -> Theme {
     Theme::new("test", true)
@@ -87,7 +87,10 @@ fn test_individual_padding_default_zero() {
 
     assert_eq!(style.padding.top.value, 5.0, "top should be 5");
     assert_eq!(style.padding.right.value, 0.0, "right should default to 0");
-    assert_eq!(style.padding.bottom.value, 0.0, "bottom should default to 0");
+    assert_eq!(
+        style.padding.bottom.value, 0.0,
+        "bottom should default to 0"
+    );
     assert_eq!(style.padding.left.value, 0.0, "left should default to 0");
 }
 
@@ -99,7 +102,11 @@ fn test_individual_padding_with_percent_unit() {
     let style = compute_style(&button(), &[], &stylesheet, &theme);
 
     assert_eq!(style.padding.top.value, 50.0, "top should be 50");
-    assert_eq!(style.padding.top.unit, Unit::Percent, "unit should be percent");
+    assert_eq!(
+        style.padding.top.unit,
+        Unit::Percent,
+        "unit should be percent"
+    );
 }
 
 #[test]

@@ -49,9 +49,9 @@ pub use crate::parser::stylesheet::{
 };
 pub use crate::parser::variables::{extract_variables, resolve_variables};
 
+use crate::TcssError;
 use crate::parser::selectors::parse_complex_selector;
 use crate::parser::values::parse_ident;
-use crate::TcssError;
 
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -167,17 +167,38 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
 
         // Scrollbar properties
         "scrollbar-color" => map(values::parse_color, Declaration::ScrollbarColor)(input)?,
-        "scrollbar-color-hover" => map(values::parse_color, Declaration::ScrollbarColorHover)(input)?,
-        "scrollbar-color-active" => map(values::parse_color, Declaration::ScrollbarColorActive)(input)?,
-        "scrollbar-background" => map(values::parse_color, Declaration::ScrollbarBackground)(input)?,
-        "scrollbar-background-hover" => map(values::parse_color, Declaration::ScrollbarBackgroundHover)(input)?,
-        "scrollbar-background-active" => map(values::parse_color, Declaration::ScrollbarBackgroundActive)(input)?,
-        "scrollbar-corner-color" => map(values::parse_color, Declaration::ScrollbarCornerColor)(input)?,
+        "scrollbar-color-hover" => {
+            map(values::parse_color, Declaration::ScrollbarColorHover)(input)?
+        }
+        "scrollbar-color-active" => {
+            map(values::parse_color, Declaration::ScrollbarColorActive)(input)?
+        }
+        "scrollbar-background" => {
+            map(values::parse_color, Declaration::ScrollbarBackground)(input)?
+        }
+        "scrollbar-background-hover" => {
+            map(values::parse_color, Declaration::ScrollbarBackgroundHover)(input)?
+        }
+        "scrollbar-background-active" => {
+            map(values::parse_color, Declaration::ScrollbarBackgroundActive)(input)?
+        }
+        "scrollbar-corner-color" => {
+            map(values::parse_color, Declaration::ScrollbarCornerColor)(input)?
+        }
         "scrollbar-size" => map(values::parse_scrollbar_size, Declaration::ScrollbarSize)(input)?,
-        "scrollbar-size-horizontal" => map(values::parse_u16, Declaration::ScrollbarSizeHorizontal)(input)?,
-        "scrollbar-size-vertical" => map(values::parse_u16, Declaration::ScrollbarSizeVertical)(input)?,
-        "scrollbar-gutter" => map(values::parse_scrollbar_gutter, Declaration::ScrollbarGutter)(input)?,
-        "scrollbar-visibility" => map(values::parse_scrollbar_visibility, Declaration::ScrollbarVisibility)(input)?,
+        "scrollbar-size-horizontal" => {
+            map(values::parse_u16, Declaration::ScrollbarSizeHorizontal)(input)?
+        }
+        "scrollbar-size-vertical" => {
+            map(values::parse_u16, Declaration::ScrollbarSizeVertical)(input)?
+        }
+        "scrollbar-gutter" => {
+            map(values::parse_scrollbar_gutter, Declaration::ScrollbarGutter)(input)?
+        }
+        "scrollbar-visibility" => map(
+            values::parse_scrollbar_visibility,
+            Declaration::ScrollbarVisibility,
+        )(input)?,
 
         // Box model properties
         "box-sizing" => map(values::parse_box_sizing, Declaration::BoxSizing)(input)?,
@@ -191,7 +212,9 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         // Overflow properties
         "overflow-x" => map(values::parse_overflow, Declaration::OverflowX)(input)?,
         "overflow-y" => map(values::parse_overflow, Declaration::OverflowY)(input)?,
-        "overflow" => map(values::parse_overflow_shorthand, |(x, y)| Declaration::Overflow(x, y))(input)?,
+        "overflow" => map(values::parse_overflow_shorthand, |(x, y)| {
+            Declaration::Overflow(x, y)
+        })(input)?,
 
         // Layout and Grid properties
         "layout" => map(units::parse_layout, Declaration::Layout)(input)?,
@@ -215,20 +238,30 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "link-color" => map(values::parse_color, Declaration::LinkColor)(input)?,
         "link-color-hover" => map(values::parse_color, Declaration::LinkColorHover)(input)?,
         "link-background" => map(values::parse_color, Declaration::LinkBackground)(input)?,
-        "link-background-hover" => map(values::parse_color, Declaration::LinkBackgroundHover)(input)?,
+        "link-background-hover" => {
+            map(values::parse_color, Declaration::LinkBackgroundHover)(input)?
+        }
         "link-style" => map(values::parse_text_style, Declaration::LinkStyle)(input)?,
         "link-style-hover" => map(values::parse_text_style, Declaration::LinkStyleHover)(input)?,
 
         // Content alignment properties (text within widget)
-        "content-align-horizontal" => map(values::parse_align_horizontal, Declaration::ContentAlignHorizontal)(input)?,
-        "content-align-vertical" => map(values::parse_align_vertical, Declaration::ContentAlignVertical)(input)?,
+        "content-align-horizontal" => map(
+            values::parse_align_horizontal,
+            Declaration::ContentAlignHorizontal,
+        )(input)?,
+        "content-align-vertical" => map(
+            values::parse_align_vertical,
+            Declaration::ContentAlignVertical,
+        )(input)?,
         "content-align" => {
             let (input, (h, v)) = values::parse_content_align(input)?;
             (input, Declaration::ContentAlign(h, v))
         }
 
         // Container alignment properties (child positioning)
-        "align-horizontal" => map(values::parse_align_horizontal, Declaration::AlignHorizontal)(input)?,
+        "align-horizontal" => {
+            map(values::parse_align_horizontal, Declaration::AlignHorizontal)(input)?
+        }
         "align-vertical" => map(values::parse_align_vertical, Declaration::AlignVertical)(input)?,
         "align" => {
             let (input, (h, v)) = values::parse_content_align(input)?;
@@ -236,14 +269,30 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         }
 
         // Border title/subtitle properties
-        "border-title-align" => map(values::parse_align_horizontal, Declaration::BorderTitleAlign)(input)?,
-        "border-subtitle-align" => map(values::parse_align_horizontal, Declaration::BorderSubtitleAlign)(input)?,
+        "border-title-align" => map(
+            values::parse_align_horizontal,
+            Declaration::BorderTitleAlign,
+        )(input)?,
+        "border-subtitle-align" => map(
+            values::parse_align_horizontal,
+            Declaration::BorderSubtitleAlign,
+        )(input)?,
         "border-title-color" => map(values::parse_color, Declaration::BorderTitleColor)(input)?,
-        "border-subtitle-color" => map(values::parse_color, Declaration::BorderSubtitleColor)(input)?,
-        "border-title-background" => map(values::parse_color, Declaration::BorderTitleBackground)(input)?,
-        "border-subtitle-background" => map(values::parse_color, Declaration::BorderSubtitleBackground)(input)?,
-        "border-title-style" => map(values::parse_text_style, Declaration::BorderTitleStyle)(input)?,
-        "border-subtitle-style" => map(values::parse_text_style, Declaration::BorderSubtitleStyle)(input)?,
+        "border-subtitle-color" => {
+            map(values::parse_color, Declaration::BorderSubtitleColor)(input)?
+        }
+        "border-title-background" => {
+            map(values::parse_color, Declaration::BorderTitleBackground)(input)?
+        }
+        "border-subtitle-background" => {
+            map(values::parse_color, Declaration::BorderSubtitleBackground)(input)?
+        }
+        "border-title-style" => {
+            map(values::parse_text_style, Declaration::BorderTitleStyle)(input)?
+        }
+        "border-subtitle-style" => {
+            map(values::parse_text_style, Declaration::BorderSubtitleStyle)(input)?
+        }
 
         // Edge-specific border properties
         "border-top" => map(values::parse_border_edge, Declaration::BorderTop)(input)?,

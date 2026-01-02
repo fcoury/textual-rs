@@ -177,9 +177,7 @@ mod tests {
     use super::*;
 
     fn lex(input: &str) -> Vec<Token<'_>> {
-        Lexer::new(input)
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap()
+        Lexer::new(input).collect::<Result<Vec<_>, _>>().unwrap()
     }
 
     #[test]

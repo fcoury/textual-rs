@@ -4,9 +4,9 @@
 //! root to the focused widget. Instead of searching through all containers,
 //! events go directly to the focused widget and bubble up through the cached path.
 
+use crate::KeyCode;
 use crate::message::MessageEnvelope;
 use crate::widget::Widget;
-use crate::KeyCode;
 
 /// Sender information extracted from a widget.
 #[derive(Debug, Clone)]
@@ -34,7 +34,9 @@ pub struct FocusPath {
 impl FocusPath {
     /// Create an empty path (pointing to root).
     pub fn new() -> Self {
-        Self { indices: Vec::new() }
+        Self {
+            indices: Vec::new(),
+        }
     }
 
     /// Get the path indices.
@@ -354,7 +356,9 @@ impl<M> WidgetTree<M> {
 
             // Navigate to the ancestor at this depth and call handle_message
             let ancestor_path = &path[..depth];
-            if let Some(new_msg) = navigate_and_handle(self.root.as_mut(), ancestor_path, &mut envelope) {
+            if let Some(new_msg) =
+                navigate_and_handle(self.root.as_mut(), ancestor_path, &mut envelope)
+            {
                 envelope.message = new_msg;
             }
         }
@@ -684,11 +688,8 @@ where
 ///
 /// Unlike `find_and_apply_by_selector`, this continues searching after finding
 /// a match, visiting all matching widgets in depth-first order.
-fn find_all_and_apply<M, F>(
-    widget: &mut dyn Widget<M>,
-    selector: &SimpleSelector,
-    f: &mut F,
-) where
+fn find_all_and_apply<M, F>(widget: &mut dyn Widget<M>, selector: &SimpleSelector, f: &mut F)
+where
     F: FnMut(&mut dyn Widget<M>),
 {
     // Check if this widget matches
@@ -1050,7 +1051,10 @@ mod tests {
         fn render(&self, _canvas: &mut crate::Canvas, _region: crate::Region) {}
 
         fn desired_size(&self) -> crate::Size {
-            crate::Size { width: 1, height: 1 }
+            crate::Size {
+                width: 1,
+                height: 1,
+            }
         }
 
         fn is_focusable(&self) -> bool {
@@ -1073,10 +1077,8 @@ mod tests {
     #[test]
     fn test_focus_path_simple() {
         // Tree: Container [ Focusable, Focusable ]
-        let tree_root = TestWidget::container(vec![
-            TestWidget::focusable(),
-            TestWidget::focusable(),
-        ]);
+        let tree_root =
+            TestWidget::container(vec![TestWidget::focusable(), TestWidget::focusable()]);
 
         let mut tree = WidgetTree::new(tree_root);
 
@@ -1155,7 +1157,10 @@ mod tests {
         fn render(&self, _canvas: &mut crate::Canvas, _region: crate::Region) {}
 
         fn desired_size(&self) -> crate::Size {
-            crate::Size { width: 1, height: 1 }
+            crate::Size {
+                width: 1,
+                height: 1,
+            }
         }
 
         fn id(&self) -> Option<&str> {
@@ -1233,15 +1238,11 @@ mod tests {
 
     #[test]
     fn test_with_widget_by_id_finds_root() {
-        let root = QueryTestWidget::new("Container")
-            .with_id("root")
-            .boxed();
+        let root = QueryTestWidget::new("Container").with_id("root").boxed();
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_id("root", |widget| {
-            widget.type_name().to_string()
-        });
+        let found = tree.with_widget_by_id("root", |widget| widget.type_name().to_string());
 
         assert_eq!(found, Some("Container".to_string()));
     }
@@ -1257,9 +1258,7 @@ mod tests {
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_id("my-label", |widget| {
-            widget.type_name().to_string()
-        });
+        let found = tree.with_widget_by_id("my-label", |widget| widget.type_name().to_string());
 
         assert_eq!(found, Some("Label".to_string()));
     }
@@ -1283,18 +1282,14 @@ mod tests {
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_id("deep", |widget| {
-            widget.type_name().to_string()
-        });
+        let found = tree.with_widget_by_id("deep", |widget| widget.type_name().to_string());
 
         assert_eq!(found, Some("Label".to_string()));
     }
 
     #[test]
     fn test_with_widget_by_id_returns_none_for_missing() {
-        let root = QueryTestWidget::new("Container")
-            .with_id("root")
-            .boxed();
+        let root = QueryTestWidget::new("Container").with_id("root").boxed();
 
         let mut tree = WidgetTree::new(root);
 
@@ -1351,15 +1346,12 @@ mod tests {
 
     #[test]
     fn test_with_widget_by_type_finds_root() {
-        let root = QueryTestWidget::new("Container")
-            .with_id("root")
-            .boxed();
+        let root = QueryTestWidget::new("Container").with_id("root").boxed();
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_type("Container", |widget| {
-            widget.id().map(|s| s.to_string())
-        });
+        let found =
+            tree.with_widget_by_type("Container", |widget| widget.id().map(|s| s.to_string()));
 
         assert_eq!(found, Some(Some("root".to_string())));
     }
@@ -1374,9 +1366,7 @@ mod tests {
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_type("Label", |widget| {
-            widget.id().map(|s| s.to_string())
-        });
+        let found = tree.with_widget_by_type("Label", |widget| widget.id().map(|s| s.to_string()));
 
         assert_eq!(found, Some(Some("my-label".to_string())));
     }
@@ -1387,15 +1377,15 @@ mod tests {
         let root = QueryTestWidget::new("Container")
             .with_children(vec![
                 QueryTestWidget::new("Label").with_id("first-label").boxed(),
-                QueryTestWidget::new("Label").with_id("second-label").boxed(),
+                QueryTestWidget::new("Label")
+                    .with_id("second-label")
+                    .boxed(),
             ])
             .boxed();
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_type("Label", |widget| {
-            widget.id().map(|s| s.to_string())
-        });
+        let found = tree.with_widget_by_type("Label", |widget| widget.id().map(|s| s.to_string()));
 
         // Should find the first Label
         assert_eq!(found, Some(Some("first-label".to_string())));
@@ -1442,7 +1432,9 @@ mod tests {
             .with_children(vec![
                 QueryTestWidget::new("Container")
                     .with_children(vec![
-                        QueryTestWidget::new("Button").with_id("deep-button").boxed(),
+                        QueryTestWidget::new("Button")
+                            .with_id("deep-button")
+                            .boxed(),
                     ])
                     .boxed(),
             ])
@@ -1450,9 +1442,7 @@ mod tests {
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_type("Button", |widget| {
-            widget.id().map(|s| s.to_string())
-        });
+        let found = tree.with_widget_by_type("Button", |widget| widget.id().map(|s| s.to_string()));
 
         assert_eq!(found, Some(Some("deep-button".to_string())));
     }
@@ -1470,18 +1460,20 @@ mod tests {
             .with_children(vec![
                 QueryTestWidget::new("Container")
                     .with_children(vec![
-                        QueryTestWidget::new("Label").with_id("nested-label").boxed(),
+                        QueryTestWidget::new("Label")
+                            .with_id("nested-label")
+                            .boxed(),
                     ])
                     .boxed(),
-                QueryTestWidget::new("Label").with_id("sibling-label").boxed(),
+                QueryTestWidget::new("Label")
+                    .with_id("sibling-label")
+                    .boxed(),
             ])
             .boxed();
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.with_widget_by_type("Label", |widget| {
-            widget.id().map(|s| s.to_string())
-        });
+        let found = tree.with_widget_by_type("Label", |widget| widget.id().map(|s| s.to_string()));
 
         // Depth-first: nested-label should be found first
         assert_eq!(found, Some(Some("nested-label".to_string())));
@@ -1547,9 +1539,7 @@ mod tests {
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.query_one("#my-label", |widget| {
-            widget.type_name().to_string()
-        });
+        let found = tree.query_one("#my-label", |widget| widget.type_name().to_string());
 
         assert_eq!(found, Some("Label".to_string()));
     }
@@ -1565,9 +1555,7 @@ mod tests {
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.query_one("Button", |widget| {
-            widget.id().map(|s| s.to_string())
-        });
+        let found = tree.query_one("Button", |widget| widget.id().map(|s| s.to_string()));
 
         assert_eq!(found, Some(Some("btn".to_string())));
     }
@@ -1585,9 +1573,7 @@ mod tests {
         let mut tree = WidgetTree::new(root);
 
         // Should find Button with id="submit", not Label with id="submit"
-        let found = tree.query_one("Button#submit", |widget| {
-            widget.type_name().to_string()
-        });
+        let found = tree.query_one("Button#submit", |widget| widget.type_name().to_string());
 
         assert_eq!(found, Some("Button".to_string()));
     }
@@ -1627,9 +1613,7 @@ mod tests {
 
         let mut tree = WidgetTree::new(root);
 
-        let found = tree.query_one("#deep-input", |widget| {
-            widget.type_name().to_string()
-        });
+        let found = tree.query_one("#deep-input", |widget| widget.type_name().to_string());
 
         assert_eq!(found, Some("Input".to_string()));
     }
@@ -1659,9 +1643,7 @@ mod tests {
 
     #[test]
     fn test_query_one_empty_selector_matches_nothing() {
-        let root = QueryTestWidget::new("Container")
-            .with_id("root")
-            .boxed();
+        let root = QueryTestWidget::new("Container").with_id("root").boxed();
 
         let mut tree = WidgetTree::new(root);
 
@@ -1771,7 +1753,9 @@ mod tests {
         let root = QueryTestWidget::new("Container")
             .with_children(vec![
                 QueryTestWidget::new("Label").with_id("first-label").boxed(),
-                QueryTestWidget::new("Label").with_id("second-label").boxed(),
+                QueryTestWidget::new("Label")
+                    .with_id("second-label")
+                    .boxed(),
             ])
             .boxed();
 
@@ -1787,7 +1771,9 @@ mod tests {
         let root = QueryTestWidget::new("Container")
             .with_children(vec![
                 QueryTestWidget::new("Label").with_id("first-label").boxed(),
-                QueryTestWidget::new("Label").with_id("second-label").boxed(),
+                QueryTestWidget::new("Label")
+                    .with_id("second-label")
+                    .boxed(),
                 QueryTestWidget::new("Label").with_id("last-label").boxed(),
             ])
             .boxed();
@@ -1851,9 +1837,7 @@ mod tests {
     #[test]
     fn test_query_toggle_class() {
         let root = QueryTestWidget::new("Container")
-            .with_children(vec![
-                QueryTestWidget::new("Label").boxed(),
-            ])
+            .with_children(vec![QueryTestWidget::new("Label").boxed()])
             .boxed();
 
         let mut tree = WidgetTree::new(root);
@@ -1872,9 +1856,7 @@ mod tests {
     #[test]
     fn test_query_set_class() {
         let root = QueryTestWidget::new("Container")
-            .with_children(vec![
-                QueryTestWidget::new("Label").boxed(),
-            ])
+            .with_children(vec![QueryTestWidget::new("Label").boxed()])
             .boxed();
 
         let mut tree = WidgetTree::new(root);
@@ -1982,10 +1964,14 @@ mod tests {
         tree.query("Button#submit").add_class("btn-primary");
 
         // Verify only the Button got the class
-        let btn_has_class = tree.query("Button#submit").first(|w| w.has_class("btn-primary"));
+        let btn_has_class = tree
+            .query("Button#submit")
+            .first(|w| w.has_class("btn-primary"));
         assert_eq!(btn_has_class, Some(true));
 
-        let lbl_has_class = tree.query("Label#submit").first(|w| w.has_class("btn-primary"));
+        let lbl_has_class = tree
+            .query("Label#submit")
+            .first(|w| w.has_class("btn-primary"));
         assert_eq!(lbl_has_class, Some(false));
     }
 
@@ -2055,9 +2041,15 @@ mod tests {
     fn test_query_filter_add_class() {
         let root = QueryTestWidget::new("Container")
             .with_children(vec![
-                QueryTestWidget::new("Button").with_id("primary-btn").boxed(),
-                QueryTestWidget::new("Button").with_id("secondary-btn").boxed(),
-                QueryTestWidget::new("Button").with_id("primary-action").boxed(),
+                QueryTestWidget::new("Button")
+                    .with_id("primary-btn")
+                    .boxed(),
+                QueryTestWidget::new("Button")
+                    .with_id("secondary-btn")
+                    .boxed(),
+                QueryTestWidget::new("Button")
+                    .with_id("primary-action")
+                    .boxed(),
             ])
             .boxed();
 
@@ -2069,13 +2061,19 @@ mod tests {
             .add_class("primary-style");
 
         // Verify only the correct buttons got the class
-        let primary_btn = tree.query("#primary-btn").first(|w| w.has_class("primary-style"));
+        let primary_btn = tree
+            .query("#primary-btn")
+            .first(|w| w.has_class("primary-style"));
         assert_eq!(primary_btn, Some(true));
 
-        let secondary_btn = tree.query("#secondary-btn").first(|w| w.has_class("primary-style"));
+        let secondary_btn = tree
+            .query("#secondary-btn")
+            .first(|w| w.has_class("primary-style"));
         assert_eq!(secondary_btn, Some(false));
 
-        let primary_action = tree.query("#primary-action").first(|w| w.has_class("primary-style"));
+        let primary_action = tree
+            .query("#primary-action")
+            .first(|w| w.has_class("primary-style"));
         assert_eq!(primary_action, Some(true));
     }
 

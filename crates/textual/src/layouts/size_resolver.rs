@@ -39,11 +39,17 @@ pub const DEFAULT_FIXED_WIDTH: i32 = 10;
 /// - `Unit::Percent`: Returns percentage of available_width
 /// - `Unit::Auto`: Returns available_width (fill)
 /// - No width specified: Returns available_width if fill_by_default, else DEFAULT_FIXED_WIDTH
-pub fn resolve_width(child_style: &ComputedStyle, available_width: i32, fill_by_default: bool) -> i32 {
+pub fn resolve_width(
+    child_style: &ComputedStyle,
+    available_width: i32,
+    fill_by_default: bool,
+) -> i32 {
     if let Some(width) = &child_style.width {
         match width.unit {
             Unit::Cells => return width.value as i32,
-            Unit::Percent => return ((width.value / 100.0) * available_width as f64).round() as i32,
+            Unit::Percent => {
+                return ((width.value / 100.0) * available_width as f64).round() as i32;
+            }
             Unit::Auto => return available_width, // Auto always fills available
             _ => return width.value as i32,
         }
@@ -68,11 +74,17 @@ pub fn resolve_width(child_style: &ComputedStyle, available_width: i32, fill_by_
 /// - `Unit::Percent`: Returns percentage of available_height
 /// - `Unit::Auto`: Returns available_height if fill_by_default, else DEFAULT_FIXED_HEIGHT
 /// - No height specified: Returns available_height if fill_by_default, else DEFAULT_FIXED_HEIGHT
-pub fn resolve_height(child_style: &ComputedStyle, available_height: i32, fill_by_default: bool) -> i32 {
+pub fn resolve_height(
+    child_style: &ComputedStyle,
+    available_height: i32,
+    fill_by_default: bool,
+) -> i32 {
     if let Some(height) = &child_style.height {
         match height.unit {
             Unit::Cells => return height.value as i32,
-            Unit::Percent => return ((height.value / 100.0) * available_height as f64).round() as i32,
+            Unit::Percent => {
+                return ((height.value / 100.0) * available_height as f64).round() as i32;
+            }
             Unit::Auto => {
                 // Auto behavior: fill if horizontal layout (fill_by_default), fixed if vertical
                 if fill_by_default {
@@ -209,8 +221,19 @@ pub fn resolve_height_full(
 /// Chrome is the space used by borders and padding that surrounds the content.
 pub fn vertical_chrome(style: &ComputedStyle) -> i32 {
     use tcss::types::border::BorderKind;
-    let border_top = if !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden) { 1 } else { 0 };
-    let border_bottom = if !matches!(style.border.bottom.kind, BorderKind::None | BorderKind::Hidden) { 1 } else { 0 };
+    let border_top = if !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden) {
+        1
+    } else {
+        0
+    };
+    let border_bottom = if !matches!(
+        style.border.bottom.kind,
+        BorderKind::None | BorderKind::Hidden
+    ) {
+        1
+    } else {
+        0
+    };
     let padding_top = style.padding.top.value as i32;
     let padding_bottom = style.padding.bottom.value as i32;
     border_top + border_bottom + padding_top + padding_bottom
@@ -221,8 +244,22 @@ pub fn vertical_chrome(style: &ComputedStyle) -> i32 {
 /// Chrome is the space used by borders and padding that surrounds the content.
 pub fn horizontal_chrome(style: &ComputedStyle) -> i32 {
     use tcss::types::border::BorderKind;
-    let border_left = if !matches!(style.border.left.kind, BorderKind::None | BorderKind::Hidden) { 1 } else { 0 };
-    let border_right = if !matches!(style.border.right.kind, BorderKind::None | BorderKind::Hidden) { 1 } else { 0 };
+    let border_left = if !matches!(
+        style.border.left.kind,
+        BorderKind::None | BorderKind::Hidden
+    ) {
+        1
+    } else {
+        0
+    };
+    let border_right = if !matches!(
+        style.border.right.kind,
+        BorderKind::None | BorderKind::Hidden
+    ) {
+        1
+    } else {
+        0
+    };
     let padding_left = style.padding.left.value as i32;
     let padding_right = style.padding.right.value as i32;
     border_left + border_right + padding_left + padding_right

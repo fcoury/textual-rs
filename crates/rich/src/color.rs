@@ -63,18 +63,12 @@ impl Color {
             }
             // #RRGGBB
             6 => {
-                let r = Self::parse_hex_pair(
-                    hex.chars().nth(0).unwrap(),
-                    hex.chars().nth(1).unwrap(),
-                )?;
-                let g = Self::parse_hex_pair(
-                    hex.chars().nth(2).unwrap(),
-                    hex.chars().nth(3).unwrap(),
-                )?;
-                let b = Self::parse_hex_pair(
-                    hex.chars().nth(4).unwrap(),
-                    hex.chars().nth(5).unwrap(),
-                )?;
+                let r =
+                    Self::parse_hex_pair(hex.chars().nth(0).unwrap(), hex.chars().nth(1).unwrap())?;
+                let g =
+                    Self::parse_hex_pair(hex.chars().nth(2).unwrap(), hex.chars().nth(3).unwrap())?;
+                let b =
+                    Self::parse_hex_pair(hex.chars().nth(4).unwrap(), hex.chars().nth(5).unwrap())?;
                 Ok(Color::Rgb(r, g, b))
             }
             _ => Err(ColorParseError::InvalidHex(format!("#{}", hex))),
@@ -86,7 +80,10 @@ impl Color {
             '0'..='9' => Ok(c as u8 - b'0'),
             'a'..='f' => Ok(c as u8 - b'a' + 10),
             'A'..='F' => Ok(c as u8 - b'A' + 10),
-            _ => Err(ColorParseError::InvalidHex(format!("invalid hex digit: {}", c))),
+            _ => Err(ColorParseError::InvalidHex(format!(
+                "invalid hex digit: {}",
+                c
+            ))),
         }
     }
 

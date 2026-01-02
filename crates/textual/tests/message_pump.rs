@@ -116,7 +116,11 @@ fn test_message_bubbling_order() {
 
     // Focus on the leaf (first focusable widget)
     tree.update_focus(0);
-    assert_eq!(tree.focus_path().indices(), &[0, 0], "Path should be [0, 0]");
+    assert_eq!(
+        tree.focus_path().indices(),
+        &[0, 0],
+        "Path should be [0, 0]"
+    );
 
     // Create a message and bubble it
     let envelope = MessageEnvelope::new(TestMessage::Ping, None, "Test");
@@ -197,9 +201,11 @@ fn test_bubbling_stops_on_stop() {
 
     let stopping_container = StoppingWidget {
         name: "Stopper",
-        children: vec![TrackingWidget::new("Leaf", call_log.clone())
-            .focusable()
-            .boxed()],
+        children: vec![
+            TrackingWidget::new("Leaf", call_log.clone())
+                .focusable()
+                .boxed(),
+        ],
         call_log: call_log.clone(),
     };
 

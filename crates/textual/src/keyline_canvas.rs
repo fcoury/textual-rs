@@ -11,9 +11,9 @@
 //! 3. Call `render()` to draw the keylines to the main canvas
 
 use crate::{
-    box_drawing::{combine_quads, get_box_char, Quad},
-    canvas::TextAttributes,
     Canvas, Region,
+    box_drawing::{Quad, combine_quads, get_box_char},
+    canvas::TextAttributes,
 };
 use tcss::types::RgbaColor;
 
@@ -240,8 +240,16 @@ impl KeylineCanvas {
 
         // Helper: check if two cells have different occupants (meaning we draw a line between them)
         let different_occupant = |r1: usize, c1: usize, r2: usize, c2: usize| -> bool {
-            let occ1 = cell_occupancy.get(r1).and_then(|row| row.get(c1)).copied().flatten();
-            let occ2 = cell_occupancy.get(r2).and_then(|row| row.get(c2)).copied().flatten();
+            let occ1 = cell_occupancy
+                .get(r1)
+                .and_then(|row| row.get(c1))
+                .copied()
+                .flatten();
+            let occ2 = cell_occupancy
+                .get(r2)
+                .and_then(|row| row.get(c2))
+                .copied()
+                .flatten();
             occ1 != occ2
         };
 

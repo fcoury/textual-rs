@@ -5,8 +5,8 @@
 
 use crate::canvas::TextAttributes;
 use crate::{Canvas, Region, Size, Widget};
-use tcss::types::{RgbaColor, ScrollbarStyle};
 use tcss::ComputedStyle;
+use tcss::types::{RgbaColor, ScrollbarStyle};
 
 /// Fills the corner gap when both scrollbars are visible.
 ///
@@ -84,7 +84,14 @@ impl<M> Widget<M> for ScrollBarCorner {
             // Clone bg once per row to avoid repeated allocations
             let row_bg = bg.clone();
             for x in 0..render_width {
-                canvas.put_char(region.x + x, region.y + y, ' ', None, Some(row_bg.clone()), TextAttributes::default());
+                canvas.put_char(
+                    region.x + x,
+                    region.y + y,
+                    ' ',
+                    None,
+                    Some(row_bg.clone()),
+                    TextAttributes::default(),
+                );
             }
         }
     }

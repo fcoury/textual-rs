@@ -67,8 +67,14 @@ impl Region {
     pub fn intersection(&self, other: &Region) -> Region {
         let x1 = self.x.max(other.x);
         let y1 = self.y.max(other.y);
-        let x2 = self.x.saturating_add(self.width).min(other.x.saturating_add(other.width));
-        let y2 = self.y.saturating_add(self.height).min(other.y.saturating_add(other.height));
+        let x2 = self
+            .x
+            .saturating_add(self.width)
+            .min(other.x.saturating_add(other.width));
+        let y2 = self
+            .y
+            .saturating_add(self.height)
+            .min(other.y.saturating_add(other.height));
 
         if x2 > x1 && y2 > y1 {
             Region {

@@ -2,8 +2,8 @@
 
 use crate::canvas::Region;
 use crate::fraction::Fraction;
-use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
+use tcss::types::geometry::Unit;
 
 use super::size_resolver::{apply_box_sizing_height, apply_box_sizing_width};
 use super::{Layout, LayoutChild, Viewport, WidgetPlacement};
@@ -106,7 +106,8 @@ impl Layout for HorizontalLayout {
                             // Use Fraction arithmetic: extra pixels go to later widgets
                             // fr units fill available space, so no box-sizing adjustment needed
                             let fr_value = (w.value * 1000.0) as i64;
-                            let raw = Fraction::new(remaining_for_fr * fr_value, total_fr) + fr_remainder;
+                            let raw =
+                                Fraction::new(remaining_for_fr * fr_value, total_fr) + fr_remainder;
                             let result = raw.floor() as i32;
                             fr_remainder = raw.fract();
                             result
@@ -126,7 +127,8 @@ impl Layout for HorizontalLayout {
                         // Check if widget wants to fill (u16::MAX signals "fill available")
                         if desired_size.width == u16::MAX && total_fr > 0 {
                             // Treat as 1fr
-                            let raw = Fraction::new(remaining_for_fr * 1000, total_fr) + fr_remainder;
+                            let raw =
+                                Fraction::new(remaining_for_fr * 1000, total_fr) + fr_remainder;
                             let result = raw.floor() as i32;
                             fr_remainder = raw.fract();
                             result
@@ -189,9 +191,7 @@ impl Layout for HorizontalLayout {
                         // fr fills available - no box-sizing adjustment
                         available.height
                     }
-                    Unit::Cells => {
-                        apply_box_sizing_height(h.value as i32, child_style)
-                    }
+                    Unit::Cells => apply_box_sizing_height(h.value as i32, child_style),
                     Unit::Percent => {
                         let css_height = ((h.value / 100.0) * available.height as f64) as i32;
                         apply_box_sizing_height(css_height, child_style)
@@ -251,7 +251,11 @@ impl Layout for HorizontalLayout {
 
             // For height: auto (intrinsic), use the height as-is since it's the content height.
             // For other heights (fill/fr), reduce by vertical margins to fit within container.
-            let is_auto_height = child_style.height.as_ref().map(|h| h.unit == Unit::Auto).unwrap_or(false);
+            let is_auto_height = child_style
+                .height
+                .as_ref()
+                .map(|h| h.unit == Unit::Auto)
+                .unwrap_or(false);
             let adjusted_height = if is_auto_height {
                 height // Use intrinsic height directly
             } else {

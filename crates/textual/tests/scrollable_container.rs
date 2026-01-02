@@ -2,12 +2,12 @@
 //!
 //! Tests for scrollbar visibility and content rendering.
 
+use tcss::ComputedStyle;
+use tcss::types::Overflow;
 use textual::canvas::TextAttributes;
 use textual::containers::scrollable::ScrollableContainer;
 use textual::widget::Widget;
 use textual::{Canvas, Region, Size};
-use tcss::ComputedStyle;
-use tcss::types::Overflow;
 
 // Dummy message type for tests
 enum Msg {}
@@ -283,22 +283,27 @@ fn test_scroll_demo_css_parsing() {
     let rule = &stylesheet.rules[0];
 
     // Verify scrollbar-size-horizontal: 0 is parsed
-    let has_horizontal_size_0 = rule.declarations().iter().any(|d| {
-        matches!(d, Declaration::ScrollbarSizeHorizontal(0))
-    });
-    assert!(has_horizontal_size_0, "scrollbar-size-horizontal: 0 should be parsed");
+    let has_horizontal_size_0 = rule
+        .declarations()
+        .iter()
+        .any(|d| matches!(d, Declaration::ScrollbarSizeHorizontal(0)));
+    assert!(
+        has_horizontal_size_0,
+        "scrollbar-size-horizontal: 0 should be parsed"
+    );
 
     // Verify overflow-x: hidden is parsed
-    let has_overflow_x_hidden = rule.declarations().iter().any(|d| {
-        matches!(d, Declaration::OverflowX(tcss::types::Overflow::Hidden))
-    });
+    let has_overflow_x_hidden = rule
+        .declarations()
+        .iter()
+        .any(|d| matches!(d, Declaration::OverflowX(tcss::types::Overflow::Hidden)));
     assert!(has_overflow_x_hidden, "overflow-x: hidden should be parsed");
 }
 
 #[test]
 fn test_css_style_application() {
-    use tcss::parser::parse_stylesheet;
     use tcss::parser::cascade::{WidgetMeta, compute_style};
+    use tcss::parser::parse_stylesheet;
     use tcss::types::Theme;
     use textual::widget::Widget;
 

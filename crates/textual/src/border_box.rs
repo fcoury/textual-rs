@@ -211,6 +211,9 @@ mod tests {
 
         let final_len = BOX_CACHE.read().unwrap().len();
         // We should have added at least 2 entries (may be more if tests run in parallel)
-        assert!(final_len >= initial_len + 2, "Expected at least 2 new cache entries");
+        assert!(
+            final_len >= initial_len + 2,
+            "Expected at least 2 new cache entries"
+        );
     }
 }

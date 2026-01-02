@@ -8,8 +8,8 @@ pub mod content;
 pub mod context;
 pub mod error;
 pub mod fraction;
-pub mod layouts;
 pub mod keyline_canvas;
+pub mod layouts;
 mod log_init;
 mod macros;
 pub mod message;
@@ -18,15 +18,17 @@ pub mod scroll;
 pub mod scrollbar;
 pub mod segment;
 pub mod strip;
-pub mod svg;
 pub mod style_resolver;
+pub mod svg;
 pub mod testing;
 pub mod tree;
 pub mod visual;
 pub mod widget;
 
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, EventStream};
-pub use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+pub use crossterm::event::{
+    Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
+};
 use crossterm::{cursor, execute, terminal};
 use futures::StreamExt;
 use std::collections::{HashSet, VecDeque};
@@ -35,12 +37,10 @@ use tokio::sync::mpsc;
 pub use canvas::{Canvas, Region, Size};
 pub use containers::{
     Center, Middle, container::Container, grid::Grid, horizontal::Horizontal,
-    horizontal_scroll::HorizontalScroll, item_grid::ItemGrid,
-    scrollable::ScrollableContainer, vertical::Vertical,
-    vertical_scroll::VerticalScroll,
+    horizontal_scroll::HorizontalScroll, item_grid::ItemGrid, scrollable::ScrollableContainer,
+    vertical::Vertical, vertical_scroll::VerticalScroll,
 };
 pub use context::{AppContext, IntervalHandle, MountContext};
-pub use tree::{DOMQuery, clear_all_hover, collect_pending_actions_mut};
 pub use error::Result;
 pub use fraction::Fraction;
 pub use log_init::init_logger;
@@ -48,6 +48,7 @@ pub use message::MessageEnvelope;
 pub use scroll::{ScrollMessage, ScrollState};
 pub use scrollbar::{ScrollBarRender, ScrollbarGlyphs};
 pub use tcss::TcssError;
+pub use tree::{DOMQuery, clear_all_hover, collect_pending_actions_mut};
 pub use visual::VisualType;
 pub use widget::label::{Label, LabelVariant};
 pub use widget::static_widget::Static;
@@ -58,9 +59,9 @@ pub use tcss::{parser::parse_stylesheet, types::Theme};
 pub use textual_macros::{ui, widget};
 pub use widget::{
     Compose, Widget, placeholder::Placeholder, placeholder::PlaceholderVariant,
-    placeholder::reset_placeholder_counter,
-    ruler::Ruler, ruler::RulerOrientation, screen::Breakpoint, screen::Screen,
-    scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner, switch::Switch,
+    placeholder::reset_placeholder_counter, ruler::Ruler, ruler::RulerOrientation,
+    screen::Breakpoint, screen::Screen, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner,
+    switch::Switch,
 };
 
 /// Helper for building widget vectors from iterators.
@@ -75,7 +76,10 @@ pub use widget::{
 ///     Box::new(Static::new(item)) as Box<dyn Widget<_>>
 /// });
 /// ```
-pub fn widgets_from_iter<M, T, F>(iter: impl IntoIterator<Item = T>, f: F) -> Vec<Box<dyn Widget<M>>>
+pub fn widgets_from_iter<M, T, F>(
+    iter: impl IntoIterator<Item = T>,
+    f: F,
+) -> Vec<Box<dyn Widget<M>>>
 where
     F: Fn(T) -> Box<dyn Widget<M>>,
 {
@@ -84,7 +88,7 @@ where
 
 use crate::{
     error::TextualError,
-    style_resolver::{resolve_dirty_styles, resolve_styles, InheritedContext},
+    style_resolver::{InheritedContext, resolve_dirty_styles, resolve_styles},
     tree::WidgetTree,
 };
 
@@ -398,9 +402,10 @@ where
         async move {
             // 1. Initial Setup: Build widget tree first, then collect default CSS
             let themes = tcss::types::Theme::standard_themes();
-            let theme = themes.get("textual-dark").cloned().unwrap_or_else(|| {
-                tcss::types::Theme::new("default", true)
-            });
+            let theme = themes
+                .get("textual-dark")
+                .cloned()
+                .unwrap_or_else(|| tcss::types::Theme::new("default", true));
 
             let (mut cols, mut rows) = terminal::size()?;
             let mut canvas = Canvas::new(cols, rows);

@@ -13,9 +13,9 @@ use std::time::Duration;
 
 use tokio::sync::mpsc;
 
+use crate::Widget;
 use crate::message::MessageEnvelope;
 use crate::tree::{DOMQuery, WidgetTree};
-use crate::Widget;
 
 /// Context provided to widgets for posting messages and spawning async tasks.
 ///
@@ -422,8 +422,8 @@ mod tests {
     #[tokio::test]
     async fn test_timer_preserves_sender_info() {
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let ctx: AppContext<&str> = AppContext::new(tx)
-            .with_sender_info(Some("my-timer-widget"), "TimerWidget");
+        let ctx: AppContext<&str> =
+            AppContext::new(tx).with_sender_info(Some("my-timer-widget"), "TimerWidget");
 
         ctx.set_timer(Duration::from_millis(10), "timeout");
 
@@ -471,9 +471,9 @@ mod tests {
     // MountContext tests
     // ========================================================================
 
-    use crate::canvas::Size;
     use crate::Canvas;
     use crate::Region;
+    use crate::canvas::Size;
 
     /// Minimal test widget for MountContext tests
     struct MountTestWidget {
@@ -512,7 +512,10 @@ mod tests {
         fn render(&self, _canvas: &mut Canvas, _region: Region) {}
 
         fn desired_size(&self) -> Size {
-            Size { width: 1, height: 1 }
+            Size {
+                width: 1,
+                height: 1,
+            }
         }
 
         fn id(&self) -> Option<&str> {
@@ -605,9 +608,7 @@ mod tests {
         let mut ctx = MountContext::new(app_ctx, &mut tree);
 
         // Query by type - should find Button first
-        let result = ctx.with_widget_by_type("Button", |widget| {
-            widget.id().map(|s| s.to_string())
-        });
+        let result = ctx.with_widget_by_type("Button", |widget| widget.id().map(|s| s.to_string()));
 
         assert_eq!(result, Some(Some("btn".to_string())));
     }
@@ -651,9 +652,7 @@ mod tests {
         let mut ctx = MountContext::new(app_ctx, &mut tree);
 
         // Should find deeply nested widget
-        let result = ctx.with_widget_by_id("deep", |widget| {
-            widget.type_name().to_string()
-        });
+        let result = ctx.with_widget_by_id("deep", |widget| widget.type_name().to_string());
 
         assert_eq!(result, Some("Label".to_string()));
     }
@@ -664,7 +663,12 @@ mod tests {
         struct IntWidget;
         impl Widget<i32> for IntWidget {
             fn render(&self, _canvas: &mut Canvas, _region: Region) {}
-            fn desired_size(&self) -> Size { Size { width: 1, height: 1 } }
+            fn desired_size(&self) -> Size {
+                Size {
+                    width: 1,
+                    height: 1,
+                }
+            }
         }
 
         let (tx, mut rx) = mpsc::unbounded_channel();
@@ -684,8 +688,8 @@ mod tests {
     #[test]
     fn test_mount_context_app_context_accessor() {
         let (tx, _rx) = mpsc::unbounded_channel();
-        let app_ctx: AppContext<()> = AppContext::new(tx)
-            .with_sender_info(Some("widget-id"), "WidgetType");
+        let app_ctx: AppContext<()> =
+            AppContext::new(tx).with_sender_info(Some("widget-id"), "WidgetType");
 
         let root = MountTestWidget::new("Container").boxed();
 

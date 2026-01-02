@@ -11,9 +11,18 @@ fn debug_textual_dark_theme_colors() {
     let surface = theme.get_color("surface").unwrap();
 
     println!("panel: #{:02x}{:02x}{:02x}", panel.r, panel.g, panel.b);
-    println!("foreground: #{:02x}{:02x}{:02x}", foreground.r, foreground.g, foreground.b);
-    println!("background: #{:02x}{:02x}{:02x}", background.r, background.g, background.b);
-    println!("surface: #{:02x}{:02x}{:02x}", surface.r, surface.g, surface.b);
+    println!(
+        "foreground: #{:02x}{:02x}{:02x}",
+        foreground.r, foreground.g, foreground.b
+    );
+    println!(
+        "background: #{:02x}{:02x}{:02x}",
+        background.r, background.g, background.b
+    );
+    println!(
+        "surface: #{:02x}{:02x}{:02x}",
+        surface.r, surface.g, surface.b
+    );
 
     // Compute tinted colors like background-tint does
     let mut tint = foreground.clone();
@@ -23,9 +32,15 @@ fn debug_textual_dark_theme_colors() {
         let tinted = panel.tint(&tint);
         let contrast = tinted.get_contrasting_color(0.9);
         let contrast_type = if contrast.r > 128 { "white" } else { "black" };
-        println!("{}% tint: #{:02x}{:02x}{:02x} (brightness={:.2}) -> {} text",
-            percent, tinted.r, tinted.g, tinted.b,
-            tinted.perceived_brightness(), contrast_type);
+        println!(
+            "{}% tint: #{:02x}{:02x}{:02x} (brightness={:.2}) -> {} text",
+            percent,
+            tinted.r,
+            tinted.g,
+            tinted.b,
+            tinted.perceived_brightness(),
+            contrast_type
+        );
     }
 }
 

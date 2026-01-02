@@ -96,9 +96,8 @@ impl Parser {
 
     /// Process an opening tag.
     fn process_open_tag(&mut self, content: &str) -> Result<(), RichParseError> {
-        let tag_content = TagContent::parse(content).map_err(|e| {
-            RichParseError::InvalidModifier(e.to_string())
-        })?;
+        let tag_content = TagContent::parse(content)
+            .map_err(|e| RichParseError::InvalidModifier(e.to_string()))?;
 
         match tag_content {
             TagContent::Style(style) => {
@@ -315,9 +314,8 @@ mod tests {
 
     #[test]
     fn parse_complex_example() {
-        let parsed = parse(
-            "[bold red]Important:[/] Click [@click=app.help]here[/] for help"
-        ).unwrap();
+        let parsed =
+            parse("[bold red]Important:[/] Click [@click=app.help]here[/] for help").unwrap();
         assert_eq!(parsed.text(), "Important: Click here for help");
         assert_eq!(parsed.spans().len(), 2);
     }

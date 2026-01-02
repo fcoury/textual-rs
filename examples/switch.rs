@@ -1,4 +1,7 @@
-use textual::{App, Center, Compose, Horizontal, KeyCode, MessageEnvelope, Middle, Result, Switch, Vertical, Widget, log, ui};
+use textual::{
+    App, Center, Compose, Horizontal, KeyCode, MessageEnvelope, Middle, Result, Switch, Vertical,
+    Widget, log, ui,
+};
 
 enum Message {
     WifiToggled(bool),

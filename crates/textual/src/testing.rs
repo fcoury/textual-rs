@@ -6,11 +6,11 @@
 use std::collections::{HashSet, VecDeque};
 
 use crate::{
+    Size,
     canvas::Canvas,
     style_resolver::resolve_styles,
     tree::WidgetTree,
-    widget::{screen::Screen, Compose, Widget},
-    Size,
+    widget::{Compose, Widget, screen::Screen},
 };
 
 /// Collect default CSS from a widget and all its descendants.

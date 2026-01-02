@@ -22,7 +22,10 @@ use crate::types::color::RgbaColor;
 use crate::types::scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarVisibility};
 use crate::types::text::TextStyle;
 use nom::{
-    IResult, bytes::complete::take_while1, character::complete::{char, digit1, multispace1}, combinator::opt,
+    IResult,
+    bytes::complete::take_while1,
+    character::complete::{char, digit1, multispace1},
+    combinator::opt,
     sequence::preceded,
 };
 
@@ -179,7 +182,13 @@ pub fn parse_border_edge(input: &str) -> IResult<&str, BorderEdge> {
         nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Tag))
     })?;
 
-    Ok((input, BorderEdge { kind, color: Some(color) }))
+    Ok((
+        input,
+        BorderEdge {
+            kind,
+            color: Some(color),
+        },
+    ))
 }
 
 /// Parse text-alignment keywords.
@@ -570,28 +579,32 @@ pub fn parse_hatch(input: &str) -> IResult<&str, crate::types::Hatch> {
 
     // Parse optional opacity percentage
     let input = input.trim_start();
-    let (input, opacity) = if !input.is_empty() && !input.starts_with(';') && !input.starts_with('}') {
-        // Try to parse opacity percentage
-        let mut end = 0;
-        let mut found_digits = false;
-        for (i, c) in input.char_indices() {
-            if c.is_ascii_digit() || c == '.' {
-                found_digits = true;
-                end = i + c.len_utf8();
-            } else if c == '%' && found_digits {
-                let percent_str = &input[..end];
-                if let Ok(percent) = percent_str.parse::<f32>() {
-                    return Ok((&input[end + 1..], Hatch::new(pattern, color).with_opacity(percent / 100.0)));
+    let (input, opacity) =
+        if !input.is_empty() && !input.starts_with(';') && !input.starts_with('}') {
+            // Try to parse opacity percentage
+            let mut end = 0;
+            let mut found_digits = false;
+            for (i, c) in input.char_indices() {
+                if c.is_ascii_digit() || c == '.' {
+                    found_digits = true;
+                    end = i + c.len_utf8();
+                } else if c == '%' && found_digits {
+                    let percent_str = &input[..end];
+                    if let Ok(percent) = percent_str.parse::<f32>() {
+                        return Ok((
+                            &input[end + 1..],
+                            Hatch::new(pattern, color).with_opacity(percent / 100.0),
+                        ));
+                    }
+                    break;
+                } else {
+                    break;
                 }
-                break;
-            } else {
-                break;
             }
-        }
-        (input, 1.0f32)
-    } else {
-        (input, 1.0f32)
-    };
+            (input, 1.0f32)
+        } else {
+            (input, 1.0f32)
+        };
 
     Ok((input, Hatch::new(pattern, color).with_opacity(opacity)))
 }
@@ -662,7 +675,8 @@ pub fn parse_opacity(input: &str) -> IResult<&str, f64> {
     }
 
     // Fallback: try parsing just a number without units
-    let (remaining, value_str) = take_while1(|c: char| c.is_ascii_digit() || c == '.' || c == '-')(input)?;
+    let (remaining, value_str) =
+        take_while1(|c: char| c.is_ascii_digit() || c == '.' || c == '-')(input)?;
     let value: f64 = value_str.parse().map_err(|_| {
         nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Float))
     })?;

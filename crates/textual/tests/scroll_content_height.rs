@@ -5,7 +5,7 @@
 //! - Content being cut off when scrolled to the bottom
 //! - Scrollbar thumb being too large (wrong ratio)
 
-use tcss::parser::cascade::{compute_style, WidgetMeta};
+use tcss::parser::cascade::{WidgetMeta, compute_style};
 use tcss::parser::parse_stylesheet;
 use tcss::types::Theme;
 use textual::widget::Widget;

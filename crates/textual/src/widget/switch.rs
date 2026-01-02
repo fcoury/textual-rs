@@ -305,7 +305,9 @@ where
                 }
                 None
             }
-            MouseEventKind::Up(_button) if in_bounds && self.active && !self.disabled && !self.loading => {
+            MouseEventKind::Up(_button)
+                if in_bounds && self.active && !self.disabled && !self.loading =>
+            {
                 // Complete click: toggle value and send message
                 self.active = false;
                 self.value = !self.value;

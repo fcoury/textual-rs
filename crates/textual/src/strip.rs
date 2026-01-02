@@ -12,9 +12,9 @@
 //! ```
 
 use crate::segment::{Segment, Style};
-use smallvec::{smallvec, SmallVec};
-use tcss::types::text::AlignHorizontal;
+use smallvec::{SmallVec, smallvec};
 use tcss::types::RgbaColor;
+use tcss::types::text::AlignHorizontal;
 
 /// Inline storage for 2 segments covers most common text patterns:
 /// - Single styled text (1 segment)
@@ -282,7 +282,12 @@ impl Strip {
     ///
     /// Returns a new strip of exactly `width` cells with the content aligned
     /// according to the specified alignment.
-    pub fn text_align(&self, align: AlignHorizontal, width: usize, pad_style: Option<Style>) -> Strip {
+    pub fn text_align(
+        &self,
+        align: AlignHorizontal,
+        width: usize,
+        pad_style: Option<Style>,
+    ) -> Strip {
         if self.cell_length >= width {
             return self.crop(0, width);
         }
@@ -382,7 +387,11 @@ mod tests {
 
     #[test]
     fn strip_from_segments() {
-        let segments = vec![Segment::new("hello"), Segment::new(" "), Segment::new("world")];
+        let segments = vec![
+            Segment::new("hello"),
+            Segment::new(" "),
+            Segment::new("world"),
+        ];
         let strip = Strip::from_segments(segments);
         assert_eq!(strip.cell_length(), 11);
         assert_eq!(strip.text(), "hello world");
@@ -418,7 +427,11 @@ mod tests {
 
     #[test]
     fn strip_crop_multiple_segments() {
-        let segments = vec![Segment::new("AAA"), Segment::new("BBB"), Segment::new("CCC")];
+        let segments = vec![
+            Segment::new("AAA"),
+            Segment::new("BBB"),
+            Segment::new("CCC"),
+        ];
         let strip = Strip::from_segments(segments);
         let cropped = strip.crop(2, 7);
         assert_eq!(cropped.text(), "ABBBC");

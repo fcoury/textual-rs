@@ -20,7 +20,11 @@ use tcss::ComputedStyle;
 /// Call this first in render(), then render children inside the returned region.
 ///
 /// Returns the inner region where children should be placed.
-pub fn render_container_chrome(canvas: &mut Canvas, region: Region, style: &ComputedStyle) -> Region {
+pub fn render_container_chrome(
+    canvas: &mut Canvas,
+    region: Region,
+    style: &ComputedStyle,
+) -> Region {
     if region.width <= 0 || region.height <= 0 {
         return region;
     }
@@ -104,7 +108,10 @@ impl<M> Center<M> {
 impl<M> Widget<M> for Center<M> {
     fn desired_size(&self) -> Size {
         if !self.child().is_visible() {
-            return Size { width: 0, height: 0 };
+            return Size {
+                width: 0,
+                height: 0,
+            };
         }
         self.child().desired_size()
     }
@@ -184,7 +191,9 @@ impl<M> Widget<M> for Center<M> {
     }
 
     fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
-        self.children.get_mut(index).map(|c| c.as_mut() as &mut dyn Widget<M>)
+        self.children
+            .get_mut(index)
+            .map(|c| c.as_mut() as &mut dyn Widget<M>)
     }
 }
 
@@ -241,7 +250,10 @@ impl<M> Middle<M> {
 impl<M> Widget<M> for Middle<M> {
     fn desired_size(&self) -> Size {
         if !self.child().is_visible() {
-            return Size { width: 0, height: 0 };
+            return Size {
+                width: 0,
+                height: 0,
+            };
         }
         self.child().desired_size()
     }
@@ -321,6 +333,8 @@ impl<M> Widget<M> for Middle<M> {
     }
 
     fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
-        self.children.get_mut(index).map(|c| c.as_mut() as &mut dyn Widget<M>)
+        self.children
+            .get_mut(index)
+            .map(|c| c.as_mut() as &mut dyn Widget<M>)
     }
 }

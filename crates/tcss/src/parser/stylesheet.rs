@@ -23,7 +23,11 @@
 //! - First has two compound selectors with child combinator
 //! - Second is a single ID selector
 
-use crate::types::{AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Keyline, Layout, Overflow, Position, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility, Spacing, TextStyle, Visibility};
+use crate::types::{
+    AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Keyline, Layout,
+    Overflow, Position, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility,
+    Spacing, TextStyle, Visibility,
+};
 
 /// CSS specificity for determining rule precedence.
 ///

@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use textual::segment::{Segment, Style};
 
 fn bench_cell_length(c: &mut Criterion) {
@@ -87,9 +87,7 @@ fn bench_segment_split(c: &mut Criterion) {
     let long = Segment::new(&"x".repeat(200));
     let unicode = Segment::new("Hello 世界 🎉 test string here");
 
-    group.bench_function("split_short", |b| {
-        b.iter(|| black_box(&short).split_at(2))
-    });
+    group.bench_function("split_short", |b| b.iter(|| black_box(&short).split_at(2)));
 
     group.bench_function("split_medium_early", |b| {
         b.iter(|| black_box(&medium).split_at(5))
@@ -99,9 +97,7 @@ fn bench_segment_split(c: &mut Criterion) {
         b.iter(|| black_box(&medium).split_at(15))
     });
 
-    group.bench_function("split_long", |b| {
-        b.iter(|| black_box(&long).split_at(100))
-    });
+    group.bench_function("split_long", |b| b.iter(|| black_box(&long).split_at(100)));
 
     group.bench_function("split_unicode", |b| {
         b.iter(|| black_box(&unicode).split_at(10))

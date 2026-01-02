@@ -1,9 +1,9 @@
 //! DSL parsing for the ui! macro.
 
 use syn::{
-    braced, parenthesized,
+    Expr, Ident, Result, Token, braced, parenthesized,
     parse::{Parse, ParseStream},
-    token, Expr, Ident, Result, Token,
+    token,
 };
 
 /// Root of the UI tree - may contain multiple widgets or splat expressions.

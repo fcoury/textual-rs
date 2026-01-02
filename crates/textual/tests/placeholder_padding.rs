@@ -4,8 +4,8 @@
 //! padding in its auto-height and auto-width calculations.
 
 use tcss::types::{ComputedStyle, Scalar};
-use textual::widget::placeholder::Placeholder;
 use textual::widget::Widget;
+use textual::widget::placeholder::Placeholder;
 
 fn create_placeholder_with_style(style: ComputedStyle) -> Placeholder {
     let mut placeholder = Placeholder::new().with_label("test");

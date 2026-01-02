@@ -666,7 +666,10 @@ Label {
         let style = compute_style(&widget, &ancestors, &stylesheet, &theme);
 
         // Check that border color is set - dodgerblue is RGB(30, 144, 255)
-        assert!(style.border.top.color.is_some(), "Border color should be set");
+        assert!(
+            style.border.top.color.is_some(),
+            "Border color should be set"
+        );
         let color = style.border.top.color.as_ref().unwrap();
         assert_eq!(color.r, 30, "Red channel should be 30");
         assert_eq!(color.g, 144, "Green channel should be 144");
@@ -710,21 +713,9 @@ Label {
             "Border color should be preserved from type selector despite ID selector"
         );
         let color = style.border.top.color.as_ref().unwrap();
-        assert_eq!(
-            color.r, 30,
-            "Red channel should be 30, got {}",
-            color.r
-        );
-        assert_eq!(
-            color.g, 144,
-            "Green channel should be 144, got {}",
-            color.g
-        );
-        assert_eq!(
-            color.b, 255,
-            "Blue channel should be 255, got {}",
-            color.b
-        );
+        assert_eq!(color.r, 30, "Red channel should be 30, got {}", color.r);
+        assert_eq!(color.g, 144, "Green channel should be 144, got {}", color.g);
+        assert_eq!(color.b, 255, "Blue channel should be 255, got {}", color.b);
     }
 
     #[test]

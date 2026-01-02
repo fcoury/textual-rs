@@ -239,10 +239,7 @@ mod tests {
     #[test]
     fn parse_meta_without_value() {
         let tag = TagContent::parse("@hover").unwrap();
-        assert_eq!(
-            tag,
-            TagContent::Meta("@hover".to_string(), String::new())
-        );
+        assert_eq!(tag, TagContent::Meta("@hover".to_string(), String::new()));
     }
 
     #[test]
