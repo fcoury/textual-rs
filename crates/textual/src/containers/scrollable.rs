@@ -725,6 +725,11 @@ ScrollableContainer {
             let v_region =
                 self.vertical_scrollbar_region_with_flags(inner_region, layout.show_horizontal);
             let (thumb_color, track_color) = self.vertical_colors();
+            let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(
+                thumb_color,
+                track_color,
+                self.style.inherited_background.clone(),
+            );
 
             ScrollBarRender::render_vertical(
                 canvas,
@@ -734,6 +739,7 @@ ScrollableContainer {
                 offset_y as f32,
                 thumb_color,
                 track_color,
+                draw_thumb,
             );
         }
 
@@ -742,6 +748,11 @@ ScrollableContainer {
             let h_region =
                 self.horizontal_scrollbar_region_with_flags(inner_region, layout.show_vertical);
             let (thumb_color, track_color) = self.horizontal_colors();
+            let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(
+                thumb_color,
+                track_color,
+                self.style.inherited_background.clone(),
+            );
 
             ScrollBarRender::render_horizontal(
                 canvas,
@@ -751,6 +762,7 @@ ScrollableContainer {
                 offset_x as f32,
                 thumb_color,
                 track_color,
+                draw_thumb,
             );
         }
 

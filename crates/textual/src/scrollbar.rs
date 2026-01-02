@@ -34,6 +34,31 @@ impl ScrollbarGlyphs {
 pub struct ScrollBarRender;
 
 impl ScrollBarRender {
+    /// Compose track and thumb colors to match Textual's blending rules.
+    ///
+    /// Returns (thumb_color, track_color, draw_thumb).
+    pub fn compose_colors(
+        thumb: RgbaColor,
+        track: RgbaColor,
+        base_background: Option<RgbaColor>,
+    ) -> (RgbaColor, RgbaColor, bool) {
+        let mut track = track;
+        if track.a < 1.0 {
+            if let Some(base) = base_background {
+                track = track.blend_over(&base);
+            }
+        }
+
+        let draw_thumb = thumb.a > 0.0;
+        let thumb = if draw_thumb {
+            thumb.blend_over(&track)
+        } else {
+            thumb
+        };
+
+        (thumb, track, draw_thumb)
+    }
+
     /// Render a vertical scrollbar with proper glyph gradients.
     ///
     /// # Arguments
@@ -52,6 +77,7 @@ impl ScrollBarRender {
         position: f32,
         thumb_color: RgbaColor,
         track_color: RgbaColor,
+        draw_thumb: bool,
     ) {
         // Guard against zero-dimension regions to prevent underflow
         if region.height <= 0 || region.width <= 0 {
@@ -75,8 +101,15 @@ impl ScrollBarRender {
             }
         }
 
-        // No thumb if content fits in viewport
-        if window_size >= virtual_size || size == 0.0 {
+        let virtual_size = virtual_size.ceil();
+        let window_size = if window_size < virtual_size {
+            window_size.ceil()
+        } else {
+            0.0
+        };
+
+        // No thumb if content fits in viewport or thumb hidden
+        if !draw_thumb || window_size == 0.0 || size == 0.0 || virtual_size == size {
             return;
         }
 
@@ -175,6 +208,7 @@ impl ScrollBarRender {
         position: f32,
         thumb_color: RgbaColor,
         track_color: RgbaColor,
+        draw_thumb: bool,
     ) {
         // Guard against zero-dimension regions to prevent underflow
         if region.width <= 0 || region.height <= 0 {
@@ -198,8 +232,15 @@ impl ScrollBarRender {
             }
         }
 
-        // No thumb if content fits in viewport
-        if window_size >= virtual_size || size == 0.0 {
+        let virtual_size = virtual_size.ceil();
+        let window_size = if window_size < virtual_size {
+            window_size.ceil()
+        } else {
+            0.0
+        };
+
+        // No thumb if content fits in viewport or thumb hidden
+        if !draw_thumb || window_size == 0.0 || size == 0.0 || virtual_size == size {
             return;
         }
 
@@ -289,11 +330,18 @@ impl ScrollBarRender {
         window_size: f32,
         position: f32,
     ) -> (i32, i32) {
-        if window_size >= virtual_size || track_size == 0 {
+        let size = track_size as f32;
+        let virtual_size = virtual_size.ceil();
+        let window_size = if window_size < virtual_size {
+            window_size.ceil()
+        } else {
+            0.0
+        };
+
+        if window_size == 0.0 || track_size == 0 || virtual_size == size {
             return (0, 0);
         }
 
-        let size = track_size as f32;
         let bar_ratio = virtual_size / size;
         let thumb_size = (window_size / bar_ratio).max(1.0);
 

@@ -176,6 +176,11 @@ where
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
         let (thumb_color, track_color) = self.current_colors();
+        let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(
+            thumb_color,
+            track_color,
+            self.computed_style.inherited_background.clone(),
+        );
 
         if self.vertical {
             ScrollBarRender::render_vertical(
@@ -186,6 +191,7 @@ where
                 self.position,
                 thumb_color,
                 track_color,
+                draw_thumb,
             );
         } else {
             ScrollBarRender::render_horizontal(
@@ -196,6 +202,7 @@ where
                 self.position,
                 thumb_color,
                 track_color,
+                draw_thumb,
             );
         }
     }

@@ -531,6 +531,11 @@ Screen {
         if render_vertical {
             let v_region = self.vertical_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.vertical_colors();
+            let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(
+                thumb_color,
+                track_color,
+                self.style.inherited_background.clone(),
+            );
             let scroll = self.scroll.borrow();
             ScrollBarRender::render_vertical(
                 canvas,
@@ -540,12 +545,18 @@ Screen {
                 scroll.offset_y as f32,
                 thumb_color,
                 track_color,
+                draw_thumb,
             );
         }
 
         if render_horizontal {
             let h_region = self.horizontal_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.horizontal_colors();
+            let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(
+                thumb_color,
+                track_color,
+                self.style.inherited_background.clone(),
+            );
             let scroll = self.scroll.borrow();
             ScrollBarRender::render_horizontal(
                 canvas,
@@ -555,6 +566,7 @@ Screen {
                 scroll.offset_x as f32,
                 thumb_color,
                 track_color,
+                draw_thumb,
             );
         }
 
