@@ -17,7 +17,10 @@ use crate::scrollbar::ScrollBarRender;
 use crate::widget::Widget;
 use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::{KeyCode, KeyModifiers, MouseEvent, MouseEventKind};
-use tcss::types::{Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility, Visibility};
+use tcss::types::{
+    Layout as LayoutDirection, Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility,
+    Visibility,
+};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 /// Scroll amount for single scroll events (arrow keys).
@@ -62,15 +65,7 @@ struct ScrollLayout {
 
 impl<M> ScrollableContainer<M> {
     /// Create a new scrollable container with the given children.
-    ///
-    /// # Panics
-    /// Panics if `children` does not contain exactly one child.
     pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
-        assert!(
-            children.len() == 1,
-            "ScrollableContainer requires exactly 1 child, got {}",
-            children.len()
-        );
         Self {
             children,
             scroll: RefCell::new(ScrollState::default()),
@@ -104,14 +99,6 @@ impl<M> ScrollableContainer<M> {
         self
     }
 
-    fn content(&self) -> &dyn Widget<M> {
-        self.children[0].as_ref()
-    }
-
-    fn content_mut(&mut self) -> &mut dyn Widget<M> {
-        self.children[0].as_mut()
-    }
-
     fn compute_inner_region(&self, region: Region) -> Region {
         if region.width <= 0 || region.height <= 0 {
             return region;
@@ -139,15 +126,11 @@ impl<M> ScrollableContainer<M> {
         &self.style.scrollbar
     }
 
-    /// Check if vertical scrollbar should be shown.
+    /// Check if vertical scrollbar is needed (layout), ignoring visibility.
     ///
     /// For `Overflow::Auto`, we check if content height exceeds viewport height.
     /// Returns false if viewport is not yet initialized (height == 0).
     fn show_vertical_scrollbar(&self) -> bool {
-        let style = self.scrollbar_style();
-        if style.visibility == ScrollbarVisibility::Hidden || style.size.vertical == 0 {
-            return false;
-        }
         match self.style.overflow_y {
             Overflow::Scroll => true,
             Overflow::Auto => {
@@ -163,15 +146,11 @@ impl<M> ScrollableContainer<M> {
         }
     }
 
-    /// Check if horizontal scrollbar should be shown.
+    /// Check if horizontal scrollbar is needed (layout), ignoring visibility.
     ///
     /// For `Overflow::Auto`, we check if content width exceeds viewport width.
     /// Returns false if viewport is not yet initialized (width == 0).
     fn show_horizontal_scrollbar(&self) -> bool {
-        let style = self.scrollbar_style();
-        if style.visibility == ScrollbarVisibility::Hidden || style.size.horizontal == 0 {
-            return false;
-        }
         match self.style.overflow_x {
             Overflow::Scroll => true,
             Overflow::Auto => {
@@ -195,6 +174,18 @@ impl<M> ScrollableContainer<M> {
     /// Check if horizontal scrolling is allowed (not hidden).
     fn allow_horizontal_scroll(&self) -> bool {
         self.style.overflow_x != Overflow::Hidden
+    }
+
+    fn render_vertical_scrollbar(&self, show_vertical: bool) -> bool {
+        let style = self.scrollbar_style();
+        show_vertical && style.visibility == ScrollbarVisibility::Visible && style.size.vertical > 0
+    }
+
+    fn render_horizontal_scrollbar(&self, show_horizontal: bool) -> bool {
+        let style = self.scrollbar_style();
+        show_horizontal
+            && style.visibility == ScrollbarVisibility::Visible
+            && style.size.horizontal > 0
     }
 
     fn content_region_with_flags(
@@ -334,8 +325,156 @@ impl<M> ScrollableContainer<M> {
         (virtual_width, virtual_height)
     }
 
+    fn calculate_intrinsic_size(&self) -> Size {
+        if self.children.is_empty() {
+            let border_size = if self.style.border.is_none() { 0 } else { 2 };
+            let padding_h =
+                self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+            let padding_v =
+                self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+            return Size::new(border_size + padding_h, border_size + padding_v);
+        }
+
+        let mut total_width: u16 = 0;
+        let mut total_height: u16 = 0;
+        let mut max_width: u16 = 0;
+        let mut max_height: u16 = 0;
+        let mut any_child_wants_fill_width = false;
+        let mut any_child_wants_fill_height = false;
+
+        let mut prev_margin_bottom: u16 = 0;
+        let mut first_child_margin_top: u16 = 0;
+        let mut last_child_margin_bottom: u16 = 0;
+        let mut is_first_child = true;
+
+        let mut prev_margin_right: u16 = 0;
+        let mut first_child_margin_left: u16 = 0;
+        let mut last_child_margin_right: u16 = 0;
+        let mut is_first_h_child = true;
+
+        for child in &self.children {
+            if !child.participates_in_layout() {
+                continue;
+            }
+            let child_size = child.desired_size();
+            let child_style = child.get_style();
+
+            if child_size.width == u16::MAX {
+                any_child_wants_fill_width = true;
+            }
+            if child_size.height == u16::MAX {
+                any_child_wants_fill_height = true;
+            }
+
+            let capped_width = if child_size.width == u16::MAX {
+                1000
+            } else {
+                child_size.width
+            };
+            let capped_height = if child_size.height == u16::MAX {
+                1000
+            } else {
+                child_size.height
+            };
+
+            let margin_left = child_style.margin.left.value as u16;
+            let margin_right = child_style.margin.right.value as u16;
+            let margin_top = child_style.margin.top.value as u16;
+            let margin_bottom = child_style.margin.bottom.value as u16;
+
+            let child_width_with_margins = capped_width + margin_left + margin_right;
+            let child_height_with_margins = capped_height + margin_top + margin_bottom;
+
+            match self.style.layout {
+                LayoutDirection::Vertical => {
+                    if is_first_child {
+                        first_child_margin_top = margin_top;
+                        is_first_child = false;
+                    }
+                    last_child_margin_bottom = margin_bottom;
+
+                    let margin_overlap = prev_margin_bottom.max(margin_top);
+                    let effective_margin = margin_overlap;
+                    total_height += capped_height + effective_margin;
+                    prev_margin_bottom = margin_bottom;
+
+                    max_width = max_width.max(child_width_with_margins);
+                }
+                LayoutDirection::Horizontal => {
+                    if is_first_h_child {
+                        first_child_margin_left = margin_left;
+                        is_first_h_child = false;
+                    }
+                    last_child_margin_right = margin_right;
+
+                    let margin_overlap = prev_margin_right.max(margin_left);
+                    let effective_margin = margin_overlap;
+                    total_width += capped_width + effective_margin;
+                    prev_margin_right = margin_right;
+
+                    max_height = max_height.max(child_height_with_margins);
+                }
+                LayoutDirection::Grid => {
+                    max_width = max_width.max(child_width_with_margins);
+                    max_height = max_height.max(child_height_with_margins);
+                }
+            }
+        }
+
+        match self.style.layout {
+            LayoutDirection::Vertical => {
+                total_height += last_child_margin_bottom;
+                total_width = max_width;
+                if any_child_wants_fill_width {
+                    total_width = u16::MAX;
+                }
+                if any_child_wants_fill_height {
+                    total_height = u16::MAX;
+                }
+                let border_size = if self.style.border.is_none() { 0 } else { 2 };
+                let padding_h =
+                    self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+                let padding_v =
+                    self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+                Size::new(
+                    total_width.saturating_add(border_size + padding_h),
+                    total_height.saturating_add(border_size + padding_v + first_child_margin_top),
+                )
+            }
+            LayoutDirection::Horizontal => {
+                total_width += last_child_margin_right;
+                total_height = max_height;
+                if any_child_wants_fill_width {
+                    total_width = u16::MAX;
+                }
+                if any_child_wants_fill_height {
+                    total_height = u16::MAX;
+                }
+                let border_size = if self.style.border.is_none() { 0 } else { 2 };
+                let padding_h =
+                    self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+                let padding_v =
+                    self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+                Size::new(
+                    total_width.saturating_add(border_size + padding_h + first_child_margin_left),
+                    total_height.saturating_add(border_size + padding_v),
+                )
+            }
+            LayoutDirection::Grid => {
+                let border_size = if self.style.border.is_none() { 0 } else { 2 };
+                let padding_h =
+                    self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
+                let padding_v =
+                    self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
+                Size::new(
+                    max_width.saturating_add(border_size + padding_h),
+                    max_height.saturating_add(border_size + padding_v),
+                )
+            }
+        }
+    }
+
     fn compute_scroll_layout(&self, inner_region: Region, viewport: Viewport) -> ScrollLayout {
-        let style = self.scrollbar_style();
         let mut show_vertical = false;
         let mut show_horizontal = false;
         let mut content_region = inner_region;
@@ -363,12 +502,8 @@ impl<M> ScrollableContainer<M> {
                 Overflow::Hidden => false,
             };
 
-            let next_show_horizontal = style.visibility != ScrollbarVisibility::Hidden
-                && style.size.horizontal > 0
-                && needs_horizontal;
-            let next_show_vertical = style.visibility != ScrollbarVisibility::Hidden
-                && style.size.vertical > 0
-                && needs_vertical;
+            let next_show_horizontal = needs_horizontal;
+            let next_show_vertical = needs_vertical;
 
             if next_show_horizontal == show_horizontal && next_show_vertical == show_vertical {
                 break;
@@ -471,9 +606,41 @@ ScrollableContainer {
     }
 
     fn desired_size(&self) -> Size {
-        // ScrollableContainer fills available space
-        // Return content size as hint, but container should expand
-        self.content().desired_size()
+        use tcss::types::Unit;
+
+        let intrinsic_size = self.calculate_intrinsic_size();
+
+        let width = if let Some(w) = &self.style.width {
+            match w.unit {
+                Unit::Cells => w.value as u16,
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => u16::MAX,
+                Unit::Auto => intrinsic_size.width,
+            }
+        } else {
+            intrinsic_size.width
+        };
+
+        let height = if let Some(h) = &self.style.height {
+            match h.unit {
+                Unit::Cells => h.value as u16,
+                Unit::Percent
+                | Unit::ViewWidth
+                | Unit::ViewHeight
+                | Unit::Fraction
+                | Unit::Width
+                | Unit::Height => u16::MAX,
+                Unit::Auto => intrinsic_size.height,
+            }
+        } else {
+            intrinsic_size.height
+        };
+
+        Size::new(width, height)
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
@@ -550,8 +717,11 @@ ScrollableContainer {
         }
         canvas.pop_clip();
 
+        let render_vertical = self.render_vertical_scrollbar(layout.show_vertical);
+        let render_horizontal = self.render_horizontal_scrollbar(layout.show_horizontal);
+
         // Render vertical scrollbar ON TOP of chrome
-        if layout.show_vertical {
+        if render_vertical {
             let v_region =
                 self.vertical_scrollbar_region_with_flags(inner_region, layout.show_horizontal);
             let (thumb_color, track_color) = self.vertical_colors();
@@ -568,7 +738,7 @@ ScrollableContainer {
         }
 
         // Render horizontal scrollbar ON TOP of chrome
-        if layout.show_horizontal {
+        if render_horizontal {
             let h_region =
                 self.horizontal_scrollbar_region_with_flags(inner_region, layout.show_vertical);
             let (thumb_color, track_color) = self.horizontal_colors();
@@ -585,7 +755,7 @@ ScrollableContainer {
         }
 
         // Render corner if both scrollbars visible
-        if layout.show_vertical && layout.show_horizontal {
+        if render_vertical && render_horizontal {
             let corner_region = self.corner_region(inner_region);
             let style = self.scrollbar_style();
             let mut corner = ScrollBarCorner::new(style.size.vertical, style.size.horizontal);
@@ -604,7 +774,7 @@ ScrollableContainer {
     }
 
     fn is_dirty(&self) -> bool {
-        self.dirty || self.content().is_dirty()
+        self.dirty || self.children.iter().any(|c| c.is_dirty())
     }
 
     fn mark_dirty(&mut self) {
@@ -613,7 +783,9 @@ ScrollableContainer {
 
     fn mark_clean(&mut self) {
         self.dirty = false;
-        self.content_mut().mark_clean();
+        for child in &mut self.children {
+            child.mark_clean();
+        }
     }
 
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
@@ -663,7 +835,9 @@ ScrollableContainer {
     }
 
     fn on_resize(&mut self, size: Size) {
-        self.content_mut().on_resize(size);
+        for child in &mut self.children {
+            child.on_resize(size);
+        }
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
@@ -736,8 +910,15 @@ ScrollableContainer {
             _ => {}
         }
 
-        // Pass other keys to content
-        self.content_mut().on_event(key)
+        for child in &mut self.children {
+            if !child.participates_in_layout() {
+                continue;
+            }
+            if let Some(msg) = child.on_event(key) {
+                return Some(msg);
+            }
+        }
+        None
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
@@ -755,8 +936,10 @@ ScrollableContainer {
         let h_region =
             self.horizontal_scrollbar_region_with_flags(inner_region, layout.show_vertical);
 
-        let on_vertical = layout.show_vertical && v_region.contains_point(mx, my);
-        let on_horizontal = layout.show_horizontal && h_region.contains_point(mx, my);
+        let render_vertical = self.render_vertical_scrollbar(layout.show_vertical);
+        let render_horizontal = self.render_horizontal_scrollbar(layout.show_horizontal);
+        let on_vertical = render_vertical && v_region.contains_point(mx, my);
+        let on_horizontal = render_horizontal && h_region.contains_point(mx, my);
 
         // Debug mouse events
         if matches!(event.kind, MouseEventKind::Down(_)) {
@@ -939,15 +1122,34 @@ ScrollableContainer {
     }
 
     fn count_focusable(&self) -> usize {
-        self.content().count_focusable()
+        self.children
+            .iter()
+            .filter(|c| c.participates_in_layout())
+            .map(|c| c.count_focusable())
+            .sum()
     }
 
     fn clear_focus(&mut self) {
-        self.content_mut().clear_focus();
+        for child in &mut self.children {
+            if child.participates_in_layout() {
+                child.clear_focus();
+            }
+        }
     }
 
     fn focus_nth(&mut self, n: usize) -> bool {
-        self.content_mut().focus_nth(n)
+        let mut remaining = n;
+        for child in &mut self.children {
+            if !child.participates_in_layout() {
+                continue;
+            }
+            let count = child.count_focusable();
+            if remaining < count {
+                return child.focus_nth(remaining);
+            }
+            remaining -= count;
+        }
+        false
     }
 
     fn child_count(&self) -> usize {
@@ -962,7 +1164,11 @@ ScrollableContainer {
 
     fn clear_hover(&mut self) {
         self.scrollbar_hover = None;
-        self.content_mut().clear_hover();
+        for child in &mut self.children {
+            if child.participates_in_layout() {
+                child.clear_hover();
+            }
+        }
     }
 }
 

@@ -24,7 +24,7 @@ use crate::widget::Widget;
 use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::{KeyCode, MouseEvent};
 use crossterm::event::KeyModifiers;
-use tcss::types::{Overflow, RgbaColor, ScrollbarGutter, Unit};
+use tcss::types::{Overflow, RgbaColor, ScrollbarGutter, ScrollbarVisibility, Unit};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 /// Breakpoint configuration: threshold and class name to apply.
@@ -223,6 +223,20 @@ impl<M> Screen<M> {
             Overflow::Auto => self.scroll.borrow().can_scroll_x(),
             Overflow::Hidden => false,
         }
+    }
+
+    fn render_vertical_scrollbar(&self) -> bool {
+        let style = &self.style.scrollbar;
+        self.show_vertical_scrollbar()
+            && style.visibility == ScrollbarVisibility::Visible
+            && style.size.vertical > 0
+    }
+
+    fn render_horizontal_scrollbar(&self) -> bool {
+        let style = &self.style.scrollbar;
+        self.show_horizontal_scrollbar()
+            && style.visibility == ScrollbarVisibility::Visible
+            && style.size.horizontal > 0
     }
 
     fn content_region_for_scroll(&self, region: Region) -> Region {
@@ -511,7 +525,10 @@ Screen {
         }
         canvas.pop_clip();
 
-        if self.show_vertical_scrollbar() {
+        let render_vertical = self.render_vertical_scrollbar();
+        let render_horizontal = self.render_horizontal_scrollbar();
+
+        if render_vertical {
             let v_region = self.vertical_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.vertical_colors();
             let scroll = self.scroll.borrow();
@@ -526,7 +543,7 @@ Screen {
             );
         }
 
-        if self.show_horizontal_scrollbar() {
+        if render_horizontal {
             let h_region = self.horizontal_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.horizontal_colors();
             let scroll = self.scroll.borrow();
@@ -541,7 +558,7 @@ Screen {
             );
         }
 
-        if self.show_vertical_scrollbar() && self.show_horizontal_scrollbar() {
+        if render_vertical && render_horizontal {
             let corner_region = Region {
                 x: inner_region.x + inner_region.width - self.style.scrollbar.size.vertical as i32,
                 y: inner_region.y + inner_region.height
@@ -656,8 +673,10 @@ Screen {
         let content_region = self.content_region_for_scroll(region);
         let v_region = self.vertical_scrollbar_region(region);
         let h_region = self.horizontal_scrollbar_region(region);
-        let on_vertical = self.show_vertical_scrollbar() && v_region.contains_point(mx, my);
-        let on_horizontal = self.show_horizontal_scrollbar() && h_region.contains_point(mx, my);
+        let render_vertical = self.render_vertical_scrollbar();
+        let render_horizontal = self.render_horizontal_scrollbar();
+        let on_vertical = render_vertical && v_region.contains_point(mx, my);
+        let on_horizontal = render_horizontal && h_region.contains_point(mx, my);
 
         const SCROLL_AMOUNT: i32 = 3;
         match event.kind {

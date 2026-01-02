@@ -1,10 +1,9 @@
 //! HorizontalScroll container that arranges children horizontally with scrolling.
 //!
-//! This container wraps a `Horizontal` inside a `ScrollableContainer`, providing
+//! This container uses `ScrollableContainer` with horizontal layout, providing
 //! horizontal scrolling for content that exceeds the viewport.
 
 use crate::canvas::{Canvas, Region, Size};
-use crate::containers::horizontal::Horizontal;
 use crate::containers::scrollable::ScrollableContainer;
 use crate::widget::Widget;
 use crate::{KeyCode, MessageEnvelope, MouseEvent};
@@ -31,50 +30,44 @@ use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 /// ```
 pub struct HorizontalScroll<M: 'static> {
     inner: ScrollableContainer<M>,
+    id: Option<String>,
+    classes: Vec<String>,
 }
 
 impl<M: 'static> HorizontalScroll<M> {
     /// Create a new HorizontalScroll container with the given children.
     pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
-        let horizontal = Box::new(Horizontal::new(children)) as Box<dyn Widget<M>>;
         Self {
-            inner: ScrollableContainer::from_child(horizontal),
+            inner: ScrollableContainer::new(children),
+            id: None,
+            classes: Vec::new(),
         }
     }
 
     /// Set the widget ID for CSS targeting.
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
-        // Get the inner Horizontal and set its ID
-        if let Some(child) = self.inner.get_child_mut(0) {
-            child.add_class(&format!("#{}", id.into()));
-        }
+        self.id = Some(id.into());
         self
     }
 
     /// Set CSS classes.
     pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
         let classes_str: String = classes.into();
-        if let Some(child) = self.inner.get_child_mut(0) {
-            for class in classes_str.split_whitespace() {
-                child.add_class(class);
-            }
+        for class in classes_str.split_whitespace() {
+            self.classes.push(class.to_string());
         }
         self
     }
 
     /// Set the border title.
     pub fn with_border_title(mut self, title: impl Into<String>) -> Self {
-        if let Some(child) = self.inner.get_child_mut(0) {
-            child.set_border_title(&title.into());
-        }
+        self.inner.set_border_title(&title.into());
         self
     }
 
     /// Set the border subtitle.
     pub fn with_border_subtitle(mut self, subtitle: impl Into<String>) -> Self {
-        if let Some(child) = self.inner.get_child_mut(0) {
-            child.set_border_subtitle(&subtitle.into());
-        }
+        self.inner.set_border_subtitle(&subtitle.into());
         self
     }
 }
@@ -85,6 +78,8 @@ impl<M: 'static> Widget<M> for HorizontalScroll<M> {
 HorizontalScroll {
     width: 1fr;
     height: 1fr;
+    layout: horizontal;
+    overflow-y: hidden;
     overflow-x: auto;
 }
 "#
@@ -99,9 +94,12 @@ HorizontalScroll {
     }
 
     fn get_meta(&self) -> WidgetMeta {
-        let mut meta = self.inner.get_meta();
-        meta.type_name = "HorizontalScroll";
-        meta
+        WidgetMeta {
+            type_name: "HorizontalScroll",
+            id: self.id.clone(),
+            classes: self.classes.clone(),
+            states: self.inner.get_state(),
+        }
     }
 
     fn get_state(&self) -> WidgetStates {
@@ -209,7 +207,7 @@ HorizontalScroll {
     }
 
     fn id(&self) -> Option<&str> {
-        self.inner.id()
+        self.id.as_deref()
     }
 
     fn type_name(&self) -> &'static str {

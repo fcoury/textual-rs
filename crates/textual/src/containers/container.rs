@@ -9,6 +9,7 @@ use tcss::types::Layout as LayoutDirection;
 use tcss::types::Overflow;
 use tcss::types::RgbaColor;
 use tcss::types::ScrollbarGutter;
+use tcss::types::ScrollbarVisibility;
 use tcss::types::Visibility;
 use tcss::types::keyline::KeylineStyle;
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
@@ -184,6 +185,20 @@ impl<M> Container<M> {
             }
             Overflow::Hidden => false,
         }
+    }
+
+    fn render_vertical_scrollbar(&self) -> bool {
+        let style = &self.style.scrollbar;
+        self.show_vertical_scrollbar()
+            && style.visibility == ScrollbarVisibility::Visible
+            && style.size.vertical > 0
+    }
+
+    fn render_horizontal_scrollbar(&self) -> bool {
+        let style = &self.style.scrollbar;
+        self.show_horizontal_scrollbar()
+            && style.visibility == ScrollbarVisibility::Visible
+            && style.size.horizontal > 0
     }
 
     /// Calculate content region with scrollbar space subtracted.
@@ -860,7 +875,7 @@ Container {
         canvas.pop_clip();
 
         // 8. Render vertical scrollbar if needed
-        if show_v_scrollbar {
+        if self.render_vertical_scrollbar() {
             let v_region = self.vertical_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.vertical_colors();
             let scroll = self.scroll.borrow();
@@ -877,8 +892,7 @@ Container {
         }
 
         // 9. Render horizontal scrollbar if needed
-        let show_h_scrollbar = self.show_horizontal_scrollbar();
-        if show_h_scrollbar {
+        if self.render_horizontal_scrollbar() {
             let h_region = self.horizontal_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.horizontal_colors();
             let scroll = self.scroll.borrow();

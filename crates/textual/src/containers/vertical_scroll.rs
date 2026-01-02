@@ -1,11 +1,10 @@
 //! VerticalScroll container that arranges children vertically with scrolling.
 //!
-//! This container wraps a `Vertical` inside a `ScrollableContainer`, providing
+//! This container uses `ScrollableContainer` with vertical layout, providing
 //! vertical scrolling for content that exceeds the viewport.
 
 use crate::canvas::{Canvas, Region, Size};
 use crate::containers::scrollable::ScrollableContainer;
-use crate::containers::vertical::Vertical;
 use crate::widget::Widget;
 use crate::{KeyCode, MessageEnvelope, MouseEvent};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
@@ -40,9 +39,8 @@ pub struct VerticalScroll<M: 'static> {
 impl<M: 'static> VerticalScroll<M> {
     /// Create a new VerticalScroll container with the given children.
     pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
-        let vertical = Box::new(Vertical::new(children)) as Box<dyn Widget<M>>;
         Self {
-            inner: ScrollableContainer::from_child(vertical),
+            inner: ScrollableContainer::new(children),
             id: None,
             classes: Vec::new(),
         }
@@ -65,17 +63,13 @@ impl<M: 'static> VerticalScroll<M> {
 
     /// Set the border title.
     pub fn with_border_title(mut self, title: impl Into<String>) -> Self {
-        if let Some(child) = self.inner.get_child_mut(0) {
-            child.set_border_title(&title.into());
-        }
+        self.inner.set_border_title(&title.into());
         self
     }
 
     /// Set the border subtitle.
     pub fn with_border_subtitle(mut self, subtitle: impl Into<String>) -> Self {
-        if let Some(child) = self.inner.get_child_mut(0) {
-            child.set_border_subtitle(&subtitle.into());
-        }
+        self.inner.set_border_subtitle(&subtitle.into());
         self
     }
 }
@@ -86,6 +80,8 @@ impl<M: 'static> Widget<M> for VerticalScroll<M> {
 VerticalScroll {
     width: 1fr;
     height: 1fr;
+    layout: vertical;
+    overflow-x: hidden;
     overflow-y: auto;
 }
 "#
