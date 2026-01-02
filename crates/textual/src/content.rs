@@ -470,7 +470,7 @@ impl Content {
 
         let mut result = Vec::new();
 
-        for line in self.text.lines() {
+        for line in self.text.split('\n') {
             if line.is_empty() {
                 result.push(Strip::new());
                 continue;
@@ -502,7 +502,7 @@ impl Content {
         let mut result = Vec::new();
         let mut line_start = 0;
 
-        for line in self.text.lines() {
+        for line in self.text.split('\n') {
             let line_end = line_start + line.len();
 
             if line.is_empty() {

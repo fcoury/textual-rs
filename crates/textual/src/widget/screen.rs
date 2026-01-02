@@ -14,10 +14,17 @@
 //!
 //! The last matching breakpoint wins (iterate in order).
 
+use std::cell::RefCell;
+
 use crate::canvas::{Canvas, Region, Size};
+use crossterm::event::KeyModifiers;
 use crate::layouts;
+use crate::scroll::ScrollState;
+use crate::scrollbar::ScrollBarRender;
+use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent};
+use tcss::types::{Overflow, RgbaColor, ScrollbarGutter, Unit};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 
 /// Breakpoint configuration: threshold and class name to apply.
@@ -35,6 +42,8 @@ pub const DEFAULT_VERTICAL_BREAKPOINTS: &[Breakpoint] = &[
     (24, "-tall"),
 ];
 
+const PAGE_SCROLL_RATIO: f32 = 0.9;
+
 /// The root container for a widget tree.
 ///
 /// `Screen` is responsible for:
@@ -50,6 +59,11 @@ pub struct Screen<M> {
     responsive_classes: Vec<&'static str>,
     style: ComputedStyle,
     is_dirty: bool,
+    scroll: RefCell<ScrollState>,
+    /// Which scrollbar is being hovered (Some(true) = vertical, Some(false) = horizontal).
+    scrollbar_hover: Option<bool>,
+    /// Active drag state: (vertical?, grab_offset)
+    scrollbar_drag: Option<(bool, i32)>,
     horizontal_breakpoints: &'static [Breakpoint],
     vertical_breakpoints: &'static [Breakpoint],
 }
@@ -62,6 +76,9 @@ impl<M> Screen<M> {
             responsive_classes: Vec::new(),
             style: ComputedStyle::default(),
             is_dirty: true,
+            scroll: RefCell::new(ScrollState::default()),
+            scrollbar_hover: None,
+            scrollbar_drag: None,
             horizontal_breakpoints: DEFAULT_HORIZONTAL_BREAKPOINTS,
             vertical_breakpoints: DEFAULT_VERTICAL_BREAKPOINTS,
         }
@@ -135,6 +152,293 @@ impl<M> Screen<M> {
         // Dispatch to layout (handles layers internally when needed)
         layouts::arrange_children_with_layers(&self.style, &children_with_styles, region, viewport)
     }
+
+    fn compute_virtual_size(
+        &self,
+        placements: &[layouts::WidgetPlacement],
+        base_region: Region,
+    ) -> (i32, i32, bool) {
+        let mut virtual_width = 0;
+        let mut virtual_height = 0;
+        let mut max_from_auto = false;
+
+        for placement in placements {
+            let width = (placement.region.x - base_region.x) + placement.region.width;
+            let height = (placement.region.y - base_region.y) + placement.region.height;
+            if width > virtual_width {
+                virtual_width = width;
+                max_from_auto = self
+                    .children
+                    .get(placement.child_index)
+                    .and_then(|child| child.get_style().width)
+                    .map(|scalar| scalar.unit == Unit::Auto)
+                    .unwrap_or(false);
+            } else if width == virtual_width {
+                let is_auto = self
+                    .children
+                    .get(placement.child_index)
+                    .and_then(|child| child.get_style().width)
+                    .map(|scalar| scalar.unit == Unit::Auto)
+                    .unwrap_or(false);
+                max_from_auto = max_from_auto || is_auto;
+            }
+            if height > virtual_height {
+                virtual_height = height;
+            }
+        }
+
+        (virtual_width, virtual_height, max_from_auto)
+    }
+
+    fn scrollbar_width_adjustment(&self, max_from_auto: bool, show_vertical: bool) -> i32 {
+        if !max_from_auto {
+            return 0;
+        }
+
+        let stable_gutter = self.style.scrollbar.gutter == ScrollbarGutter::Stable
+            && self.style.overflow_x == Overflow::Auto;
+
+        if show_vertical || stable_gutter {
+            self.style.scrollbar.size.vertical as i32
+        } else {
+            0
+        }
+    }
+
+    fn dispatch_mouse_to_children(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
+        let (offset_x, offset_y) = {
+            let scroll = self.scroll.borrow();
+            (scroll.offset_x, scroll.offset_y)
+        };
+
+        for placement in placements {
+            let scrolled_region = Region {
+                x: placement.region.x - offset_x,
+                y: placement.region.y - offset_y,
+                width: placement.region.width,
+                height: placement.region.height,
+            };
+            if scrolled_region.contains_point(event.column as i32, event.row as i32) {
+                if let Some(child) = self.children.get_mut(placement.child_index) {
+                    return child.on_mouse(event, scrolled_region);
+                }
+            }
+        }
+
+        None
+    }
+
+    fn show_vertical_scrollbar(&self) -> bool {
+        match self.style.overflow_y {
+            Overflow::Scroll => true,
+            Overflow::Auto => self.scroll.borrow().can_scroll_y(),
+            Overflow::Hidden => false,
+        }
+    }
+
+    fn show_horizontal_scrollbar(&self) -> bool {
+        match self.style.overflow_x {
+            Overflow::Scroll => true,
+            Overflow::Auto => self.scroll.borrow().can_scroll_x(),
+            Overflow::Hidden => false,
+        }
+    }
+
+    fn content_region_for_scroll(&self, region: Region) -> Region {
+        let style = &self.style.scrollbar;
+        let v_size = if self.show_vertical_scrollbar() || style.gutter == ScrollbarGutter::Stable {
+            style.size.vertical as i32
+        } else {
+            0
+        };
+        let h_size = if self.show_horizontal_scrollbar() || style.gutter == ScrollbarGutter::Stable
+        {
+            style.size.horizontal as i32
+        } else {
+            0
+        };
+
+        Region {
+            x: region.x,
+            y: region.y,
+            width: (region.width - v_size).max(0),
+            height: (region.height - h_size).max(0),
+        }
+    }
+
+    fn vertical_scrollbar_region(&self, region: Region) -> Region {
+        let style = &self.style.scrollbar;
+        let h_size = if self.show_horizontal_scrollbar() {
+            style.size.horizontal as i32
+        } else {
+            0
+        };
+
+        Region {
+            x: region.x + region.width - style.size.vertical as i32,
+            y: region.y,
+            width: style.size.vertical as i32,
+            height: (region.height - h_size).max(0),
+        }
+    }
+
+    fn horizontal_scrollbar_region(&self, region: Region) -> Region {
+        let style = &self.style.scrollbar;
+        let v_size = if self.show_vertical_scrollbar() {
+            style.size.vertical as i32
+        } else {
+            0
+        };
+
+        Region {
+            x: region.x,
+            y: region.y + region.height - style.size.horizontal as i32,
+            width: (region.width - v_size).max(0),
+            height: style.size.horizontal as i32,
+        }
+    }
+
+    fn vertical_colors(&self) -> (RgbaColor, RgbaColor) {
+        let style = &self.style.scrollbar;
+        if self.scrollbar_drag.map(|(v, _)| v).unwrap_or(false) {
+            (
+                style.effective_color_active(),
+                style.effective_background_active(),
+            )
+        } else if self.scrollbar_hover == Some(true) {
+            (
+                style.effective_color_hover(),
+                style.effective_background_hover(),
+            )
+        } else {
+            (style.effective_color(), style.effective_background())
+        }
+    }
+
+    fn horizontal_colors(&self) -> (RgbaColor, RgbaColor) {
+        let style = &self.style.scrollbar;
+        if self.scrollbar_drag.map(|(v, _)| !v).unwrap_or(false) {
+            (
+                style.effective_color_active(),
+                style.effective_background_active(),
+            )
+        } else if self.scrollbar_hover == Some(false) {
+            (
+                style.effective_color_hover(),
+                style.effective_background_hover(),
+            )
+        } else {
+            (style.effective_color(), style.effective_background())
+        }
+    }
+
+    fn handle_vertical_scrollbar_click(&mut self, event: MouseEvent, region: Region) {
+        let my = event.row as i32;
+        let pos_in_bar = my - region.y;
+
+        let scroll = self.scroll.borrow();
+        let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
+            region.height,
+            scroll.virtual_height as f32,
+            scroll.viewport_height as f32,
+            scroll.offset_y as f32,
+        );
+        drop(scroll);
+
+        if pos_in_bar >= thumb_start && pos_in_bar < thumb_end {
+            self.scrollbar_drag = Some((true, pos_in_bar - thumb_start));
+            self.is_dirty = true;
+        } else if pos_in_bar < thumb_start {
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_up(amount);
+            drop(scroll);
+            self.is_dirty = true;
+        } else {
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_height as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_down(amount);
+            drop(scroll);
+            self.is_dirty = true;
+        }
+    }
+
+    fn handle_horizontal_scrollbar_click(&mut self, event: MouseEvent, region: Region) {
+        let mx = event.column as i32;
+        let pos_in_bar = mx - region.x;
+
+        let scroll = self.scroll.borrow();
+        let (thumb_start, thumb_end) = ScrollBarRender::thumb_bounds(
+            region.width,
+            scroll.virtual_width as f32,
+            scroll.viewport_width as f32,
+            scroll.offset_x as f32,
+        );
+        drop(scroll);
+
+        if pos_in_bar >= thumb_start && pos_in_bar < thumb_end {
+            self.scrollbar_drag = Some((false, pos_in_bar - thumb_start));
+            self.is_dirty = true;
+        } else if pos_in_bar < thumb_start {
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_width as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_left(amount);
+            drop(scroll);
+            self.is_dirty = true;
+        } else {
+            let mut scroll = self.scroll.borrow_mut();
+            let amount = (scroll.viewport_width as f32 * PAGE_SCROLL_RATIO) as i32;
+            scroll.scroll_right(amount);
+            drop(scroll);
+            self.is_dirty = true;
+        }
+    }
+
+    fn handle_scrollbar_drag(&mut self, event: MouseEvent, region: Region, vertical: bool, grab_offset: i32) {
+        if vertical {
+            let v_region = self.vertical_scrollbar_region(region);
+            let my = event.row as i32;
+            let pos_in_bar = my - v_region.y;
+            let new_thumb_start = pos_in_bar - grab_offset;
+
+            let track_size = v_region.height as f32;
+            let scroll = self.scroll.borrow();
+            let virtual_size = scroll.virtual_height as f32;
+            let window_size = scroll.viewport_height as f32;
+            drop(scroll);
+            let thumb_size = (window_size / virtual_size) * track_size;
+            let track_range = track_size - thumb_size;
+
+            if track_range > 0.0 {
+                let ratio = new_thumb_start as f32 / track_range;
+                let new_position = ratio * (virtual_size - window_size);
+                self.scroll.borrow_mut().scroll_to(None, Some(new_position));
+                self.is_dirty = true;
+            }
+        } else {
+            let h_region = self.horizontal_scrollbar_region(region);
+            let mx = event.column as i32;
+            let pos_in_bar = mx - h_region.x;
+            let new_thumb_start = pos_in_bar - grab_offset;
+
+            let track_size = h_region.width as f32;
+            let scroll = self.scroll.borrow();
+            let virtual_size = scroll.virtual_width as f32;
+            let window_size = scroll.viewport_width as f32;
+            drop(scroll);
+            let thumb_size = (window_size / virtual_size) * track_size;
+            let track_range = track_size - thumb_size;
+
+            if track_range > 0.0 {
+                let ratio = new_thumb_start as f32 / track_range;
+                let new_position = ratio * (virtual_size - window_size);
+                self.scroll.borrow_mut().scroll_to(Some(new_position), None);
+                self.is_dirty = true;
+            }
+        }
+    }
 }
 
 impl<M> Widget<M> for Screen<M> {
@@ -161,10 +465,115 @@ Screen {
         // Use the canvas viewport (screen dimensions) for CSS vw/vh units
         let viewport = canvas.viewport();
 
-        for placement in self.compute_child_placements(inner_region, viewport) {
-            if let Some(child) = self.children.get(placement.child_index) {
-                child.render(canvas, placement.region);
+        let initial_placements = self.compute_child_placements(inner_region, viewport);
+        let (mut virtual_width, virtual_height, max_from_auto) =
+            self.compute_virtual_size(&initial_placements, inner_region);
+
+        {
+            let mut scroll = self.scroll.borrow_mut();
+            scroll.set_virtual_size(virtual_width, virtual_height);
+            scroll.set_viewport(inner_region.width, inner_region.height);
+        }
+
+        let show_v_scrollbar = self.show_vertical_scrollbar();
+        let extra_width = self.scrollbar_width_adjustment(max_from_auto, show_v_scrollbar);
+        if extra_width != 0 {
+            virtual_width = virtual_width.saturating_add(extra_width);
+            self.scroll
+                .borrow_mut()
+                .set_virtual_size(virtual_width, virtual_height);
+        }
+
+        let content_region = self.content_region_for_scroll(inner_region);
+
+        let placements = if show_v_scrollbar && content_region.width < inner_region.width {
+            let new_placements = self.compute_child_placements(content_region, viewport);
+            let (mut new_virtual_width, new_virtual_height, new_max_from_auto) =
+                self.compute_virtual_size(&new_placements, content_region);
+            let new_extra_width =
+                self.scrollbar_width_adjustment(new_max_from_auto, show_v_scrollbar);
+            if new_extra_width != 0 {
+                new_virtual_width = new_virtual_width.saturating_add(new_extra_width);
             }
+            {
+                let mut scroll = self.scroll.borrow_mut();
+                scroll.set_virtual_size(new_virtual_width, new_virtual_height);
+                scroll.set_viewport(content_region.width, content_region.height);
+            }
+            new_placements
+        } else {
+            initial_placements
+        };
+
+        let (offset_x, offset_y) = {
+            let scroll = self.scroll.borrow();
+            (scroll.offset_x, scroll.offset_y)
+        };
+
+        canvas.push_clip(content_region);
+        for placement in &placements {
+            if let Some(child) = self.children.get(placement.child_index) {
+                let scrolled_region = Region {
+                    x: placement.region.x - offset_x,
+                    y: placement.region.y - offset_y,
+                    width: placement.region.width,
+                    height: placement.region.height,
+                };
+                let visible_h = scrolled_region.x + scrolled_region.width > content_region.x
+                    && scrolled_region.x < content_region.x + content_region.width;
+                let visible_v = scrolled_region.y + scrolled_region.height > content_region.y
+                    && scrolled_region.y < content_region.y + content_region.height;
+
+                if visible_h && visible_v {
+                    child.render(canvas, scrolled_region);
+                }
+            }
+        }
+        canvas.pop_clip();
+
+        if self.show_vertical_scrollbar() {
+            let v_region = self.vertical_scrollbar_region(inner_region);
+            let (thumb_color, track_color) = self.vertical_colors();
+            let scroll = self.scroll.borrow();
+            ScrollBarRender::render_vertical(
+                canvas,
+                v_region,
+                scroll.virtual_height as f32,
+                content_region.height as f32,
+                scroll.offset_y as f32,
+                thumb_color,
+                track_color,
+            );
+        }
+
+        if self.show_horizontal_scrollbar() {
+            let h_region = self.horizontal_scrollbar_region(inner_region);
+            let (thumb_color, track_color) = self.horizontal_colors();
+            let scroll = self.scroll.borrow();
+            ScrollBarRender::render_horizontal(
+                canvas,
+                h_region,
+                scroll.virtual_width as f32,
+                content_region.width as f32,
+                scroll.offset_x as f32,
+                thumb_color,
+                track_color,
+            );
+        }
+
+        if self.show_vertical_scrollbar() && self.show_horizontal_scrollbar() {
+            let corner_region = Region {
+                x: inner_region.x + inner_region.width - self.style.scrollbar.size.vertical as i32,
+                y: inner_region.y + inner_region.height - self.style.scrollbar.size.horizontal as i32,
+                width: self.style.scrollbar.size.vertical as i32,
+                height: self.style.scrollbar.size.horizontal as i32,
+            };
+            let mut corner = ScrollBarCorner::new(
+                self.style.scrollbar.size.vertical,
+                self.style.scrollbar.size.horizontal,
+            );
+            <ScrollBarCorner as Widget<M>>::set_style(&mut corner, self.style.clone());
+            <ScrollBarCorner as Widget<M>>::render(&corner, canvas, corner_region);
         }
     }
 
@@ -258,16 +667,139 @@ Screen {
             return None;
         }
 
+        // Scrollbar interaction regions
+        let content_region = self.content_region_for_scroll(region);
+        let v_region = self.vertical_scrollbar_region(region);
+        let h_region = self.horizontal_scrollbar_region(region);
+        let on_vertical = self.show_vertical_scrollbar() && v_region.contains_point(mx, my);
+        let on_horizontal = self.show_horizontal_scrollbar() && h_region.contains_point(mx, my);
+
+        const SCROLL_AMOUNT: i32 = 3;
+        match event.kind {
+            crossterm::event::MouseEventKind::Moved => {
+                if let Some((vertical, grab_offset)) = self.scrollbar_drag {
+                    self.handle_scrollbar_drag(event, region, vertical, grab_offset);
+                    return None;
+                }
+
+                let new_hover = if on_vertical {
+                    Some(true)
+                } else if on_horizontal {
+                    Some(false)
+                } else {
+                    None
+                };
+
+                if self.scrollbar_hover != new_hover {
+                    self.scrollbar_hover = new_hover;
+                    self.is_dirty = true;
+                }
+
+                if content_region.contains_point(mx, my) {
+                    return self.dispatch_mouse_to_children(event, content_region);
+                }
+                return None;
+            }
+            crossterm::event::MouseEventKind::Down(_) => {
+                if on_vertical {
+                    self.handle_vertical_scrollbar_click(event, v_region);
+                    return None;
+                }
+                if on_horizontal {
+                    self.handle_horizontal_scrollbar_click(event, h_region);
+                    return None;
+                }
+                if content_region.contains_point(mx, my) {
+                    return self.dispatch_mouse_to_children(event, content_region);
+                }
+                return None;
+            }
+            crossterm::event::MouseEventKind::Drag(_) => {
+                if let Some((vertical, grab_offset)) = self.scrollbar_drag {
+                    self.handle_scrollbar_drag(event, region, vertical, grab_offset);
+                    return None;
+                }
+                if content_region.contains_point(mx, my) {
+                    return self.dispatch_mouse_to_children(event, content_region);
+                }
+                return None;
+            }
+            crossterm::event::MouseEventKind::Up(_) => {
+                if self.scrollbar_drag.is_some() {
+                    self.scrollbar_drag = None;
+                    self.is_dirty = true;
+                }
+                if content_region.contains_point(mx, my) {
+                    return self.dispatch_mouse_to_children(event, content_region);
+                }
+                return None;
+            }
+            crossterm::event::MouseEventKind::ScrollDown => {
+                let allow_horizontal = self.show_horizontal_scrollbar();
+                let allow_vertical = self.show_vertical_scrollbar();
+                if event.modifiers.contains(KeyModifiers::SHIFT)
+                    || event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    if allow_horizontal {
+                        self.scroll.borrow_mut().scroll_right(SCROLL_AMOUNT);
+                        self.is_dirty = true;
+                        return None;
+                    }
+                } else if allow_vertical {
+                    self.scroll.borrow_mut().scroll_down(SCROLL_AMOUNT);
+                    self.is_dirty = true;
+                    return None;
+                }
+            }
+            crossterm::event::MouseEventKind::ScrollUp => {
+                let allow_horizontal = self.show_horizontal_scrollbar();
+                let allow_vertical = self.show_vertical_scrollbar();
+                if event.modifiers.contains(KeyModifiers::SHIFT)
+                    || event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    if allow_horizontal {
+                        self.scroll.borrow_mut().scroll_left(SCROLL_AMOUNT);
+                        self.is_dirty = true;
+                        return None;
+                    }
+                } else if allow_vertical {
+                    self.scroll.borrow_mut().scroll_up(SCROLL_AMOUNT);
+                    self.is_dirty = true;
+                    return None;
+                }
+            }
+            crossterm::event::MouseEventKind::ScrollLeft => {
+                if self.show_horizontal_scrollbar() {
+                    self.scroll.borrow_mut().scroll_left(SCROLL_AMOUNT);
+                    self.is_dirty = true;
+                    return None;
+                }
+            }
+            crossterm::event::MouseEventKind::ScrollRight => {
+                if self.show_horizontal_scrollbar() {
+                    self.scroll.borrow_mut().scroll_right(SCROLL_AMOUNT);
+                    self.is_dirty = true;
+                    return None;
+                }
+            }
+        }
+
         // Compute placements and dispatch mouse events
         // For mouse handling, we approximate viewport as region
-        // (the actual viewport is only available during render)
         let viewport = layouts::Viewport::from(region);
         let placements = self.compute_child_placements(region, viewport);
+        let offset_y = self.scroll.borrow().offset_y;
 
         for placement in placements {
-            if placement.region.contains_point(mx, my) {
+            let scrolled_region = Region {
+                x: placement.region.x,
+                y: placement.region.y - offset_y,
+                width: placement.region.width,
+                height: placement.region.height,
+            };
+            if scrolled_region.contains_point(mx, my) {
                 if let Some(child) = self.children.get_mut(placement.child_index) {
-                    if let Some(msg) = child.on_mouse(event, placement.region) {
+                    if let Some(msg) = child.on_mouse(event, scrolled_region) {
                         return Some(msg);
                     }
                 }

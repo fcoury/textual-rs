@@ -191,6 +191,7 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         // Overflow properties
         "overflow-x" => map(values::parse_overflow, Declaration::OverflowX)(input)?,
         "overflow-y" => map(values::parse_overflow, Declaration::OverflowY)(input)?,
+        "overflow" => map(values::parse_overflow_shorthand, |(x, y)| Declaration::Overflow(x, y))(input)?,
 
         // Layout and Grid properties
         "layout" => map(units::parse_layout, Declaration::Layout)(input)?,

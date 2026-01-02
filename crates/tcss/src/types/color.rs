@@ -21,8 +21,8 @@
 //!
 //! ```ignore
 //! let blue = RgbaColor::rgb(0, 0, 255);
-//! let lighter = blue.lighten(1.0);  // Increase luminosity by 10%
-//! let darker = blue.darken(2.0);    // Decrease luminosity by 20%
+//! let lighter = blue.lighten(0.1);  // Increase luminance by 10%
+//! let darker = blue.darken(0.2);    // Decrease luminance by 20%
 //! ```
 
 use std::fmt;
@@ -270,17 +270,56 @@ impl RgbaColor {
         self.a <= 0.0
     }
 
-    pub fn lighten(&self, factor: f32) -> Self {
-        let (h, s, l) = self.to_hsl();
-        // Increase luminosity by factor (e.g., 0.1 per 'step')
-        let new_l = (l + (factor * 0.1)).clamp(0.0, 1.0);
-        Self::from_hsl(h, s, new_l, self.a)
+    pub fn lighten(&self, amount: f32) -> Self {
+        if self.ansi.is_some() || self.auto || self.theme_var.is_some() {
+            return self.clone();
+        }
+        self.darken(-amount)
     }
 
-    pub fn darken(&self, factor: f32) -> Self {
-        let (h, s, l) = self.to_hsl();
-        let new_l = (l - (factor * 0.1)).clamp(0.0, 1.0);
-        Self::from_hsl(h, s, new_l, self.a)
+    pub fn darken(&self, amount: f32) -> Self {
+        if self.ansi.is_some() || self.auto || self.theme_var.is_some() {
+            return self.clone();
+        }
+        let (l, a, b) = self.to_lab();
+        let new_l = (l - amount * 100.0).clamp(0.0, 100.0);
+        Self::from_lab(new_l, a, b, self.a)
+    }
+
+    /// Blend between this color and a destination by factor (0-1).
+    /// Mirrors Textual's Color.blend behavior.
+    pub fn blend(&self, destination: &RgbaColor, factor: f32, alpha: Option<f32>) -> RgbaColor {
+        if factor <= 0.0 {
+            return self.clone();
+        }
+        if factor >= 1.0 {
+            return destination.clone();
+        }
+        let new_alpha = alpha.unwrap_or_else(|| self.a + (destination.a - self.a) * factor);
+        let r = self.r as f32 + (destination.r as f32 - self.r as f32) * factor;
+        let g = self.g as f32 + (destination.g as f32 - self.g as f32) * factor;
+        let b = self.b as f32 + (destination.b as f32 - self.b as f32) * factor;
+        Self::rgba(
+            r.clamp(0.0, 255.0) as u8,
+            g.clamp(0.0, 255.0) as u8,
+            b.clamp(0.0, 255.0) as u8,
+            new_alpha,
+        )
+    }
+
+    /// Invert the RGB channels (alpha preserved).
+    pub fn inverse(&self) -> Self {
+        Self::rgba(255 - self.r, 255 - self.g, 255 - self.b, self.a)
+    }
+
+    /// Returns a contrast text color (black or white) with the given alpha.
+    pub fn contrast_text(&self, alpha: f32) -> Self {
+        let brightness = self.perceived_brightness();
+        if brightness < 0.5 {
+            Self::rgba(255, 255, 255, alpha)
+        } else {
+            Self::rgba(0, 0, 0, alpha)
+        }
     }
 
     /// Applies a tint color using Textual's linear interpolation formula.
@@ -579,38 +618,100 @@ impl RgbaColor {
         Ok(val / 100.0)
     }
 
-    // Helper to convert RGB to HSL
-    fn to_hsl(&self) -> (f32, f32, f32) {
-        let r = self.r as f32 / 255.0;
-        let g = self.g as f32 / 255.0;
-        let b = self.b as f32 / 255.0;
+    /// Convert RGB to CIE-L*ab (D65).
+    fn to_lab(&self) -> (f32, f32, f32) {
+        let mut r = self.r as f32 / 255.0;
+        let mut g = self.g as f32 / 255.0;
+        let mut b = self.b as f32 / 255.0;
 
-        let max = r.max(g).max(b);
-        let min = r.min(g).min(b);
-        let mut h;
-        let s;
-        let l = (max + min) / 2.0;
-
-        if max == min {
-            h = 0.0;
-            s = 0.0;
+        r = if r > 0.04045 {
+            ((r + 0.055) / 1.055).powf(2.4)
         } else {
-            let d = max - min;
-            s = if l > 0.5 {
-                d / (2.0 - max - min)
-            } else {
-                d / (max + min)
-            };
-            h = if max == r {
-                (g - b) / d + (if g < b { 6.0 } else { 0.0 })
-            } else if max == g {
-                (b - r) / d + 2.0
-            } else {
-                (r - g) / d + 4.0
-            };
-            h /= 6.0;
-        }
-        (h * 360.0, s, l)
+            r / 12.92
+        };
+        g = if g > 0.04045 {
+            ((g + 0.055) / 1.055).powf(2.4)
+        } else {
+            g / 12.92
+        };
+        b = if b > 0.04045 {
+            ((b + 0.055) / 1.055).powf(2.4)
+        } else {
+            b / 12.92
+        };
+
+        let mut x = (r * 41.24 + g * 35.76 + b * 18.05) / 95.047;
+        let mut y = (r * 21.26 + g * 71.52 + b * 7.22) / 100.0;
+        let mut z = (r * 1.93 + g * 11.92 + b * 95.05) / 108.883;
+
+        let off = 16.0 / 116.0;
+        x = if x > 0.008856 {
+            x.powf(1.0 / 3.0)
+        } else {
+            7.787 * x + off
+        };
+        y = if y > 0.008856 {
+            y.powf(1.0 / 3.0)
+        } else {
+            7.787 * y + off
+        };
+        z = if z > 0.008856 {
+            z.powf(1.0 / 3.0)
+        } else {
+            7.787 * z + off
+        };
+
+        let l = 116.0 * y - 16.0;
+        let a = 500.0 * (x - y);
+        let b = 200.0 * (y - z);
+        (l, a, b)
+    }
+
+    /// Convert CIE-L*ab to RGB (D65).
+    fn from_lab(l: f32, a: f32, b: f32, alpha: f32) -> Self {
+        let mut y = (l + 16.0) / 116.0;
+        let mut x = a / 500.0 + y;
+        let mut z = y - b / 200.0;
+
+        let off = 16.0 / 116.0;
+        y = if y > 0.2068930344 {
+            y.powf(3.0)
+        } else {
+            (y - off) / 7.787
+        };
+        x = if x > 0.2068930344 {
+            0.95047 * x.powf(3.0)
+        } else {
+            0.122059 * (x - off)
+        };
+        z = if z > 0.2068930344 {
+            1.08883 * z.powf(3.0)
+        } else {
+            0.139827 * (z - off)
+        };
+
+        let mut r = x * 3.2406 + y * -1.5372 + z * -0.4986;
+        let mut g = x * -0.9689 + y * 1.8758 + z * 0.0415;
+        let mut b = x * 0.0557 + y * -0.2040 + z * 1.0570;
+
+        r = if r > 0.0031308 {
+            1.055 * r.powf(1.0 / 2.4) - 0.055
+        } else {
+            12.92 * r
+        };
+        g = if g > 0.0031308 {
+            1.055 * g.powf(1.0 / 2.4) - 0.055
+        } else {
+            12.92 * g
+        };
+        b = if b > 0.0031308 {
+            1.055 * b.powf(1.0 / 2.4) - 0.055
+        } else {
+            12.92 * b
+        };
+
+        let to_u8 = |v: f32| -> u8 { (v * 255.0).clamp(0.0, 255.0) as u8 };
+        Self::rgba(to_u8(r), to_u8(g), to_u8(b), alpha)
     }
 
     /// Creates an RgbaColor from HSL values.
@@ -1129,11 +1230,11 @@ mod theme_math_tests {
     fn test_lighten_darken_logic() {
         let base = RgbaColor::rgb(128, 128, 128); // 50% Gray
 
-        let lighter = base.lighten(1.0); // Should be ~60% Lightness
+        let lighter = base.lighten(0.1); // Lighten by 10%
         assert!(lighter.r > base.r);
         assert_eq!(lighter.r, lighter.g); // Should remain grayscale
 
-        let darker = base.darken(2.0); // Should be ~30% Lightness
+        let darker = base.darken(0.2); // Darken by 20%
         assert!(darker.r < base.r);
     }
 

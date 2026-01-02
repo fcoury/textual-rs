@@ -524,7 +524,8 @@ impl<M> Widget<M> for ScrollableContainer<M> {
         if self.show_vertical_scrollbar() && self.show_horizontal_scrollbar() {
             let corner_region = self.corner_region(inner_region);
             let style = self.scrollbar_style();
-            let corner = ScrollBarCorner::new(style.size.vertical, style.size.horizontal);
+            let mut corner = ScrollBarCorner::new(style.size.vertical, style.size.horizontal);
+            <ScrollBarCorner as Widget<M>>::set_style(&mut corner, self.style.clone());
             <ScrollBarCorner as Widget<M>>::render(&corner, canvas, corner_region);
         }
     }

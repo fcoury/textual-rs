@@ -354,6 +354,13 @@ impl Canvas {
 
     /// Differential flush - only redraws changed cells.
     fn flush_diff<W: Write>(&self, out: &mut W) -> std::io::Result<()> {
+        // Reset terminal style state so diff rendering starts from a known baseline.
+        // Without this, the first changed cell can inherit stale colors from the
+        // previous frame, which shows up as transient tinting on fast scrolls.
+        execute!(out, SetForegroundColor(Color::Reset))?;
+        execute!(out, SetBackgroundColor(Color::Reset))?;
+        execute!(out, SetAttribute(Attribute::Reset))?;
+
         let mut last_fg: Option<Color> = None;
         let mut last_bg: Option<Color> = None;
         let mut last_attrs = TextAttributes::default();
@@ -374,9 +381,14 @@ impl Canvas {
             // Move cursor if not at expected position
             if cursor_x != x as i32 || cursor_y != y as i32 {
                 execute!(out, cursor::MoveTo(x, y))?;
-                // After cursor move, we need to reset state tracking
-                // since the terminal state at new position is unknown from our POV
-                // (though typically unchanged, being conservative is safer)
+                // Be conservative after cursor jumps: reset terminal style and
+                // clear our tracking so the next cell re-emits attributes/colors.
+                execute!(out, SetForegroundColor(Color::Reset))?;
+                execute!(out, SetBackgroundColor(Color::Reset))?;
+                execute!(out, SetAttribute(Attribute::Reset))?;
+                last_fg = None;
+                last_bg = None;
+                last_attrs = TextAttributes::default();
             }
 
             self.emit_cell(out, cell, &mut last_fg, &mut last_bg, &mut last_attrs)?;

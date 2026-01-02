@@ -281,6 +281,8 @@ pub enum Declaration {
     OverflowX(Overflow),
     /// The `overflow-y` property for vertical overflow behavior.
     OverflowY(Overflow),
+    /// The `overflow` shorthand property (x, y).
+    Overflow(Overflow, Overflow),
 
     // Layout and Grid properties
     /// The `layout` property (vertical, horizontal, grid).

@@ -41,6 +41,8 @@ use crate::types::color::RgbaColor;
 use crate::types::text::TextStyle;
 use std::collections::HashMap;
 
+const NUMBER_OF_SHADES: i32 = 3;
+
 /// A color system that generates theme variables from base colors.
 ///
 /// This mirrors Python Textual's ColorSystem, generating ~100+ CSS variables
@@ -71,6 +73,10 @@ pub struct ColorSystem {
     pub boost: Option<RgbaColor>,
     /// Whether this is a dark theme
     pub dark: bool,
+    /// Luminosity spread for generated shades (Textual default: 0.15)
+    pub luminosity_spread: f32,
+    /// Default text alpha for contrast text (Textual default: 0.95)
+    pub text_alpha: f32,
 }
 
 impl ColorSystem {
@@ -89,6 +95,8 @@ impl ColorSystem {
             panel: None,
             boost: None,
             dark,
+            luminosity_spread: 0.15,
+            text_alpha: 0.95,
         }
     }
 
@@ -152,6 +160,18 @@ impl ColorSystem {
         self
     }
 
+    /// Builder method to set luminosity spread (for shade generation).
+    pub fn with_luminosity_spread(mut self, spread: f32) -> Self {
+        self.luminosity_spread = spread;
+        self
+    }
+
+    /// Builder method to set default text alpha (for contrast text).
+    pub fn with_text_alpha(mut self, alpha: f32) -> Self {
+        self.text_alpha = alpha;
+        self
+    }
+
     /// Returns the default background for dark/light themes.
     fn default_background(&self) -> RgbaColor {
         if self.dark {
@@ -170,197 +190,251 @@ impl ColorSystem {
         }
     }
 
-    /// Returns the default foreground for dark/light themes.
-    fn default_foreground(&self) -> RgbaColor {
-        if self.dark {
-            RgbaColor::hex("#e0e0e0")
-        } else {
-            RgbaColor::hex("#1e1e1e")
-        }
-    }
-
     /// Generates all CSS variables from this color system.
     pub fn generate(&self) -> HashMap<String, RgbaColor> {
         let mut vars = HashMap::new();
 
-        // Resolve base colors with defaults
+        let primary = self.primary.clone();
+        let secondary = self.secondary.clone().unwrap_or_else(|| primary.clone());
+        let warning = self.warning.clone().unwrap_or_else(|| primary.clone());
+        let error = self.error.clone().unwrap_or_else(|| secondary.clone());
+        let success = self.success.clone().unwrap_or_else(|| secondary.clone());
+        let accent = self.accent.clone().unwrap_or_else(|| primary.clone());
+
+        let dark = self.dark;
+        let luminosity_spread = self.luminosity_spread;
+
         let background = self.background.clone().unwrap_or_else(|| self.default_background());
         let surface = self.surface.clone().unwrap_or_else(|| self.default_surface());
-        let foreground = self.foreground.clone().unwrap_or_else(|| self.default_foreground());
+        let foreground = self
+            .foreground
+            .clone()
+            .unwrap_or_else(|| background.inverse());
+        let contrast_text = background.contrast_text(self.text_alpha);
+        let boost = self
+            .boost
+            .clone()
+            .unwrap_or_else(|| contrast_text.with_alpha(0.04));
         let panel = self.panel.clone().unwrap_or_else(|| {
-            if self.dark {
-                surface.lighten(0.04)
-            } else {
-                surface.darken(0.04)
+            let mut panel = surface.blend(&primary, 0.1, Some(1.0));
+            if dark {
+                panel = panel.tint(&boost);
             }
-        });
-        // Boost is a semi-transparent overlay that gets pre-composited against background.
-        // This produces the actual color to use (e.g., #1B1B1B for dark themes).
-        let boost_overlay = self.boost.clone().unwrap_or_else(|| {
-            if self.dark {
-                RgbaColor::rgba(255, 255, 255, 0.04)
-            } else {
-                RgbaColor::rgba(0, 0, 0, 0.04)
-            }
-        });
-        let boost = background.tint(&boost_overlay);
-
-        // Secondary defaults to primary shifted
-        let secondary = self.secondary.clone().unwrap_or_else(|| {
-            if self.dark {
-                self.primary.darken(0.15)
-            } else {
-                self.primary.lighten(0.15)
-            }
+            panel
         });
 
-        // Semantic colors with defaults
-        let warning = self.warning.clone().unwrap_or_else(|| RgbaColor::hex("#ffa62b"));
-        let error = self.error.clone().unwrap_or_else(|| RgbaColor::hex("#ba3c5b"));
-        let success = self.success.clone().unwrap_or_else(|| RgbaColor::hex("#4EBF71"));
-        let accent = self.accent.clone().unwrap_or_else(|| warning.clone());
+        let colors = [
+            ("primary", primary.clone()),
+            ("secondary", secondary.clone()),
+            ("primary-background", primary.clone()),
+            ("secondary-background", secondary.clone()),
+            ("background", background.clone()),
+            ("foreground", foreground.clone()),
+            ("panel", panel.clone()),
+            ("boost", boost.clone()),
+            ("surface", surface.clone()),
+            ("warning", warning.clone()),
+            ("error", error.clone()),
+            ("success", success.clone()),
+            ("accent", accent.clone()),
+        ];
 
-        // Insert base colors with darken/lighten variants
-        self.insert_color_variants(&mut vars, "primary", &self.primary);
-        self.insert_color_variants(&mut vars, "secondary", &secondary);
-        self.insert_color_variants(&mut vars, "background", &background);
-        self.insert_color_variants(&mut vars, "surface", &surface);
-        self.insert_color_variants(&mut vars, "panel", &panel);
-        self.insert_color_variants(&mut vars, "boost", &boost);
-        self.insert_color_variants(&mut vars, "warning", &warning);
-        self.insert_color_variants(&mut vars, "error", &error);
-        self.insert_color_variants(&mut vars, "success", &success);
-        self.insert_color_variants(&mut vars, "accent", &accent);
+        let luminosity_step = luminosity_spread / 2.0;
+        for (name, color) in colors {
+            let is_dark_shade =
+                dark && (name == "primary-background" || name == "secondary-background");
+            for n in -NUMBER_OF_SHADES..=NUMBER_OF_SHADES {
+                let (suffix, delta) = if n < 0 {
+                    (format!("-darken-{}", -n), n as f32 * luminosity_step)
+                } else if n > 0 {
+                    (format!("-lighten-{}", n), n as f32 * luminosity_step)
+                } else {
+                    ("".to_string(), 0.0)
+                };
+                let key = format!("{name}{suffix}");
+                let shade_color = if is_dark_shade {
+                    let dark_background = background.blend(&color, 0.15, Some(1.0));
+                    dark_background.blend(
+                        &RgbaColor::white(),
+                        luminosity_spread + delta,
+                        Some(1.0),
+                    )
+                } else {
+                    color.lighten(delta)
+                };
+                vars.insert(key, shade_color);
+            }
+        }
 
-        // Foreground (no darken/lighten - just base)
-        vars.insert("foreground".into(), foreground.clone());
         vars.insert("foreground-muted".into(), foreground.with_alpha(0.6));
-        vars.insert("foreground-disabled".into(), foreground.with_alpha(0.3));
+        vars.insert("foreground-disabled".into(), foreground.with_alpha(0.38));
 
-        // Primary/secondary background variants
-        vars.insert("primary-background".into(), self.primary.with_alpha(0.2));
-        self.insert_color_variants(&mut vars, "primary-background", &self.primary.with_alpha(0.2));
-        vars.insert("secondary-background".into(), secondary.with_alpha(0.2));
-        self.insert_color_variants(&mut vars, "secondary-background", &secondary.with_alpha(0.2));
-
-        // Text colors (high contrast on backgrounds)
-        let text_on_dark = RgbaColor::rgba(255, 255, 255, 0.9);
-        let text_on_light = RgbaColor::rgba(0, 0, 0, 0.9);
-        let text = if self.dark { text_on_dark.clone() } else { text_on_light.clone() };
-
-        vars.insert("text".into(), text.clone());
-        vars.insert("text-muted".into(), text.with_alpha(0.7));
-        vars.insert("text-disabled".into(), text.with_alpha(0.4));
-
-        // Text on semantic colors (contrast-aware)
-        vars.insert("text-primary".into(), self.contrast_text(&self.primary));
-        vars.insert("text-secondary".into(), self.contrast_text(&secondary));
-        vars.insert("text-warning".into(), self.contrast_text(&warning));
-        vars.insert("text-error".into(), self.contrast_text(&error));
-        vars.insert("text-success".into(), self.contrast_text(&success));
-        vars.insert("text-accent".into(), self.contrast_text(&accent));
-
-        // Muted variants (for badges, pills, etc.)
-        vars.insert("primary-muted".into(), self.primary.with_alpha(0.3));
-        vars.insert("secondary-muted".into(), secondary.with_alpha(0.3));
-        vars.insert("accent-muted".into(), accent.with_alpha(0.3));
-        vars.insert("warning-muted".into(), warning.with_alpha(0.3));
-        vars.insert("error-muted".into(), error.with_alpha(0.3));
-        vars.insert("success-muted".into(), success.with_alpha(0.3));
-
-        // Scrollbar colors - blend primary at 40% over darkened background (matches Python Textual)
-        let scrollbar_color = if self.dark {
-            // Python: background-darken-1 + primary.with_alpha(0.4) ≈ #003157
-            self.primary.with_alpha(0.4).blend_over(&background.darken(0.03))
+        if foreground.ansi.is_none() {
+            vars.insert("text".into(), RgbaColor::auto(0.87));
+            vars.insert("text-muted".into(), RgbaColor::auto(0.60));
+            vars.insert("text-disabled".into(), RgbaColor::auto(0.38));
         } else {
-            self.primary.with_alpha(0.4).blend_over(&background.darken(0.03))
-        };
-        vars.insert("scrollbar".into(), scrollbar_color.clone());
-        vars.insert("scrollbar-hover".into(), scrollbar_color.lighten(0.15));
-        vars.insert("scrollbar-active".into(), self.primary.clone());
-        vars.insert("scrollbar-background".into(), background.clone());
-        vars.insert("scrollbar-background-hover".into(), if self.dark {
-            background.lighten(0.05)
-        } else {
-            background.darken(0.05)
-        });
-        vars.insert("scrollbar-background-active".into(), if self.dark {
-            background.lighten(0.08)
-        } else {
-            background.darken(0.08)
-        });
-        vars.insert("scrollbar-corner-color".into(), background.clone());
+            vars.insert("text".into(), foreground.clone());
+            vars.insert("text-muted".into(), foreground.clone());
+            vars.insert("text-disabled".into(), foreground.clone());
+        }
 
-        // Link colors - use auto colors for contrast (like Python Textual's "auto 87%")
-        // Auto colors compute contrast against the link background
-        vars.insert("link-color".into(), RgbaColor::auto(0.87));
+        vars.insert(
+            "text-primary".into(),
+            contrast_text.tint(&primary.with_alpha(0.66)),
+        );
+        vars.insert(
+            "text-secondary".into(),
+            contrast_text.tint(&secondary.with_alpha(0.66)),
+        );
+        vars.insert(
+            "text-warning".into(),
+            contrast_text.tint(&warning.with_alpha(0.66)),
+        );
+        vars.insert(
+            "text-error".into(),
+            contrast_text.tint(&error.with_alpha(0.66)),
+        );
+        vars.insert(
+            "text-success".into(),
+            contrast_text.tint(&success.with_alpha(0.66)),
+        );
+        vars.insert(
+            "text-accent".into(),
+            contrast_text.tint(&accent.with_alpha(0.66)),
+        );
+
+        vars.insert(
+            "primary-muted".into(),
+            primary.blend(&background, 0.7, None),
+        );
+        vars.insert(
+            "secondary-muted".into(),
+            secondary.blend(&background, 0.7, None),
+        );
+        vars.insert(
+            "accent-muted".into(),
+            accent.blend(&background, 0.7, None),
+        );
+        vars.insert(
+            "warning-muted".into(),
+            warning.blend(&background, 0.7, None),
+        );
+        vars.insert(
+            "error-muted".into(),
+            error.blend(&background, 0.7, None),
+        );
+        vars.insert(
+            "success-muted".into(),
+            success.blend(&background, 0.7, None),
+        );
+
+        let background_darken_1 = vars
+            .get("background-darken-1")
+            .cloned()
+            .unwrap_or_else(|| background.darken(luminosity_step));
+        let primary_40 = primary.with_alpha(0.4);
+        let primary_50 = primary.with_alpha(0.5);
+        let scrollbar = background_darken_1.blend(&primary_40, primary_40.a, Some(1.0));
+        let scrollbar_hover = background_darken_1.blend(&primary_50, primary_50.a, Some(1.0));
+
+        vars.insert("scrollbar".into(), scrollbar);
+        vars.insert("scrollbar-hover".into(), scrollbar_hover);
+        vars.insert("scrollbar-active".into(), primary.clone());
+        vars.insert("scrollbar-background".into(), background_darken_1.clone());
+        vars.insert(
+            "scrollbar-corner-color".into(),
+            background_darken_1.clone(),
+        );
+        vars.insert(
+            "scrollbar-background-hover".into(),
+            background_darken_1.clone(),
+        );
+        vars.insert(
+            "scrollbar-background-active".into(),
+            background_darken_1.clone(),
+        );
+
+        let text_color = vars
+            .get("text")
+            .cloned()
+            .unwrap_or_else(|| foreground.clone());
+        vars.insert("link-color".into(), text_color.clone());
         vars.insert("link-background".into(), RgbaColor::transparent());
-        vars.insert("link-color-hover".into(), RgbaColor::auto(0.87));
-        vars.insert("link-background-hover".into(), self.primary.clone());
+        vars.insert("link-color-hover".into(), text_color);
+        vars.insert("link-background-hover".into(), primary.clone());
 
-        // Border colors (match Python Textual)
-        vars.insert("border".into(), self.primary.clone());
+        vars.insert("border".into(), primary.clone());
         vars.insert("border-blurred".into(), surface.darken(0.025));
 
-        // Surface active (for selected items)
-        vars.insert("surface-active".into(), if self.dark {
-            surface.lighten(0.08)
-        } else {
-            surface.darken(0.08)
-        });
+        vars.insert(
+            "surface-active".into(),
+            surface.lighten(self.luminosity_spread / 2.5),
+        );
 
-        // Block cursor (for terminal-style cursors)
-        vars.insert("block-cursor-foreground".into(), background.clone());
-        vars.insert("block-cursor-background".into(), foreground.clone());
+        vars.insert("block-cursor-foreground".into(), vars["text"].clone());
+        vars.insert("block-cursor-background".into(), primary.clone());
         vars.insert("block-cursor-blurred-foreground".into(), foreground.clone());
-        vars.insert("block-cursor-blurred-background".into(), if self.dark {
-            surface.lighten(0.2)
-        } else {
-            surface.darken(0.2)
-        });
-        vars.insert("block-hover-background".into(), if self.dark {
-            boost.lighten(0.05)
-        } else {
-            boost.darken(0.05)
-        });
+        vars.insert(
+            "block-cursor-blurred-background".into(),
+            primary.with_alpha(0.3),
+        );
+        vars.insert("block-hover-background".into(), boost.with_alpha(0.1));
 
-        // Input cursor
-        vars.insert("input-cursor-foreground".into(), background.clone());
-        vars.insert("input-cursor-background".into(), foreground.clone());
-        vars.insert("input-selection-background".into(), self.primary.with_alpha(0.4));
-
-        // Footer
         vars.insert("footer-foreground".into(), foreground.clone());
         vars.insert("footer-background".into(), panel.clone());
-        vars.insert("footer-key-foreground".into(), background.clone());
-        vars.insert("footer-key-background".into(), self.primary.clone());
-        vars.insert("footer-description-foreground".into(), foreground.with_alpha(0.7));
-        vars.insert("footer-description-background".into(), panel.clone());
-        vars.insert("footer-item-background".into(), panel.clone());
+        vars.insert("footer-key-foreground".into(), accent.clone());
+        vars.insert("footer-key-background".into(), RgbaColor::transparent());
+        vars.insert(
+            "footer-description-foreground".into(),
+            foreground.clone(),
+        );
+        vars.insert("footer-description-background".into(), RgbaColor::transparent());
+        vars.insert("footer-item-background".into(), RgbaColor::transparent());
 
-        // Button
+        vars.insert("input-cursor-background".into(), foreground.clone());
+        vars.insert("input-cursor-foreground".into(), background.clone());
+        vars.insert(
+            "input-selection-background".into(),
+            primary.with_alpha(0.4),
+        );
+
+        vars.insert("markdown-h1-color".into(), primary.clone());
+        vars.insert(
+            "markdown-h1-background".into(),
+            RgbaColor::transparent(),
+        );
+        vars.insert("markdown-h2-color".into(), primary.clone());
+        vars.insert(
+            "markdown-h2-background".into(),
+            RgbaColor::transparent(),
+        );
+        vars.insert("markdown-h3-color".into(), primary.clone());
+        vars.insert(
+            "markdown-h3-background".into(),
+            RgbaColor::transparent(),
+        );
+        vars.insert("markdown-h4-color".into(), foreground.clone());
+        vars.insert(
+            "markdown-h4-background".into(),
+            RgbaColor::transparent(),
+        );
+        vars.insert("markdown-h5-color".into(), foreground.clone());
+        vars.insert(
+            "markdown-h5-background".into(),
+            RgbaColor::transparent(),
+        );
+        vars.insert(
+            "markdown-h6-color".into(),
+            vars["foreground-muted"].clone(),
+        );
+        vars.insert(
+            "markdown-h6-background".into(),
+            RgbaColor::transparent(),
+        );
+
         vars.insert("button-foreground".into(), foreground.clone());
-        vars.insert("button-color-foreground".into(), RgbaColor::white());
-
-        // Markdown header colors
-        let header_colors = [
-            ("#e0e0e0", "#1e1e1e"), // h1
-            ("#c0c0c0", "#2e2e2e"), // h2
-            ("#a0a0a0", "#3e3e3e"), // h3
-            ("#909090", "#4e4e4e"), // h4
-            ("#808080", "#5e5e5e"), // h5
-            ("#707070", "#6e6e6e"), // h6
-        ];
-        for (i, (dark_fg, light_fg)) in header_colors.iter().enumerate() {
-            let level = i + 1;
-            let header_color = if self.dark {
-                RgbaColor::hex(dark_fg)
-            } else {
-                RgbaColor::hex(light_fg)
-            };
-            vars.insert(format!("markdown-h{}-color", level), header_color);
-            vars.insert(format!("markdown-h{}-background", level), RgbaColor::transparent());
-        }
+        vars.insert("button-color-foreground".into(), vars["text"].clone());
 
         vars
     }
@@ -380,7 +454,9 @@ impl ColorSystem {
         styles.insert("link-style-hover".into(), link_style_hover);
 
         // Block cursor text styles
-        styles.insert("block-cursor-text-style".into(), TextStyle::default());
+        let mut block_cursor = TextStyle::default();
+        block_cursor.bold = true;
+        styles.insert("block-cursor-text-style".into(), block_cursor);
         styles.insert("block-cursor-blurred-text-style".into(), TextStyle::default());
 
         // Input cursor text style
@@ -392,7 +468,7 @@ impl ColorSystem {
         styles.insert("markdown-h1-text-style".into(), h1_style);
 
         let mut h2_style = TextStyle::default();
-        h2_style.bold = true;
+        h2_style.underline = true;
         styles.insert("markdown-h2-text-style".into(), h2_style);
 
         let mut h3_style = TextStyle::default();
@@ -401,6 +477,7 @@ impl ColorSystem {
 
         let mut h4_style = TextStyle::default();
         h4_style.bold = true;
+        h4_style.underline = true;
         styles.insert("markdown-h4-text-style".into(), h4_style);
 
         let mut h5_style = TextStyle::default();
@@ -414,34 +491,12 @@ impl ColorSystem {
         // Button focus text style
         let mut button_focus = TextStyle::default();
         button_focus.bold = true;
+        button_focus.reverse = true;
         styles.insert("button-focus-text-style".into(), button_focus);
 
         styles
     }
 
-    /// Inserts a color and its darken/lighten variants.
-    fn insert_color_variants(&self, vars: &mut HashMap<String, RgbaColor>, name: &str, color: &RgbaColor) {
-        vars.insert(name.into(), color.clone());
-
-        // Darken variants (10%, 20%, 30%)
-        vars.insert(format!("{}-darken-1", name), color.darken(0.10));
-        vars.insert(format!("{}-darken-2", name), color.darken(0.20));
-        vars.insert(format!("{}-darken-3", name), color.darken(0.30));
-
-        // Lighten variants (10%, 20%, 30%)
-        vars.insert(format!("{}-lighten-1", name), color.lighten(0.10));
-        vars.insert(format!("{}-lighten-2", name), color.lighten(0.20));
-        vars.insert(format!("{}-lighten-3", name), color.lighten(0.30));
-    }
-
-    /// Returns black or white text depending on which contrasts better.
-    fn contrast_text(&self, bg: &RgbaColor) -> RgbaColor {
-        if bg.luminance() > 0.5 {
-            RgbaColor::rgba(0, 0, 0, 0.9)
-        } else {
-            RgbaColor::rgba(255, 255, 255, 0.9)
-        }
-    }
 }
 
 /// A named color theme for styling widgets.
@@ -507,8 +562,6 @@ impl Theme {
                 .with_success(RgbaColor::hex("#4EBF71"))
                 .with_accent(RgbaColor::hex("#ffa62b"))
                 .with_foreground(RgbaColor::hex("#e0e0e0"))
-                .with_surface(RgbaColor::hex("#1e272e"))
-                .with_panel(RgbaColor::hex("#212f39"))
         ));
 
         // textual-light (default light theme)

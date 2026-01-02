@@ -270,6 +270,16 @@ pub fn parse_overflow(input: &str) -> IResult<&str, crate::types::Overflow> {
     }
 }
 
+/// Parse overflow shorthand: `overflow: <x> [<y>]`.
+pub fn parse_overflow_shorthand(
+    input: &str,
+) -> IResult<&str, (crate::types::Overflow, crate::types::Overflow)> {
+    let (input, first) = parse_overflow(input)?;
+    let (input, second) = opt(preceded(multispace1, parse_overflow))(input)?;
+    let second = second.unwrap_or(first);
+    Ok((input, (first, second)))
+}
+
 /// Parse box-sizing: `content-box` or `border-box`.
 pub fn parse_box_sizing(input: &str) -> IResult<&str, crate::types::BoxSizing> {
     use crate::types::BoxSizing;

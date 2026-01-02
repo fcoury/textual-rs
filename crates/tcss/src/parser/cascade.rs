@@ -423,6 +423,10 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         }
 
         // Overflow properties
+        Declaration::Overflow(x, y) => {
+            style.overflow_x = *x;
+            style.overflow_y = *y;
+        }
         Declaration::OverflowX(o) => {
             style.overflow_x = *o;
         }

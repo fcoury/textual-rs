@@ -647,13 +647,21 @@ Static {
                 // Auto: fall back to content width + chrome
                 Unit::Auto => {
                     let text = self.text();
-                    let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
+                    let content_width = text
+                        .lines()
+                        .map(|l| l.width())
+                        .max()
+                        .unwrap_or(0) as u16;
                     content_width + chrome_width
                 }
             }
         } else {
             let text = self.text();
-            let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
+            let content_width = text
+                .lines()
+                .map(|l| l.width())
+                .max()
+                .unwrap_or(0) as u16;
             content_width + chrome_width
         };
 
