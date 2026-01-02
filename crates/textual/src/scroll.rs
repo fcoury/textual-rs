@@ -115,12 +115,12 @@ impl ScrollState {
     /// Scroll to absolute position (clamped to bounds).
     pub fn scroll_to(&mut self, x: Option<f32>, y: Option<f32>) {
         if let Some(x) = x {
-            let rounded = x.round() as i32;
-            self.offset_x = rounded.clamp(0, self.max_scroll_x());
+            let truncated = x.floor() as i32;
+            self.offset_x = truncated.clamp(0, self.max_scroll_x());
         }
         if let Some(y) = y {
-            let rounded = y.round() as i32;
-            self.offset_y = rounded.clamp(0, self.max_scroll_y());
+            let truncated = y.floor() as i32;
+            self.offset_y = truncated.clamp(0, self.max_scroll_y());
         }
     }
 

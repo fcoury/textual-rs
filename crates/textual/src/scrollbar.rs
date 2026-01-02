@@ -101,15 +101,13 @@ impl ScrollBarRender {
             }
         }
 
-        let virtual_size = virtual_size.ceil();
-        let window_size = if window_size < virtual_size {
-            window_size.ceil()
-        } else {
-            0.0
-        };
-
         // No thumb if content fits in viewport or thumb hidden
-        if !draw_thumb || window_size == 0.0 || size == 0.0 || virtual_size == size {
+        if !draw_thumb
+            || window_size <= 0.0
+            || size <= 0.0
+            || virtual_size <= 0.0
+            || virtual_size == size
+        {
             return;
         }
 
@@ -119,8 +117,7 @@ impl ScrollBarRender {
         let bar_ratio = virtual_size / size;
         let thumb_size = (window_size / bar_ratio).max(1.0);
 
-        let max_position = (virtual_size - window_size).max(1.0);
-        let position_ratio = (position / max_position).clamp(0.0, 1.0);
+        let position_ratio = position / (virtual_size - window_size);
         let thumb_position = (size - thumb_size) * position_ratio;
 
         // Convert to sub-cell precision for gradient glyphs
@@ -232,15 +229,13 @@ impl ScrollBarRender {
             }
         }
 
-        let virtual_size = virtual_size.ceil();
-        let window_size = if window_size < virtual_size {
-            window_size.ceil()
-        } else {
-            0.0
-        };
-
         // No thumb if content fits in viewport or thumb hidden
-        if !draw_thumb || window_size == 0.0 || size == 0.0 || virtual_size == size {
+        if !draw_thumb
+            || window_size <= 0.0
+            || size <= 0.0
+            || virtual_size <= 0.0
+            || virtual_size == size
+        {
             return;
         }
 
@@ -250,8 +245,7 @@ impl ScrollBarRender {
         let bar_ratio = virtual_size / size;
         let thumb_size = (window_size / bar_ratio).max(1.0);
 
-        let max_position = (virtual_size - window_size).max(1.0);
-        let position_ratio = (position / max_position).clamp(0.0, 1.0);
+        let position_ratio = position / (virtual_size - window_size);
         let thumb_position = (size - thumb_size) * position_ratio;
 
         // Convert to sub-cell precision
@@ -331,22 +325,14 @@ impl ScrollBarRender {
         position: f32,
     ) -> (i32, i32) {
         let size = track_size as f32;
-        let virtual_size = virtual_size.ceil();
-        let window_size = if window_size < virtual_size {
-            window_size.ceil()
-        } else {
-            0.0
-        };
-
-        if window_size == 0.0 || track_size == 0 || virtual_size == size {
+        if window_size <= 0.0 || track_size == 0 || virtual_size == size || virtual_size <= 0.0 {
             return (0, 0);
         }
 
         let bar_ratio = virtual_size / size;
         let thumb_size = (window_size / bar_ratio).max(1.0);
 
-        let max_position = (virtual_size - window_size).max(1.0);
-        let position_ratio = (position / max_position).clamp(0.0, 1.0);
+        let position_ratio = position / (virtual_size - window_size);
         let thumb_position = ((size - thumb_size) * position_ratio) as i32;
         let thumb_end = thumb_position + thumb_size.ceil() as i32;
 

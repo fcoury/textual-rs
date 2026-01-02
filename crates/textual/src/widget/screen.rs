@@ -488,30 +488,57 @@ Screen {
         // Do not pad virtual size here; padding can fabricate overflow and force
         // Screen-level scrollbars even when content fits (differs from Python Textual).
 
+        let show_v_scrollbar = match self.style.overflow_y {
+            Overflow::Scroll => true,
+            Overflow::Hidden => false,
+            Overflow::Auto => virtual_height > inner_region.height,
+        };
+        let show_h_scrollbar = match self.style.overflow_x {
+            Overflow::Scroll => true,
+            Overflow::Hidden => false,
+            Overflow::Auto => virtual_width > inner_region.width,
+        };
+
+        let style = &self.style.scrollbar;
+        let v_size = if show_v_scrollbar
+            || (style.gutter == ScrollbarGutter::Stable && self.style.overflow_y == Overflow::Auto)
+        {
+            style.size.vertical as i32
+        } else {
+            0
+        };
+        let h_size = if show_h_scrollbar {
+            style.size.horizontal as i32
+        } else {
+            0
+        };
+
+        let content_region = Region {
+            x: inner_region.x,
+            y: inner_region.y,
+            width: (inner_region.width - v_size).max(0),
+            height: (inner_region.height - h_size).max(0),
+        };
+
+        let (placements, recomputed) =
+            if show_v_scrollbar && content_region.width < inner_region.width {
+                let new_placements = self.compute_child_placements(content_region, viewport);
+                (new_placements, true)
+            } else {
+                (initial_placements, false)
+            };
+
+        let (final_virtual_width, final_virtual_height, _final_max_from_auto) = if recomputed {
+            self.compute_virtual_size(&placements, content_region)
+        } else {
+            (virtual_width, virtual_height, false)
+        };
+
         {
             let mut scroll = self.scroll.borrow_mut();
-            scroll.set_virtual_size(virtual_width, virtual_height);
-            scroll.set_viewport(inner_region.width, inner_region.height);
+            scroll.set_virtual_size(final_virtual_width, final_virtual_height);
+            scroll.set_viewport(content_region.width, content_region.height);
         }
-
-        let show_v_scrollbar = self.show_vertical_scrollbar();
-
-        let content_region = self.content_region_for_scroll(inner_region);
-
-        let placements = if show_v_scrollbar && content_region.width < inner_region.width {
-            let new_placements = self.compute_child_placements(content_region, viewport);
-            let (new_virtual_width, new_virtual_height, _new_max_from_auto) =
-                self.compute_virtual_size(&new_placements, content_region);
-
-            {
-                let mut scroll = self.scroll.borrow_mut();
-                scroll.set_virtual_size(new_virtual_width, new_virtual_height);
-                scroll.set_viewport(content_region.width, content_region.height);
-            }
-            new_placements
-        } else {
-            initial_placements
-        };
 
         let (offset_x, offset_y) = {
             let scroll = self.scroll.borrow();
@@ -704,6 +731,13 @@ Screen {
         let on_vertical = render_vertical && v_region.contains_point(mx, my);
         let on_horizontal = render_horizontal && h_region.contains_point(mx, my);
 
+        // Keep scroll viewport in sync with current content region so max scroll bounds
+        // match the visible area (especially when scrollbars consume space).
+        {
+            let mut scroll = self.scroll.borrow_mut();
+            scroll.set_viewport(content_region.width, content_region.height);
+        }
+
         const SCROLL_AMOUNT: i32 = 3;
         match event.kind {
             crossterm::event::MouseEventKind::Moved => {
@@ -771,12 +805,18 @@ Screen {
                     || event.modifiers.contains(KeyModifiers::CONTROL)
                 {
                     if allow_horizontal {
-                        self.scroll.borrow_mut().scroll_right(SCROLL_AMOUNT);
+                        let mut scroll = self.scroll.borrow_mut();
+                        let max_scroll_x =
+                            (scroll.virtual_width - content_region.width).max(0);
+                        scroll.offset_x = (scroll.offset_x + SCROLL_AMOUNT).min(max_scroll_x);
                         self.is_dirty = true;
                         return None;
                     }
                 } else if allow_vertical {
-                    self.scroll.borrow_mut().scroll_down(SCROLL_AMOUNT);
+                    let mut scroll = self.scroll.borrow_mut();
+                    let max_scroll_y =
+                        (scroll.virtual_height - content_region.height).max(0);
+                    scroll.offset_y = (scroll.offset_y + SCROLL_AMOUNT).min(max_scroll_y);
                     self.is_dirty = true;
                     return None;
                 }
@@ -788,26 +828,32 @@ Screen {
                     || event.modifiers.contains(KeyModifiers::CONTROL)
                 {
                     if allow_horizontal {
-                        self.scroll.borrow_mut().scroll_left(SCROLL_AMOUNT);
+                        let mut scroll = self.scroll.borrow_mut();
+                        scroll.offset_x = (scroll.offset_x - SCROLL_AMOUNT).max(0);
                         self.is_dirty = true;
                         return None;
                     }
                 } else if allow_vertical {
-                    self.scroll.borrow_mut().scroll_up(SCROLL_AMOUNT);
+                    let mut scroll = self.scroll.borrow_mut();
+                    scroll.offset_y = (scroll.offset_y - SCROLL_AMOUNT).max(0);
                     self.is_dirty = true;
                     return None;
                 }
             }
             crossterm::event::MouseEventKind::ScrollLeft => {
                 if self.show_horizontal_scrollbar() {
-                    self.scroll.borrow_mut().scroll_left(SCROLL_AMOUNT);
+                    let mut scroll = self.scroll.borrow_mut();
+                    scroll.offset_x = (scroll.offset_x - SCROLL_AMOUNT).max(0);
                     self.is_dirty = true;
                     return None;
                 }
             }
             crossterm::event::MouseEventKind::ScrollRight => {
                 if self.show_horizontal_scrollbar() {
-                    self.scroll.borrow_mut().scroll_right(SCROLL_AMOUNT);
+                    let mut scroll = self.scroll.borrow_mut();
+                    let max_scroll_x =
+                        (scroll.virtual_width - content_region.width).max(0);
+                    scroll.offset_x = (scroll.offset_x + SCROLL_AMOUNT).min(max_scroll_x);
                     self.is_dirty = true;
                     return None;
                 }
