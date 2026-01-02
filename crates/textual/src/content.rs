@@ -802,6 +802,27 @@ mod tests {
     }
 
     #[test]
+    fn content_wrap_trailing_newline() {
+        // Wrap should preserve trailing empty line from trailing newline
+        let content = Content::new("a\nb\n");
+        let lines = content.wrap(80);
+        assert_eq!(lines.len(), 3, "Should have 3 lines: 'a', 'b', and trailing empty");
+        assert_eq!(lines[0].text(), "a");
+        assert_eq!(lines[1].text(), "b");
+        assert_eq!(lines[2].text(), "");
+    }
+
+    #[test]
+    fn content_wrap_no_trailing_newline() {
+        // Without trailing newline, should not have empty line at end
+        let content = Content::new("a\nb");
+        let lines = content.wrap(80);
+        assert_eq!(lines.len(), 2, "Should have 2 lines: 'a' and 'b'");
+        assert_eq!(lines[0].text(), "a");
+        assert_eq!(lines[1].text(), "b");
+    }
+
+    #[test]
     fn content_from_markup_plain() {
         let content = Content::from_markup("Hello World").unwrap();
         assert_eq!(content.text(), "Hello World");

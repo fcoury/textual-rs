@@ -145,13 +145,17 @@ impl<M> ScrollableContainer<M> {
     /// Calculate the content region (excluding scrollbars).
     fn content_region(&self, region: Region) -> Region {
         let style = self.scrollbar_style();
-        let v_size = if self.show_vertical_scrollbar() || style.gutter == ScrollbarGutter::Stable {
+        // Vertical gutter: apply when showing scrollbar OR when stable gutter with overflow-y: auto
+        // (matches Python Textual behavior where scrollbar-gutter only affects vertical scrollbar)
+        let v_size = if self.show_vertical_scrollbar()
+            || (style.gutter == ScrollbarGutter::Stable && self.style.overflow_y == Overflow::Auto)
+        {
             style.size.vertical as i32
         } else {
             0
         };
-        let h_size = if self.show_horizontal_scrollbar() || style.gutter == ScrollbarGutter::Stable
-        {
+        // Horizontal gutter: only when actually showing scrollbar (no stable gutter support)
+        let h_size = if self.show_horizontal_scrollbar() {
             style.size.horizontal as i32
         } else {
             0
@@ -256,6 +260,11 @@ impl<M> ScrollableContainer<M> {
         } else {
             content_size.height as i32
         };
+
+        // Add 1 cell of scroll padding to ensure the last character/line is fully visible
+        // (matches Screen::render behavior for consistency)
+        let effective_width = effective_width.saturating_add(1);
+        let effective_height = effective_height.saturating_add(1);
 
         let mut scroll = self.scroll.borrow_mut();
         scroll.set_virtual_size(effective_width, effective_height);
@@ -409,6 +418,9 @@ impl<M> Widget<M> for ScrollableContainer<M> {
             } else {
                 content_size.height as i32
             };
+            // Add 1 cell of scroll padding (matches update_scroll_dimensions and Screen::render)
+            let effective_width = effective_width.saturating_add(1);
+            let effective_height = effective_height.saturating_add(1);
             scroll.set_virtual_size(effective_width, effective_height);
             scroll.set_viewport(
                 available_width,

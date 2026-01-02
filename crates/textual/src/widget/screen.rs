@@ -233,13 +233,17 @@ impl<M> Screen<M> {
 
     fn content_region_for_scroll(&self, region: Region) -> Region {
         let style = &self.style.scrollbar;
-        let v_size = if self.show_vertical_scrollbar() || style.gutter == ScrollbarGutter::Stable {
+        // Vertical gutter: apply when showing scrollbar OR when stable gutter with overflow-y: auto
+        // (matches Python Textual behavior where scrollbar-gutter only affects vertical scrollbar)
+        let v_size = if self.show_vertical_scrollbar()
+            || (style.gutter == ScrollbarGutter::Stable && self.style.overflow_y == Overflow::Auto)
+        {
             style.size.vertical as i32
         } else {
             0
         };
-        let h_size = if self.show_horizontal_scrollbar() || style.gutter == ScrollbarGutter::Stable
-        {
+        // Horizontal gutter: only when actually showing scrollbar (no stable gutter support)
+        let h_size = if self.show_horizontal_scrollbar() {
             style.size.horizontal as i32
         } else {
             0
@@ -457,6 +461,10 @@ Screen {
         // Add 1 cell of scroll padding to ensure the last character/line is fully visible
         // and not clipped by terminal edge behavior or scrollbar overlay issues.
         // This must be applied BEFORE setting the initial scroll state.
+        //
+        // The vertical +1 is needed because when both scrollbars are visible, the viewport
+        // height is reduced by the horizontal scrollbar, but we need to ensure the last
+        // line of content (especially trailing empty lines from \n) remains scrollable.
         let virtual_width = virtual_width.saturating_add(1);
         let virtual_height = virtual_height.saturating_add(1);
 
@@ -475,7 +483,7 @@ Screen {
             let (new_virtual_width, new_virtual_height, _new_max_from_auto) =
                 self.compute_virtual_size(&new_placements, content_region);
 
-            // Add 1 cell safety padding here as well
+            // Add 1 cell safety padding here as well (matches initial computation)
             let new_virtual_width = new_virtual_width.saturating_add(1);
             let new_virtual_height = new_virtual_height.saturating_add(1);
 
