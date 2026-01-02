@@ -22,7 +22,7 @@ impl Compose for MinWidthApp {
                 Placeholder(id: "p1", label: "min-width: 25%")
                 Placeholder(id: "p2", label: "min-width: 75%")
                 Placeholder(id: "p3", label: "min-width: 100")
-                Placeholder(id: "p4", label: "min-width: 400")
+                Placeholder(id: "p4", label: "min-width: 400h")
             }
         }
     }
