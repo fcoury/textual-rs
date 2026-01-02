@@ -780,13 +780,27 @@ Container {
         // Calculate virtual content dimensions from placements (max extent relative to inner_region)
         let virtual_height = initial_placements
             .iter()
-            .map(|p| (p.region.y - inner_region.y) + p.region.height)
+            .map(|p| {
+                let margin_bottom = self
+                    .children
+                    .get(p.child_index)
+                    .map(|child| child.get_style().margin.bottom.value as i32)
+                    .unwrap_or(0);
+                (p.region.y - inner_region.y) + p.region.height + margin_bottom
+            })
             .max()
             .unwrap_or(0);
 
         let virtual_width = initial_placements
             .iter()
-            .map(|p| (p.region.x - inner_region.x) + p.region.width)
+            .map(|p| {
+                let margin_right = self
+                    .children
+                    .get(p.child_index)
+                    .map(|child| child.get_style().margin.right.value as i32)
+                    .unwrap_or(0);
+                (p.region.x - inner_region.x) + p.region.width + margin_right
+            })
             .max()
             .unwrap_or(0);
 
@@ -811,13 +825,27 @@ Container {
             // Recalculate virtual dimensions with the new placements (content_region based)
             let new_virtual_height = new_placements
                 .iter()
-                .map(|p| (p.region.y - content_region.y) + p.region.height)
+                .map(|p| {
+                    let margin_bottom = self
+                        .children
+                        .get(p.child_index)
+                        .map(|child| child.get_style().margin.bottom.value as i32)
+                        .unwrap_or(0);
+                    (p.region.y - content_region.y) + p.region.height + margin_bottom
+                })
                 .max()
                 .unwrap_or(0);
 
             let new_virtual_width = new_placements
                 .iter()
-                .map(|p| (p.region.x - content_region.x) + p.region.width)
+                .map(|p| {
+                    let margin_right = self
+                        .children
+                        .get(p.child_index)
+                        .map(|child| child.get_style().margin.right.value as i32)
+                        .unwrap_or(0);
+                    (p.region.x - content_region.x) + p.region.width + margin_right
+                })
                 .max()
                 .unwrap_or(0);
 

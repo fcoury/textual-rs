@@ -312,8 +312,22 @@ impl<M> ScrollableContainer<M> {
         let mut virtual_height = 0;
 
         for placement in placements {
-            let width = (placement.region.x - base_region.x) + placement.region.width;
-            let height = (placement.region.y - base_region.y) + placement.region.height;
+            let child_style = self
+                .children
+                .get(placement.child_index)
+                .map(|child| child.get_style());
+            let margin_right = child_style
+                .as_ref()
+                .map(|style| style.margin.right.value as i32)
+                .unwrap_or(0);
+            let margin_bottom = child_style
+                .as_ref()
+                .map(|style| style.margin.bottom.value as i32)
+                .unwrap_or(0);
+            let width =
+                (placement.region.x - base_region.x) + placement.region.width + margin_right;
+            let height =
+                (placement.region.y - base_region.y) + placement.region.height + margin_bottom;
             if width > virtual_width {
                 virtual_width = width;
             }
