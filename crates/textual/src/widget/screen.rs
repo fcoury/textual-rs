@@ -190,21 +190,6 @@ impl<M> Screen<M> {
         (virtual_width, virtual_height, max_from_auto)
     }
 
-    fn scrollbar_width_adjustment(&self, max_from_auto: bool, show_vertical: bool) -> i32 {
-        if !max_from_auto {
-            return 0;
-        }
-
-        let stable_gutter = self.style.scrollbar.gutter == ScrollbarGutter::Stable
-            && self.style.overflow_x == Overflow::Auto;
-
-        if show_vertical || stable_gutter {
-            self.style.scrollbar.size.vertical as i32
-        } else {
-            0
-        }
-    }
-
     fn dispatch_mouse_to_children(&mut self, event: MouseEvent, region: Region) -> Option<M> {
         let viewport = layouts::Viewport::from(region);
         let placements = self.compute_child_placements(region, viewport);
@@ -466,8 +451,14 @@ Screen {
         let viewport = canvas.viewport();
 
         let initial_placements = self.compute_child_placements(inner_region, viewport);
-        let (mut virtual_width, virtual_height, max_from_auto) =
+        let (virtual_width, virtual_height, _) =
             self.compute_virtual_size(&initial_placements, inner_region);
+
+        // Add 1 cell of scroll padding to ensure the last character/line is fully visible
+        // and not clipped by terminal edge behavior or scrollbar overlay issues.
+        // This must be applied BEFORE setting the initial scroll state.
+        let virtual_width = virtual_width.saturating_add(1);
+        let virtual_height = virtual_height.saturating_add(1);
 
         {
             let mut scroll = self.scroll.borrow_mut();
@@ -476,25 +467,18 @@ Screen {
         }
 
         let show_v_scrollbar = self.show_vertical_scrollbar();
-        let extra_width = self.scrollbar_width_adjustment(max_from_auto, show_v_scrollbar);
-        if extra_width != 0 {
-            virtual_width = virtual_width.saturating_add(extra_width);
-            self.scroll
-                .borrow_mut()
-                .set_virtual_size(virtual_width, virtual_height);
-        }
 
         let content_region = self.content_region_for_scroll(inner_region);
 
         let placements = if show_v_scrollbar && content_region.width < inner_region.width {
             let new_placements = self.compute_child_placements(content_region, viewport);
-            let (mut new_virtual_width, new_virtual_height, new_max_from_auto) =
+            let (new_virtual_width, new_virtual_height, _new_max_from_auto) =
                 self.compute_virtual_size(&new_placements, content_region);
-            let new_extra_width =
-                self.scrollbar_width_adjustment(new_max_from_auto, show_v_scrollbar);
-            if new_extra_width != 0 {
-                new_virtual_width = new_virtual_width.saturating_add(new_extra_width);
-            }
+
+            // Add 1 cell safety padding here as well
+            let new_virtual_width = new_virtual_width.saturating_add(1);
+            let new_virtual_height = new_virtual_height.saturating_add(1);
+
             {
                 let mut scroll = self.scroll.borrow_mut();
                 scroll.set_virtual_size(new_virtual_width, new_virtual_height);
