@@ -8,8 +8,8 @@
 //! This ensures proper remainder distribution across widgets.
 
 use crate::canvas::{Region, Size};
-use tcss::types::geometry::Unit;
 use tcss::types::ComputedStyle;
+use tcss::types::geometry::Unit;
 
 use super::size_resolver::{apply_box_sizing_height, resolve_width_with_intrinsic};
 use super::{Layout, LayoutChild, Viewport, WidgetPlacement};
@@ -163,7 +163,8 @@ impl Layout for VerticalLayout {
 
         // Calculate remaining space for fr units
         // Use viewport.height to match Python's behavior (uses parent.app.size for all calculations)
-        let remaining_for_fr = (viewport.height as f64 - fixed_height_total - total_margin).max(0.0);
+        let remaining_for_fr =
+            (viewport.height as f64 - fixed_height_total - total_margin).max(0.0);
 
         // Calculate fraction_unit (size of 1fr)
         // When remaining_for_fr <= 0, use fraction_unit = 1.0 (matching Python Textual)
@@ -211,12 +212,8 @@ impl Layout for VerticalLayout {
                         // Python uses parent.app.size (terminal size) for w units
                         (h.value / 100.0) * viewport.width as f64
                     }
-                    Unit::ViewWidth => {
-                        (h.value / 100.0) * viewport.width as f64
-                    }
-                    Unit::ViewHeight => {
-                        (h.value / 100.0) * viewport.height as f64
-                    }
+                    Unit::ViewWidth => (h.value / 100.0) * viewport.width as f64,
+                    Unit::ViewHeight => (h.value / 100.0) * viewport.height as f64,
                 }
             } else if desired_size.height == u16::MAX {
                 // No CSS height but widget wants to fill - use fraction_unit (implicit 1fr)
@@ -320,11 +317,11 @@ mod tests {
 
     impl LayoutNode for DummyNode {
         fn desired_size(&self) -> Size {
-            Size::new(0, 0)
+            Size::new(0, 1)
         }
 
         fn intrinsic_height_for_width(&self, _width: u16) -> u16 {
-            0
+            1
         }
     }
 
@@ -357,15 +354,60 @@ mod tests {
 
         // Create children matching the Python test
         let children: Vec<LayoutChild> = vec![
-            LayoutChild { index: 0, style: style_with_height(2.0, Unit::Cells), desired_size: Size::new(145, 1), node: &dummy },       // cells
-            LayoutChild { index: 1, style: style_with_height(12.5, Unit::Percent), desired_size: Size::new(145, 1), node: &dummy },    // percent
-            LayoutChild { index: 2, style: style_with_height(5.0, Unit::Width), desired_size: Size::new(145, 1), node: &dummy },       // w
-            LayoutChild { index: 3, style: style_with_height(12.5, Unit::Height), desired_size: Size::new(145, 1), node: &dummy },     // h
-            LayoutChild { index: 4, style: style_with_height(6.25, Unit::ViewWidth), desired_size: Size::new(145, 1), node: &dummy },  // vw
-            LayoutChild { index: 5, style: style_with_height(12.5, Unit::ViewHeight), desired_size: Size::new(145, 1), node: &dummy }, // vh
-            LayoutChild { index: 6, style: style_with_height(0.0, Unit::Auto), desired_size: Size::new(145, 1), node: &dummy },        // auto (intrinsic=1)
-            LayoutChild { index: 7, style: style_with_height(1.0, Unit::Fraction), desired_size: Size::new(145, 1), node: &dummy },    // fr1
-            LayoutChild { index: 8, style: style_with_height(2.0, Unit::Fraction), desired_size: Size::new(145, 1), node: &dummy },    // fr2
+            LayoutChild {
+                index: 0,
+                style: style_with_height(2.0, Unit::Cells),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // cells
+            LayoutChild {
+                index: 1,
+                style: style_with_height(12.5, Unit::Percent),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // percent
+            LayoutChild {
+                index: 2,
+                style: style_with_height(5.0, Unit::Width),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // w
+            LayoutChild {
+                index: 3,
+                style: style_with_height(12.5, Unit::Height),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // h
+            LayoutChild {
+                index: 4,
+                style: style_with_height(6.25, Unit::ViewWidth),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // vw
+            LayoutChild {
+                index: 5,
+                style: style_with_height(12.5, Unit::ViewHeight),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // vh
+            LayoutChild {
+                index: 6,
+                style: style_with_height(0.0, Unit::Auto),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // auto (intrinsic=1)
+            LayoutChild {
+                index: 7,
+                style: style_with_height(1.0, Unit::Fraction),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // fr1
+            LayoutChild {
+                index: 8,
+                style: style_with_height(2.0, Unit::Fraction),
+                desired_size: Size::new(145, 1),
+                node: &dummy,
+            }, // fr2
         ];
 
         let available = Region {
@@ -394,7 +436,9 @@ mod tests {
         // fr1 gets floor(1/3) = 0, fr2 gets floor(2/3 + 0.333) = 1
         let expected_heights = [2, 3, 8, 4, 9, 3, 1, 0, 1];
 
-        for (i, (placement, &expected)) in placements.iter().zip(expected_heights.iter()).enumerate() {
+        for (i, (placement, &expected)) in
+            placements.iter().zip(expected_heights.iter()).enumerate()
+        {
             assert_eq!(
                 placement.region.height, expected,
                 "Widget {} height mismatch: got {}, expected {}",
@@ -404,7 +448,10 @@ mod tests {
 
         // Verify total height equals available height
         let total_height: i32 = placements.iter().map(|p| p.region.height).sum();
-        assert_eq!(total_height, 31, "Total height should equal available height");
+        assert_eq!(
+            total_height, 31,
+            "Total height should equal available height"
+        );
     }
 
     /// Test height calculations at 80x31 viewport (typical tmux pane scenario)
@@ -426,15 +473,60 @@ mod tests {
         let dummy = DummyNode;
 
         let children: Vec<LayoutChild> = vec![
-            LayoutChild { index: 0, style: style_with_height(2.0, Unit::Cells), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 1, style: style_with_height(12.5, Unit::Percent), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 2, style: style_with_height(5.0, Unit::Width), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 3, style: style_with_height(12.5, Unit::Height), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 4, style: style_with_height(6.25, Unit::ViewWidth), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 5, style: style_with_height(12.5, Unit::ViewHeight), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 6, style: style_with_height(0.0, Unit::Auto), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 7, style: style_with_height(1.0, Unit::Fraction), desired_size: Size::new(80, 1), node: &dummy },
-            LayoutChild { index: 8, style: style_with_height(2.0, Unit::Fraction), desired_size: Size::new(80, 1), node: &dummy },
+            LayoutChild {
+                index: 0,
+                style: style_with_height(2.0, Unit::Cells),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 1,
+                style: style_with_height(12.5, Unit::Percent),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 2,
+                style: style_with_height(5.0, Unit::Width),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 3,
+                style: style_with_height(12.5, Unit::Height),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 4,
+                style: style_with_height(6.25, Unit::ViewWidth),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 5,
+                style: style_with_height(12.5, Unit::ViewHeight),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 6,
+                style: style_with_height(0.0, Unit::Auto),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 7,
+                style: style_with_height(1.0, Unit::Fraction),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 8,
+                style: style_with_height(2.0, Unit::Fraction),
+                desired_size: Size::new(80, 1),
+                node: &dummy,
+            },
         ];
 
         let available = Region {
@@ -460,7 +552,9 @@ mod tests {
         // Expected heights from Python Textual at 80x31
         let expected_heights = [2, 3, 4, 4, 5, 4, 1, 3, 5];
 
-        for (i, (placement, &expected)) in placements.iter().zip(expected_heights.iter()).enumerate() {
+        for (i, (placement, &expected)) in
+            placements.iter().zip(expected_heights.iter()).enumerate()
+        {
             assert_eq!(
                 placement.region.height, expected,
                 "Widget {} height mismatch: got {}, expected {}",
@@ -470,7 +564,10 @@ mod tests {
 
         // Verify total height equals available height
         let total_height: i32 = placements.iter().map(|p| p.region.height).sum();
-        assert_eq!(total_height, 31, "Total height should equal available height");
+        assert_eq!(
+            total_height, 31,
+            "Total height should equal available height"
+        );
     }
 
     /// Test height calculations at 90x17 viewport (scrollable container scenario)
@@ -492,15 +589,60 @@ mod tests {
         let dummy = DummyNode;
 
         let children: Vec<LayoutChild> = vec![
-            LayoutChild { index: 0, style: style_with_height(2.0, Unit::Cells), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 1, style: style_with_height(12.5, Unit::Percent), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 2, style: style_with_height(5.0, Unit::Width), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 3, style: style_with_height(12.5, Unit::Height), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 4, style: style_with_height(6.25, Unit::ViewWidth), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 5, style: style_with_height(12.5, Unit::ViewHeight), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 6, style: style_with_height(0.0, Unit::Auto), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 7, style: style_with_height(1.0, Unit::Fraction), desired_size: Size::new(90, 1), node: &dummy },
-            LayoutChild { index: 8, style: style_with_height(2.0, Unit::Fraction), desired_size: Size::new(90, 1), node: &dummy },
+            LayoutChild {
+                index: 0,
+                style: style_with_height(2.0, Unit::Cells),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 1,
+                style: style_with_height(12.5, Unit::Percent),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 2,
+                style: style_with_height(5.0, Unit::Width),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 3,
+                style: style_with_height(12.5, Unit::Height),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 4,
+                style: style_with_height(6.25, Unit::ViewWidth),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 5,
+                style: style_with_height(12.5, Unit::ViewHeight),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 6,
+                style: style_with_height(0.0, Unit::Auto),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 7,
+                style: style_with_height(1.0, Unit::Fraction),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
+            LayoutChild {
+                index: 8,
+                style: style_with_height(2.0, Unit::Fraction),
+                desired_size: Size::new(90, 1),
+                node: &dummy,
+            },
         ];
 
         let available = Region {
@@ -520,7 +662,9 @@ mod tests {
         // Expected heights from Python Textual at 90x17
         let expected_heights = [2, 2, 4, 2, 6, 2, 1, 1, 2];
 
-        for (i, (placement, &expected)) in placements.iter().zip(expected_heights.iter()).enumerate() {
+        for (i, (placement, &expected)) in
+            placements.iter().zip(expected_heights.iter()).enumerate()
+        {
             assert_eq!(
                 placement.region.height, expected,
                 "Widget {} height mismatch: got {}, expected {}",

@@ -118,7 +118,7 @@ expression: "canvas.to_svg(Some(\"Link Background Example\"))"
     <rect fill="#121212" x="0" y="48.8" width="231.8" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#898909" x="231.8" y="48.8" width="48.8" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="280.6" y="48.8" width="695.39996" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#ffa62b" x="0" y="73.2" width="268.4" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#fea62b" x="0" y="73.2" width="268.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="268.4" y="73.2" width="707.6" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="97.6" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="122" width="976" height="24.4" shape-rendering="crispEdges"/>
