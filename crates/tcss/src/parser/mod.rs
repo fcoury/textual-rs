@@ -244,6 +244,9 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
         "link-style" => map(values::parse_text_style, Declaration::LinkStyle)(input)?,
         "link-style-hover" => map(values::parse_text_style, Declaration::LinkStyleHover)(input)?,
 
+        // Text formatting properties
+        "text-align" => map(values::parse_text_align, Declaration::TextAlign)(input)?,
+
         // Content alignment properties (text within widget)
         "content-align-horizontal" => map(
             values::parse_align_horizontal,

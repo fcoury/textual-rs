@@ -490,6 +490,11 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.link.style_hover = resolve_theme_style(s, theme);
         }
 
+        // Text formatting properties
+        Declaration::TextAlign(a) => {
+            style.text_align = *a;
+        }
+
         // Content alignment properties (text within widget)
         Declaration::ContentAlignHorizontal(a) => {
             style.content_align_horizontal = *a;

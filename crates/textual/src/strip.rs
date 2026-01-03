@@ -13,6 +13,7 @@
 
 use crate::segment::{Segment, Style};
 use smallvec::{SmallVec, smallvec};
+use std::collections::HashMap;
 use tcss::types::RgbaColor;
 use tcss::types::text::AlignHorizontal;
 
@@ -327,6 +328,62 @@ impl Strip {
         }
     }
 
+    /// Fully justifies text to fill the given width.
+    pub fn justify(&self, width: usize, pad_style: Option<Style>) -> Strip {
+        if self.cell_length >= width {
+            return self.crop(0, width);
+        }
+
+        let gap_count: usize = self
+            .segments
+            .iter()
+            .map(|seg| seg.text().chars().filter(|ch| *ch == ' ').count())
+            .sum();
+
+        if gap_count == 0 {
+            return self.text_align(AlignHorizontal::Left, width, pad_style);
+        }
+
+        let extra = width.saturating_sub(self.cell_length);
+        let mut extra_per_gap = vec![0usize; gap_count];
+        for i in 0..extra {
+            let idx = gap_count - 1 - (i % gap_count);
+            extra_per_gap[idx] += 1;
+        }
+
+        let mut gap_index = 0;
+        let mut segments = SegmentVec::new();
+
+        for seg in &self.segments {
+            let style = seg.style().cloned();
+            let meta = seg.meta();
+            let mut buffer = String::new();
+
+            for ch in seg.text().chars() {
+                if ch == ' ' {
+                    if !buffer.is_empty() {
+                        segments.push(build_segment(&buffer, style.clone(), meta));
+                        buffer.clear();
+                    }
+
+                    let extra_spaces = extra_per_gap.get(gap_index).copied().unwrap_or(0);
+                    gap_index += 1;
+                    let total = 1 + extra_spaces;
+                    let spaces = " ".repeat(total);
+                    segments.push(build_segment(&spaces, style.clone(), meta));
+                } else {
+                    buffer.push(ch);
+                }
+            }
+
+            if !buffer.is_empty() {
+                segments.push(build_segment(&buffer, style.clone(), meta));
+            }
+        }
+
+        Strip::from_smallvec(segments)
+    }
+
     /// Applies a tint color to all segments in this strip.
     ///
     /// This is post-processing that tints both fg and bg colors using
@@ -363,6 +420,19 @@ impl Strip {
 
         Strip::from_smallvec(hatched_segments)
     }
+}
+
+fn build_segment(text: &str, style: Option<Style>, meta: &HashMap<String, String>) -> Segment {
+    let mut segment = match style {
+        Some(style) => Segment::styled(text, style),
+        None => Segment::new(text),
+    };
+
+    if !meta.is_empty() {
+        segment = segment.with_meta(meta.clone());
+    }
+
+    segment
 }
 
 #[cfg(test)]

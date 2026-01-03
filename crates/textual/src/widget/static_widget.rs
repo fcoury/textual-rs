@@ -17,7 +17,7 @@ use tcss::types::{AlignHorizontal, AlignVertical};
 use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 use unicode_width::UnicodeWidthStr;
 
-use crate::content::Content;
+use crate::content::{Content, WrappedLine};
 use crate::render_cache::RenderCache;
 use crate::segment::Style;
 use crate::strip::Strip;
@@ -289,7 +289,7 @@ impl<M> Static<M> {
     /// Apply content alignment to lines.
     fn align_content(
         &self,
-        lines: &[Strip],
+        lines: &[WrappedLine],
         width: usize,
         height: usize,
         style: Style,
@@ -313,7 +313,7 @@ impl<M> Static<M> {
         // Determine content block width (max line length)
         let max_line_len = lines
             .iter()
-            .map(|line| line.cell_length())
+            .map(|line| line.strip.cell_length())
             .max()
             .unwrap_or(0);
         let block_width = width.min(max_line_len);
@@ -346,7 +346,13 @@ impl<M> Static<M> {
 
         // Add content lines: align text within the block, then place the block
         for line in lines.iter().take(height - v_offset) {
-            let aligned_line = line.text_align(line_align, block_width, pad_style.clone());
+            let aligned_line =
+                if text_align == tcss::types::text::TextAlign::Justify && !line.line_end {
+                    line.strip.justify(block_width, pad_style.clone())
+                } else {
+                    line.strip
+                        .text_align(line_align, block_width, pad_style.clone())
+                };
             let with_offset = if h_offset > 0 {
                 let left = Strip::blank(h_offset, pad_style.clone());
                 Strip::join(vec![left, aligned_line])
@@ -460,7 +466,7 @@ Static {
             .with_hovered_action(self.hovered_link.borrow().clone());
 
         let lines = if inner_width > 0 {
-            content.wrap(inner_width)
+            content.wrap_with_line_end(inner_width)
         } else {
             vec![]
         };

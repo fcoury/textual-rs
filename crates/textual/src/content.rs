@@ -65,6 +65,19 @@ pub struct Content {
     hovered_action: Option<String>,
 }
 
+/// A wrapped line with metadata about whether it ended the original line.
+#[derive(Clone, Debug)]
+pub struct WrappedLine {
+    pub strip: Strip,
+    pub line_end: bool,
+}
+
+impl WrappedLine {
+    fn new(strip: Strip, line_end: bool) -> Self {
+        Self { strip, line_end }
+    }
+}
+
 impl Content {
     /// Creates new content from plain text.
     pub fn new<S: Into<String>>(text: S) -> Self {
@@ -508,6 +521,47 @@ impl Content {
         result
     }
 
+    /// Wraps content and marks the final wrapped line of each original line.
+    pub fn wrap_with_line_end(&self, width: usize) -> Vec<WrappedLine> {
+        if width == 0 {
+            return vec![WrappedLine::new(Strip::new(), true)];
+        }
+
+        if let Some(spans) = &self.spans {
+            return self.wrap_with_spans_with_line_end(width, spans);
+        }
+
+        let mut result = Vec::new();
+
+        for line in self.text.split('\n') {
+            if line.is_empty() {
+                result.push(WrappedLine::new(Strip::new(), true));
+                continue;
+            }
+
+            let line_width = line.width();
+            if line_width <= width {
+                let segment = match &self.style {
+                    Some(s) => Segment::styled(line, s.clone()),
+                    None => Segment::new(line),
+                };
+                result.push(WrappedLine::new(Strip::from_segment(segment), true));
+            } else {
+                let wrapped = self.wrap_line(line, width);
+                let last_index = wrapped.len().saturating_sub(1);
+                for (index, strip) in wrapped.into_iter().enumerate() {
+                    result.push(WrappedLine::new(strip, index == last_index));
+                }
+            }
+        }
+
+        if result.is_empty() {
+            result.push(WrappedLine::new(Strip::new(), true));
+        }
+
+        result
+    }
+
     /// Wraps content while preserving styled spans from markup.
     fn wrap_with_spans(&self, width: usize, spans: &[InternalSpan]) -> Vec<Strip> {
         let mut result = Vec::new();
@@ -536,6 +590,45 @@ impl Content {
 
         if result.is_empty() {
             result.push(Strip::new());
+        }
+
+        result
+    }
+
+    /// Wraps content with spans and marks the final wrapped line of each original line.
+    fn wrap_with_spans_with_line_end(
+        &self,
+        width: usize,
+        spans: &[InternalSpan],
+    ) -> Vec<WrappedLine> {
+        let mut result = Vec::new();
+        let mut line_start = 0;
+
+        for line in self.text.split('\n') {
+            let line_end = line_start + line.len();
+
+            if line.is_empty() {
+                result.push(WrappedLine::new(Strip::new(), true));
+                line_start = line_end + 1;
+                continue;
+            }
+
+            let line_width = line.width();
+            if line_width <= width {
+                let strip = self.render_line_with_spans(line, line_start, line_end, spans);
+                result.push(WrappedLine::new(strip, true));
+            } else {
+                let wrapped = self.wrap_line_with_spans(line, line_start, width, spans);
+                let last_index = wrapped.len().saturating_sub(1);
+                for (index, strip) in wrapped.into_iter().enumerate() {
+                    result.push(WrappedLine::new(strip, index == last_index));
+                }
+            }
+            line_start = line_end + 1;
+        }
+
+        if result.is_empty() {
+            result.push(WrappedLine::new(Strip::new(), true));
         }
 
         result

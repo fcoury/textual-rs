@@ -12,7 +12,7 @@ use tcss::parser::{Declaration, parse_rule};
 use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
-use tcss::types::text::TextStyle;
+use tcss::types::text::{TextAlign, TextStyle};
 use tcss::types::{AlignHorizontal, AlignVertical, Layout, Overflow, Visibility};
 
 /// Helper to parse a simple rule and extract declarations
@@ -624,11 +624,9 @@ fn test_property_text_style() {
 }
 
 #[test]
-#[ignore = "text-align property not yet implemented"]
 fn test_property_text_align() {
     let decl = parse_first_declaration("Button { text-align: center; }");
-    // Should parse as Declaration::TextAlign(TextAlign::Center)
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    assert!(matches!(decl, Declaration::TextAlign(TextAlign::Center)));
 }
 
 #[test]

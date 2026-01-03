@@ -26,7 +26,7 @@
 use crate::types::{
     AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Keyline, Layout,
     Overflow, Position, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility,
-    Spacing, TextStyle, Visibility,
+    Spacing, TextAlign, TextStyle, Visibility,
 };
 
 /// CSS specificity for determining rule precedence.
@@ -328,6 +328,10 @@ pub enum Declaration {
     LinkStyle(TextStyle),
     /// The `link-style-hover` property for link text style on hover.
     LinkStyleHover(TextStyle),
+
+    // Text formatting properties
+    /// The `text-align` property for horizontal alignment within a line.
+    TextAlign(TextAlign),
 
     // Content alignment properties (text alignment within widget)
     /// The `content-align-horizontal` property for horizontal content alignment.
