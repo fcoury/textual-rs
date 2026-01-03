@@ -2,10 +2,10 @@
 source: crates/textual/tests/examples_snapshot.rs
 expression: canvas.to_ansi_snapshot()
 ---
-[48;2;18;18;18mVisit the Textualize website.                                                   [0m
-[48;2;18;18;18mClick [0m[4m[38;2;224;224;224m[48;2;18;18;18mhere[0m[48;2;18;18;18m for the bell sound.                                                  [0m
-[48;2;18;18;18mYou can also click [0m[4m[38;2;224;224;224m[48;2;18;18;18mhere[0m[48;2;18;18;18m for the bell sound.                                     [0m
-[0m[4m[38;2;224;224;224m[48;2;18;18;18mExit this application.[0m[48;2;18;18;18m                                                          [0m
+[38;2;224;224;224m[48;2;18;18;18mVisit the Textualize website.                                     [39m              [0m
+[38;2;224;224;224m[48;2;18;18;18mClick [0m[4m[38;2;224;224;224m[48;2;18;18;18mhere[0m[38;2;224;224;224m[48;2;18;18;18m for the bell sound.                    [39m                              [0m
+[38;2;224;224;224m[48;2;18;18;18mYou can also click [0m[4m[38;2;224;224;224m[48;2;18;18;18mhere[0m[38;2;224;224;224m[48;2;18;18;18m for the bell sound.                    [39m                 [0m
+[0m[4m[38;2;224;224;224m[48;2;18;18;18mExit this application.[0m[38;2;224;224;224m[48;2;18;18;18m                    [39m                                      [0m
 [48;2;18;18;18m                                                                                [0m
 [48;2;18;18;18m                                                                                [0m
 [48;2;18;18;18m                                                                                [0m

@@ -502,7 +502,7 @@ where
                         &theme,
                         &mut ancestors,
                         false,
-                        &InheritedContext::default(),
+                        &InheritedContext::from_theme(&theme),
                     );
 
                     canvas.clear();

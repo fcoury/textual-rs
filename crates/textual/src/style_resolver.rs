@@ -17,6 +17,20 @@ pub struct InheritedContext {
     pub effective_background: Option<RgbaColor>,
 }
 
+impl InheritedContext {
+    /// Seed default inherited values from the theme for the root widget.
+    pub fn from_theme(theme: &Theme) -> Self {
+        let color = theme
+            .get_color("foreground")
+            .or_else(|| theme.get_color("text"));
+        Self {
+            color,
+            auto_color: false,
+            effective_background: None,
+        }
+    }
+}
+
 /// Resolves styles for all widgets in the tree.
 /// Used for initial style resolution at startup.
 pub fn resolve_styles<M>(
@@ -32,7 +46,7 @@ pub fn resolve_styles<M>(
         theme,
         ancestors,
         true,
-        &InheritedContext::default(),
+        &InheritedContext::from_theme(theme),
     );
 }
 

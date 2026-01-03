@@ -134,11 +134,15 @@ expression: "canvas.to_svg(Some(\"Link Color Hover Example\"))"
     <rect fill="#121212" x="0" y="536.8" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="561.2" width="976" height="24.4" shape-rendering="crispEdges"/>
     <g class="terminal-matrix">
-    <text class="terminal-default" x="0" y="44.8" textLength="73.2" clip-path="url(#terminal-line-1)">Click&#160;</text>
+    <text class="terminal-r1" x="0" y="20.4" textLength="805.2" clip-path="url(#terminal-line-0)">Visit&#160;the&#160;Textualize&#160;website.&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
+    <text class="terminal-r1" x="0" y="44.8" textLength="73.2" clip-path="url(#terminal-line-1)">Click&#160;</text>
     <text class="terminal-r1" x="73.2" y="44.8" textLength="48.8" style="text-decoration: underline;" clip-path="url(#terminal-line-1)">here</text>
-    <text class="terminal-default" x="0" y="69.2" textLength="231.8" clip-path="url(#terminal-line-2)">You&#160;can&#160;also&#160;click&#160;</text>
+    <text class="terminal-r1" x="122" y="44.8" textLength="488" clip-path="url(#terminal-line-1)">&#160;for&#160;the&#160;bell&#160;sound.&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
+    <text class="terminal-r1" x="0" y="69.2" textLength="231.8" clip-path="url(#terminal-line-2)">You&#160;can&#160;also&#160;click&#160;</text>
     <text class="terminal-r1" x="231.8" y="69.2" textLength="48.8" style="text-decoration: underline;" clip-path="url(#terminal-line-2)">here</text>
+    <text class="terminal-r1" x="280.6" y="69.2" textLength="488" clip-path="url(#terminal-line-2)">&#160;for&#160;the&#160;bell&#160;sound.&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
     <text class="terminal-r1" x="0" y="93.6" textLength="268.4" style="text-decoration: underline;" clip-path="url(#terminal-line-3)">Exit&#160;this&#160;application.</text>
+    <text class="terminal-r1" x="268.4" y="93.6" textLength="244" clip-path="url(#terminal-line-3)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
     </g>
     </g>
 </svg>

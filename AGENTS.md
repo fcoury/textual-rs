@@ -26,4 +26,5 @@ Project-specific instructions for agents working in this repo.
   - `PY_ACTIVATE` (defaults to detected venv activate script)
 - Notes:
   - Script enumerates Python examples and only compares when a matching Rust example exists.
+  - `height` example is intentionally different from Python; treat diffs as expected.
   - Outputs captures and diffs under `/tmp/texrs-compare-<session>`.

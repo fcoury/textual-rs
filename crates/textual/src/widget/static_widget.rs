@@ -243,9 +243,10 @@ impl<M> Static<M> {
         // Note: Text uses single opacity (not squared) because Python's _apply_opacity
         // only processes text once. Borders use opacity² because they go through
         // multiply_alpha AND _apply_opacity, but text content only goes through _apply_opacity.
+        let bg = self.style.effective_background();
         let fg = if self.style.auto_color {
             // For auto color, compute contrasting color against effective background
-            self.style.effective_background().map(|bg| {
+            bg.as_ref().map(|bg| {
                 // Get contrast ratio from the color's alpha (e.g., "auto 90%" has a=0.9)
                 let ratio = self.style.color.as_ref().map(|c| c.a).unwrap_or(1.0);
                 let contrasting = bg.get_contrasting_color(ratio);
@@ -276,7 +277,7 @@ impl<M> Static<M> {
 
         Style {
             fg,
-            bg: self.style.effective_background(),
+            bg,
             bold: self.style.text_style.bold,
             dim: self.style.text_style.dim,
             italic: self.style.text_style.italic,
@@ -334,6 +335,11 @@ impl<M> Static<M> {
             tcss::types::text::TextAlign::Right => AlignHorizontal::Right,
             tcss::types::text::TextAlign::Justify => AlignHorizontal::Left,
         };
+        let line_width = if h_align == AlignHorizontal::Left && v_align == AlignVertical::Top {
+            width
+        } else {
+            block_width
+        };
 
         // Build aligned lines with vertical padding
         let mut result = Vec::with_capacity(height);
@@ -348,10 +354,10 @@ impl<M> Static<M> {
         for line in lines.iter().take(height - v_offset) {
             let aligned_line =
                 if text_align == tcss::types::text::TextAlign::Justify && !line.line_end {
-                    line.strip.justify(block_width, pad_style.clone())
+                    line.strip.justify(line_width, pad_style.clone())
                 } else {
                     line.strip
-                        .text_align(line_align, block_width, pad_style.clone())
+                        .text_align(line_align, line_width, pad_style.clone())
                 };
             let with_offset = if h_offset > 0 {
                 let left = Strip::blank(h_offset, pad_style.clone());
@@ -446,7 +452,6 @@ Static {
 
         // 1. Create rendering style from computed CSS
         let style = self.rendering_style();
-
         // 2. Create render cache for border handling
         let cache = RenderCache::new(&self.style);
         let (inner_width, inner_height) = cache.inner_size(width, height);
@@ -472,7 +477,15 @@ Static {
         };
 
         // 4. Apply content alignment
-        let aligned_lines = self.align_content(&lines, inner_width, inner_height, style.clone());
+        let mut aligned_lines =
+            self.align_content(&lines, inner_width, inner_height, style.clone());
+        if self.style.text_opacity < 1.0 {
+            let fallback_bg = style.bg.as_ref();
+            aligned_lines = aligned_lines
+                .iter()
+                .map(|line| line.apply_text_opacity(self.style.text_opacity, fallback_bg))
+                .collect();
+        }
 
         // 4b. Extract link regions from content for hit testing
         // Store the render region for coordinate translation in mouse events

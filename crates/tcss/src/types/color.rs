@@ -350,9 +350,9 @@ impl RgbaColor {
         let out_b = self.b as f32 + (overlay.b as f32 - self.b as f32) * alpha;
 
         Self::rgba(
-            out_r.round().clamp(0.0, 255.0) as u8,
-            out_g.round().clamp(0.0, 255.0) as u8,
-            out_b.round().clamp(0.0, 255.0) as u8,
+            out_r.clamp(0.0, 255.0) as u8,
+            out_g.clamp(0.0, 255.0) as u8,
+            out_b.clamp(0.0, 255.0) as u8,
             self.a, // Keep original alpha
         )
     }
@@ -418,9 +418,9 @@ impl RgbaColor {
         let out_b = destination.b as f32 + (self.b as f32 - destination.b as f32) * factor;
 
         Self::rgba(
-            out_r.round().clamp(0.0, 255.0) as u8,
-            out_g.round().clamp(0.0, 255.0) as u8,
-            out_b.round().clamp(0.0, 255.0) as u8,
+            out_r.clamp(0.0, 255.0) as u8,
+            out_g.clamp(0.0, 255.0) as u8,
+            out_b.clamp(0.0, 255.0) as u8,
             self.a, // Keep original alpha
         )
     }
@@ -1244,14 +1244,14 @@ mod theme_math_tests {
         // Base: gray (100, 100, 100)
         // Overlay: 50% red (255, 0, 0, 0.5)
         // Formula: base + (overlay - base) * alpha
-        // r: 100 + (255 - 100) * 0.5 = 100 + 77.5 = 177.5 ≈ 178
+        // r: 100 + (255 - 100) * 0.5 = 100 + 77.5 = 177.5 → 177 (trunc)
         // g: 100 + (0 - 100) * 0.5 = 100 - 50 = 50
         // b: 100 + (0 - 100) * 0.5 = 100 - 50 = 50
         let base = RgbaColor::rgb(100, 100, 100);
         let overlay = RgbaColor::rgba(255, 0, 0, 0.5);
         let result = base.tint(&overlay);
 
-        assert_eq!(result.r, 178);
+        assert_eq!(result.r, 177);
         assert_eq!(result.g, 50);
         assert_eq!(result.b, 50);
         assert_eq!(result.a, 1.0); // Original alpha preserved

@@ -332,6 +332,10 @@ pub enum Declaration {
     // Text formatting properties
     /// The `text-align` property for horizontal alignment within a line.
     TextAlign(TextAlign),
+    /// The `text-opacity` property for text opacity (0.0 to 1.0, or 0% to 100%).
+    TextOpacity(f64),
+    /// The `text-style` property for text style (bold, italic, etc.).
+    TextStyle(TextStyle),
 
     // Content alignment properties (text alignment within widget)
     /// The `content-align-horizontal` property for horizontal content alignment.

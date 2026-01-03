@@ -29,6 +29,22 @@ fn parse_first_declaration(input: &str) -> Declaration {
 }
 
 // ============================================================================
+// TEXT OPACITY / STYLE PROPERTIES
+// ============================================================================
+
+#[test]
+fn test_property_text_opacity_percent() {
+    let decl = parse_first_declaration("Label { text-opacity: 25%; }");
+    assert_eq!(decl, Declaration::TextOpacity(0.25));
+}
+
+#[test]
+fn test_property_text_opacity_float() {
+    let decl = parse_first_declaration("Label { text-opacity: 0.6; }");
+    assert_eq!(decl, Declaration::TextOpacity(0.6));
+}
+
+// ============================================================================
 // COLOR PROPERTY
 // ============================================================================
 
@@ -616,11 +632,12 @@ fn test_property_opacity() {
 }
 
 #[test]
-#[ignore = "text-style property not yet implemented"]
 fn test_property_text_style() {
     let decl = parse_first_declaration("Button { text-style: bold italic; }");
-    // Should parse as Declaration::TextStyle with Bold | Italic
-    assert!(matches!(decl, Declaration::Unknown(_)));
+    let mut expected = TextStyle::default();
+    expected.bold = true;
+    expected.italic = true;
+    assert_eq!(decl, Declaration::TextStyle(expected));
 }
 
 #[test]

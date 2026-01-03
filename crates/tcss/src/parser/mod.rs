@@ -246,6 +246,8 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
 
         // Text formatting properties
         "text-align" => map(values::parse_text_align, Declaration::TextAlign)(input)?,
+        "text-opacity" => map(values::parse_opacity, Declaration::TextOpacity)(input)?,
+        "text-style" => map(values::parse_text_style, Declaration::TextStyle)(input)?,
 
         // Content alignment properties (text within widget)
         "content-align-horizontal" => map(

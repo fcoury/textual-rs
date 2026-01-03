@@ -113,6 +113,59 @@ impl Strip {
         self.segments.iter().map(|s| s.text()).collect()
     }
 
+    /// Apply text opacity by blending foreground colors toward the background.
+    ///
+    /// When opacity is 0, text is replaced with spaces while preserving background.
+    pub fn apply_text_opacity(&self, opacity: f64, fallback_bg: Option<&RgbaColor>) -> Strip {
+        if opacity >= 1.0 {
+            return self.clone();
+        }
+
+        let mut segments: SegmentVec = SegmentVec::new();
+        for segment in &self.segments {
+            let meta = segment.meta().clone();
+            let style = segment.style().cloned();
+            let bg = style.as_ref().and_then(|s| s.bg.as_ref()).or(fallback_bg);
+
+            if opacity <= 0.0 {
+                let blank_style = style.map(|mut s| {
+                    s.fg = None;
+                    s
+                });
+                let blank = Segment::blank(segment.cell_length(), blank_style);
+                segments.push(blank.with_meta(meta));
+                continue;
+            }
+
+            let fg = style
+                .as_ref()
+                .and_then(|s| s.fg.as_ref())
+                .cloned()
+                .or_else(|| bg.map(|_| RgbaColor::rgba(255, 255, 255, 1.0)));
+
+            let adjusted_style = if let Some(fg) = fg {
+                let blended = if let Some(bg) = bg {
+                    fg.blend_toward(bg, opacity)
+                } else {
+                    fg.with_opacity(opacity)
+                };
+                let mut new_style = style.unwrap_or_default();
+                new_style.fg = Some(blended);
+                Some(new_style)
+            } else {
+                style
+            };
+
+            let new_segment = match adjusted_style {
+                Some(style) => Segment::styled(segment.text(), style).with_meta(meta),
+                None => Segment::new(segment.text()).with_meta(meta),
+            };
+            segments.push(new_segment);
+        }
+
+        Strip::from_smallvec(segments)
+    }
+
     /// Extracts a portion of the strip from `start` to `end` cell positions.
     ///
     /// The resulting strip contains cells in the range [start, end).
@@ -718,16 +771,16 @@ mod tests {
         // Both segments should be tinted
         assert_eq!(tinted.segments().len(), 2);
 
-        // First segment: red (255, 0, 0) + 50% blue = (128, 0, 128)
+        // First segment: red (255, 0, 0) + 50% blue = (127, 0, 127) with truncation
         let fg1 = tinted.segments()[0].style().unwrap().fg.as_ref().unwrap();
-        assert_eq!(fg1.r, 128);
+        assert_eq!(fg1.r, 127);
         assert_eq!(fg1.g, 0);
-        assert_eq!(fg1.b, 128);
+        assert_eq!(fg1.b, 127);
 
-        // Second segment: green (0, 255, 0) + 50% blue = (0, 128, 128)
+        // Second segment: green (0, 255, 0) + 50% blue = (0, 127, 127) with truncation
         let fg2 = tinted.segments()[1].style().unwrap().fg.as_ref().unwrap();
         assert_eq!(fg2.r, 0);
-        assert_eq!(fg2.g, 128);
-        assert_eq!(fg2.b, 128);
+        assert_eq!(fg2.g, 127);
+        assert_eq!(fg2.b, 127);
     }
 }

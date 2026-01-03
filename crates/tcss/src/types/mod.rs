@@ -99,6 +99,7 @@ pub struct ComputedStyle {
 
     // Text & Content Alignment
     pub text_align: TextAlign,
+    pub text_opacity: f64,
     pub text_style: TextStyle,
     pub content_align_horizontal: AlignHorizontal,
     pub content_align_vertical: AlignVertical,
@@ -191,6 +192,7 @@ impl Default for ComputedStyle {
             border_title_style: TextStyle::default(),
             border_subtitle_style: TextStyle::default(),
             text_align: TextAlign::default(),
+            text_opacity: 1.0,
             text_style: TextStyle::default(),
             content_align_horizontal: AlignHorizontal::default(),
             content_align_vertical: AlignVertical::default(),

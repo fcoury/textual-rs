@@ -494,6 +494,12 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::TextAlign(a) => {
             style.text_align = *a;
         }
+        Declaration::TextOpacity(value) => {
+            style.text_opacity = *value;
+        }
+        Declaration::TextStyle(s) => {
+            style.text_style.merge(s);
+        }
 
         // Content alignment properties (text within widget)
         Declaration::ContentAlignHorizontal(a) => {

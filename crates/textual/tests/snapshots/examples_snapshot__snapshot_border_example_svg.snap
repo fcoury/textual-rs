@@ -129,19 +129,19 @@ expression: "canvas.to_svg(Some(\"Border Example\"))"
     <rect fill="#ffffff" x="963.8" y="122" width="12.2" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="146.4" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="170.8" width="12.2" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#cce6cc" x="12.2" y="170.8" width="951.6" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#cce5cc" x="12.2" y="170.8" width="951.6" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="963.8" y="170.8" width="12.2" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="195.2" width="12.2" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#cce6cc" x="12.2" y="195.2" width="951.6" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#cce5cc" x="12.2" y="195.2" width="951.6" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="963.8" y="195.2" width="12.2" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="219.59999" width="12.2" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#cce6cc" x="12.2" y="219.59999" width="951.6" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#cce5cc" x="12.2" y="219.59999" width="951.6" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="963.8" y="219.59999" width="12.2" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="244" width="12.2" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#cce6cc" x="12.2" y="244" width="951.6" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#cce5cc" x="12.2" y="244" width="951.6" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="963.8" y="244" width="12.2" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="268.4" width="12.2" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#cce6cc" x="12.2" y="268.4" width="951.6" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#cce5cc" x="12.2" y="268.4" width="951.6" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="963.8" y="268.4" width="12.2" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="292.8" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="317.19998" width="24.4" height="24.4" shape-rendering="crispEdges"/>
