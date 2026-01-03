@@ -401,7 +401,7 @@ impl RgbaColor {
     /// let faded = blue.blend_toward(&black, 0.5);  // 50% opacity
     /// assert_eq!(faded.r, 15);   // halfway between 30 and 0
     /// assert_eq!(faded.g, 72);   // halfway between 144 and 0
-    /// assert_eq!(faded.b, 128);  // halfway between 255 and 0 (rounded)
+    /// assert_eq!(faded.b, 127);  // halfway between 255 and 0 (truncated)
     /// ```
     pub fn blend_toward(&self, destination: &RgbaColor, factor: f64) -> Self {
         if factor >= 1.0 {
