@@ -454,7 +454,7 @@ where
 /// 1. Calculate the bounding box of all placements
 /// 2. Calculate the offset needed to align that bounding box
 /// 3. Translate all placements by that offset
-fn apply_alignment(
+pub(crate) fn apply_alignment(
     placements: &mut [WidgetPlacement],
     children: &[LayoutChild],
     parent_style: &ComputedStyle,

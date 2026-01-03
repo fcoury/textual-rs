@@ -126,7 +126,9 @@ impl<M> ItemGrid<M> {
         layout.stretch_height = self.stretch_height;
         layout.regular = self.regular;
 
-        layout.arrange(&self.style, &children_with_styles, region, viewport)
+        let mut placements = layout.arrange(&self.style, &children_with_styles, region, viewport);
+        layouts::apply_alignment(&mut placements, &children_with_styles, &self.style, region);
+        placements
     }
 }
 

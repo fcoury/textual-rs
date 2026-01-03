@@ -705,28 +705,12 @@ impl Layout for GridLayout {
                                 gutter_v,
                             );
 
-                            // Resolve child's actual size based on CSS width/height
-                            // Behavior depends on parent's alignment:
-                            // - Default alignment (left/top): children fill their cells
-                            // - Non-default alignment (center/right/middle/bottom): children use
-                            //   intrinsic size and get positioned within the cell
-                            use tcss::types::text::{AlignHorizontal, AlignVertical};
-
-                            let has_h_align =
-                                !matches!(parent_style.align_horizontal, AlignHorizontal::Left);
-                            let has_v_align =
-                                !matches!(parent_style.align_vertical, AlignVertical::Top);
-
-                            let mut child_width = if child_style.width.is_none() && has_h_align {
-                                // No width + non-default h-align: use intrinsic size
-                                desired_size.width as i32
-                            } else {
-                                resolve_width_with_intrinsic(
-                                    child_style,
-                                    desired_size.width,
-                                    cell_region.width,
-                                )
-                            };
+                            // Resolve child's actual size based on CSS width/height.
+                            let mut child_width = resolve_width_with_intrinsic(
+                                child_style,
+                                desired_size.width,
+                                cell_region.width,
+                            );
                             // Constrain width to cell width (matches Textual's constrain_width=True)
                             if child_width > cell_region.width {
                                 child_width = cell_region.width;
@@ -737,10 +721,8 @@ impl Layout for GridLayout {
                                 .as_ref()
                                 .map_or(false, |h| h.unit == Unit::Auto);
 
-                            let child_height = if (child_style.height.is_none() && has_v_align)
-                                || height_is_auto
-                            {
-                                // Auto height (or intrinsic height for aligned children) depends on width
+                            let child_height = if height_is_auto {
+                                // Auto height depends on width.
                                 child.node.intrinsic_height_for_width(child_width as u16) as i32
                             } else {
                                 resolve_height_with_intrinsic(
@@ -760,36 +742,9 @@ impl Layout for GridLayout {
                             let child_width = (child_width - margin_left - margin_right).max(0);
                             let child_height = (child_height - margin_top - margin_bottom).max(0);
 
-                            // Calculate effective cell region after margins
-                            let effective_cell_width =
-                                cell_region.width - margin_left - margin_right;
-                            let effective_cell_height =
-                                cell_region.height - margin_top - margin_bottom;
-
-                            // Apply alignment within the margin-adjusted cell
-                            let x_offset = match parent_style.align_horizontal {
-                                AlignHorizontal::Left => 0,
-                                AlignHorizontal::Center => {
-                                    (effective_cell_width - child_width).max(0) / 2
-                                }
-                                AlignHorizontal::Right => {
-                                    (effective_cell_width - child_width).max(0)
-                                }
-                            };
-
-                            let y_offset = match parent_style.align_vertical {
-                                AlignVertical::Top => 0,
-                                AlignVertical::Middle => {
-                                    (effective_cell_height - child_height).max(0) / 2
-                                }
-                                AlignVertical::Bottom => {
-                                    (effective_cell_height - child_height).max(0)
-                                }
-                            };
-
                             let final_region = Region {
-                                x: cell_region.x + margin_left + x_offset,
-                                y: cell_region.y + margin_top + y_offset,
+                                x: cell_region.x + margin_left,
+                                y: cell_region.y + margin_top,
                                 width: child_width,
                                 height: child_height,
                             };

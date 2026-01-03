@@ -49,7 +49,8 @@ pub struct GridStyle {
     pub row_heights: Vec<Scalar>,
 
     /// Gutter spacing between cells (vertical, horizontal).
-    /// From `grid-gutter` property.
+    /// From `grid-gutter` property, which is specified as
+    /// `grid-gutter: <vertical> <horizontal>`.
     pub gutter: (Scalar, Scalar),
 }
 

@@ -110,6 +110,9 @@ impl<M> Grid<M> {
             }
         }
 
+        // Apply post-layout alignment to match Textual's container-level align behavior.
+        layouts::apply_alignment(&mut placements, &children_with_styles, &self.style, region);
+
         placements
     }
 
