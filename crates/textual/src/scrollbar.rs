@@ -325,7 +325,11 @@ impl ScrollBarRender {
         position: f32,
     ) -> (i32, i32) {
         let size = track_size as f32;
-        let window_size = if window_size < virtual_size { window_size } else { 0.0 };
+        let window_size = if window_size < virtual_size {
+            window_size
+        } else {
+            0.0
+        };
         if window_size <= 0.0 || track_size == 0 || virtual_size == size || virtual_size <= 0.0 {
             return (0, 0);
         }

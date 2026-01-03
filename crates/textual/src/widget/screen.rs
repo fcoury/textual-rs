@@ -806,16 +806,14 @@ Screen {
                 {
                     if allow_horizontal {
                         let mut scroll = self.scroll.borrow_mut();
-                        let max_scroll_x =
-                            (scroll.virtual_width - content_region.width).max(0);
+                        let max_scroll_x = (scroll.virtual_width - content_region.width).max(0);
                         scroll.offset_x = (scroll.offset_x + SCROLL_AMOUNT).min(max_scroll_x);
                         self.is_dirty = true;
                         return None;
                     }
                 } else if allow_vertical {
                     let mut scroll = self.scroll.borrow_mut();
-                    let max_scroll_y =
-                        (scroll.virtual_height - content_region.height).max(0);
+                    let max_scroll_y = (scroll.virtual_height - content_region.height).max(0);
                     scroll.offset_y = (scroll.offset_y + SCROLL_AMOUNT).min(max_scroll_y);
                     self.is_dirty = true;
                     return None;
@@ -851,8 +849,7 @@ Screen {
             crossterm::event::MouseEventKind::ScrollRight => {
                 if self.show_horizontal_scrollbar() {
                     let mut scroll = self.scroll.borrow_mut();
-                    let max_scroll_x =
-                        (scroll.virtual_width - content_region.width).max(0);
+                    let max_scroll_x = (scroll.virtual_width - content_region.width).max(0);
                     scroll.offset_x = (scroll.offset_x + SCROLL_AMOUNT).min(max_scroll_x);
                     self.is_dirty = true;
                     return None;
