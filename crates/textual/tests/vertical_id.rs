@@ -233,18 +233,15 @@ fn test_render_cache_produces_tinted_background() {
 
     // Verify the color is the tinted color (truncated to match blending behavior)
     assert_eq!(
-        bg_color.r,
-        expected_r as u8,
+        bg_color.r, expected_r as u8,
         "Red component should be tinted"
     );
     assert_eq!(
-        bg_color.g,
-        expected_g as u8,
+        bg_color.g, expected_g as u8,
         "Green component should be tinted"
     );
     assert_eq!(
-        bg_color.b,
-        expected_b as u8,
+        bg_color.b, expected_b as u8,
         "Blue component should be tinted"
     );
 }

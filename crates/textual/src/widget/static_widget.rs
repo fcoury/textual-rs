@@ -471,7 +471,11 @@ Static {
             .with_hovered_action(self.hovered_link.borrow().clone());
 
         let lines = if inner_width > 0 {
-            content.wrap_with_line_end(inner_width)
+            content.wrap_with_line_end_overflow(
+                inner_width,
+                self.style.text_overflow,
+                self.style.text_wrap,
+            )
         } else {
             vec![]
         };
@@ -777,7 +781,11 @@ Static {
             Content::new(self.text())
         };
         let lines = if content_width > 0 {
-            content.wrap(content_width)
+            content.wrap_with_line_end_overflow(
+                content_width,
+                self.style.text_overflow,
+                self.style.text_wrap,
+            )
         } else {
             Vec::new()
         };

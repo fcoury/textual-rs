@@ -26,7 +26,7 @@
 use crate::types::{
     AlignHorizontal, AlignVertical, BorderEdge, BoxSizing, Display, Dock, Hatch, Keyline, Layout,
     Overflow, Position, RgbaColor, Scalar, ScrollbarGutter, ScrollbarSize, ScrollbarVisibility,
-    Spacing, TextAlign, TextStyle, Visibility,
+    Spacing, TextAlign, TextOverflow, TextStyle, TextWrap, Visibility,
 };
 
 /// CSS specificity for determining rule precedence.
@@ -332,6 +332,10 @@ pub enum Declaration {
     // Text formatting properties
     /// The `text-align` property for horizontal alignment within a line.
     TextAlign(TextAlign),
+    /// The `text-overflow` property for overflow handling (clip, fold, ellipsis).
+    TextOverflow(TextOverflow),
+    /// The `text-wrap` property for wrapping behavior (wrap, nowrap).
+    TextWrap(TextWrap),
     /// The `text-opacity` property for text opacity (0.0 to 1.0, or 0% to 100%).
     TextOpacity(f64),
     /// The `text-style` property for text style (bold, italic, etc.).

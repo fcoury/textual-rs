@@ -494,6 +494,12 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::TextAlign(a) => {
             style.text_align = *a;
         }
+        Declaration::TextOverflow(value) => {
+            style.text_overflow = *value;
+        }
+        Declaration::TextWrap(value) => {
+            style.text_wrap = *value;
+        }
         Declaration::TextOpacity(value) => {
             style.text_opacity = *value;
         }

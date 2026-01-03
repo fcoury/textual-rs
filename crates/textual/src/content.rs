@@ -27,8 +27,8 @@ use std::collections::HashMap;
 
 use crate::segment::{Segment, Style};
 use crate::strip::Strip;
-use tcss::types::RgbaColor;
 use tcss::types::link::LinkStyle;
+use tcss::types::{RgbaColor, TextOverflow, TextWrap};
 use unicode_width::UnicodeWidthStr;
 
 /// An internal span for styled content.
@@ -483,76 +483,93 @@ impl Content {
     ///
     /// Returns a vector of Strips, one per wrapped line.
     pub fn wrap(&self, width: usize) -> Vec<Strip> {
-        if width == 0 {
-            return vec![Strip::new()];
-        }
-
-        // If we have spans (from markup parsing), use span-aware wrapping
-        if let Some(spans) = &self.spans {
-            return self.wrap_with_spans(width, spans);
-        }
-
-        let mut result = Vec::new();
-
-        for line in self.text.split('\n') {
-            if line.is_empty() {
-                result.push(Strip::new());
-                continue;
-            }
-
-            let line_width = line.width();
-            if line_width <= width {
-                // Line fits, no wrapping needed
-                let segment = match &self.style {
-                    Some(s) => Segment::styled(line, s.clone()),
-                    None => Segment::new(line),
-                };
-                result.push(Strip::from_segment(segment));
-            } else {
-                // Need to wrap
-                result.extend(self.wrap_line(line, width));
-            }
-        }
-
-        if result.is_empty() {
-            result.push(Strip::new());
-        }
-
-        result
+        self.wrap_with_line_end_overflow(width, TextOverflow::Fold, TextWrap::Wrap)
+            .into_iter()
+            .map(|line| line.strip)
+            .collect()
     }
 
     /// Wraps content and marks the final wrapped line of each original line.
     pub fn wrap_with_line_end(&self, width: usize) -> Vec<WrappedLine> {
+        self.wrap_with_line_end_overflow(width, TextOverflow::Fold, TextWrap::Wrap)
+    }
+
+    /// Wraps content with configurable overflow and wrap behavior.
+    pub fn wrap_with_line_end_overflow(
+        &self,
+        width: usize,
+        overflow: TextOverflow,
+        text_wrap: TextWrap,
+    ) -> Vec<WrappedLine> {
         if width == 0 {
             return vec![WrappedLine::new(Strip::new(), true)];
         }
 
-        if let Some(spans) = &self.spans {
-            return self.wrap_with_spans_with_line_end(width, spans);
-        }
-
         let mut result = Vec::new();
+        let mut line_start = 0;
 
         for line in self.text.split('\n') {
+            let line_end = line_start + line.len();
+
             if line.is_empty() {
                 result.push(WrappedLine::new(Strip::new(), true));
+                line_start = line_end + 1;
                 continue;
             }
 
-            let line_width = line.width();
-            if line_width <= width {
-                let segment = match &self.style {
-                    Some(s) => Segment::styled(line, s.clone()),
-                    None => Segment::new(line),
-                };
-                result.push(WrappedLine::new(Strip::from_segment(segment), true));
-            } else {
-                let wrapped = self.wrap_line(line, width);
-                let last_index = wrapped.len().saturating_sub(1);
-                for (index, strip) in wrapped.into_iter().enumerate() {
-                    result.push(WrappedLine::new(strip, index == last_index));
+            let has_spans = self.spans.is_some();
+            let render_full_line = || {
+                if let Some(spans) = &self.spans {
+                    self.render_line_with_spans(line, line_start, line_end, spans)
+                } else {
+                    let segment = match &self.style {
+                        Some(s) => Segment::styled(line, s.clone()),
+                        None => Segment::new(line),
+                    };
+                    Strip::from_segment(segment)
+                }
+            };
+
+            match text_wrap {
+                TextWrap::NoWrap => match overflow {
+                    TextOverflow::Fold => {
+                        let strip = render_full_line();
+                        let parts = split_strip_by_width(&strip, width);
+                        let last_index = parts.len().saturating_sub(1);
+                        for (index, part) in parts.into_iter().enumerate() {
+                            result.push(WrappedLine::new(part, index == last_index));
+                        }
+                    }
+                    TextOverflow::Clip => {
+                        let strip = render_full_line().crop(0, width);
+                        result.push(WrappedLine::new(strip, true));
+                    }
+                    TextOverflow::Ellipsis => {
+                        let strip = render_full_line();
+                        let truncated = truncate_with_ellipsis(&strip, width);
+                        result.push(WrappedLine::new(truncated, true));
+                    }
+                },
+                TextWrap::Wrap => {
+                    let wrapped = if has_spans {
+                        let spans = self.spans.as_ref().unwrap();
+                        self.wrap_line_with_spans(line, line_start, width, spans)
+                    } else {
+                        self.wrap_line(line, width)
+                    };
+                    let last_index = wrapped.len().saturating_sub(1);
+                    for (index, strip) in wrapped.into_iter().enumerate() {
+                        let strip = if overflow == TextOverflow::Ellipsis {
+                            truncate_with_ellipsis(&strip, width)
+                        } else {
+                            strip
+                        };
+                        result.push(WrappedLine::new(strip, index == last_index));
+                    }
                 }
             }
+
+            line_start = line_end + 1;
         }
 
         if result.is_empty() {
@@ -563,6 +580,7 @@ impl Content {
     }
 
     /// Wraps content while preserving styled spans from markup.
+    #[allow(dead_code)]
     fn wrap_with_spans(&self, width: usize, spans: &[InternalSpan]) -> Vec<Strip> {
         let mut result = Vec::new();
         let mut line_start = 0;
@@ -596,6 +614,7 @@ impl Content {
     }
 
     /// Wraps content with spans and marks the final wrapped line of each original line.
+    #[allow(dead_code)]
     fn wrap_with_spans_with_line_end(
         &self,
         width: usize,
@@ -815,6 +834,56 @@ impl Content {
 
         result
     }
+}
+
+fn split_strip_by_width(strip: &Strip, width: usize) -> Vec<Strip> {
+    if width == 0 {
+        return vec![Strip::new()];
+    }
+    let total = strip.cell_length();
+    if total == 0 {
+        return vec![Strip::new()];
+    }
+    let mut parts = Vec::new();
+    let mut start = 0;
+    while start < total {
+        let end = (start + width).min(total);
+        parts.push(strip.crop(start, end));
+        start = end;
+    }
+    parts
+}
+
+fn truncate_with_ellipsis(strip: &Strip, width: usize) -> Strip {
+    if width == 0 {
+        return Strip::new();
+    }
+    if strip.cell_length() <= width {
+        return strip.clone();
+    }
+
+    if width == 1 {
+        let style = strip
+            .segments()
+            .last()
+            .and_then(|segment| segment.style().cloned());
+        let ellipsis = match style {
+            Some(style) => Segment::styled("…", style),
+            None => Segment::new("…"),
+        };
+        return Strip::from_segment(ellipsis);
+    }
+
+    let cropped = strip.crop(0, width - 1);
+    let ellipsis_style = cropped
+        .segments()
+        .last()
+        .and_then(|segment| segment.style().cloned());
+    let ellipsis = match ellipsis_style {
+        Some(style) => Segment::styled("…", style),
+        None => Segment::new("…"),
+    };
+    Strip::join(vec![cropped, Strip::from_segment(ellipsis)])
 }
 
 impl Default for Content {

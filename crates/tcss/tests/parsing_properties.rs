@@ -12,7 +12,7 @@ use tcss::parser::{Declaration, parse_rule};
 use tcss::types::border::BorderKind;
 use tcss::types::color::RgbaColor;
 use tcss::types::geometry::{Scalar, Spacing, Unit};
-use tcss::types::text::{TextAlign, TextStyle};
+use tcss::types::text::{TextAlign, TextOverflow, TextStyle, TextWrap};
 use tcss::types::{AlignHorizontal, AlignVertical, Layout, Overflow, Visibility};
 
 /// Helper to parse a simple rule and extract declarations
@@ -644,6 +644,21 @@ fn test_property_text_style() {
 fn test_property_text_align() {
     let decl = parse_first_declaration("Button { text-align: center; }");
     assert!(matches!(decl, Declaration::TextAlign(TextAlign::Center)));
+}
+
+#[test]
+fn test_property_text_overflow() {
+    let decl = parse_first_declaration("Button { text-overflow: ellipsis; }");
+    assert!(matches!(
+        decl,
+        Declaration::TextOverflow(TextOverflow::Ellipsis)
+    ));
+}
+
+#[test]
+fn test_property_text_wrap() {
+    let decl = parse_first_declaration("Button { text-wrap: nowrap; }");
+    assert!(matches!(decl, Declaration::TextWrap(TextWrap::NoWrap)));
 }
 
 #[test]

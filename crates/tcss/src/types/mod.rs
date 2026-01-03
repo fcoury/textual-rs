@@ -48,7 +48,7 @@ pub use keyline::{Keyline, KeylineStyle};
 pub use layout::{BoxSizing, Display, Dock, Layout, Overflow, Position, Visibility};
 pub use link::LinkStyle;
 pub use scrollbar::{ScrollbarGutter, ScrollbarSize, ScrollbarStyle, ScrollbarVisibility};
-pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextStyle};
+pub use text::{AlignHorizontal, AlignVertical, TextAlign, TextOverflow, TextStyle, TextWrap};
 pub use theme::{ColorSystem, Theme};
 
 /// The final computed style for a widget after cascade resolution.
@@ -101,6 +101,8 @@ pub struct ComputedStyle {
     pub text_align: TextAlign,
     pub text_opacity: f64,
     pub text_style: TextStyle,
+    pub text_overflow: TextOverflow,
+    pub text_wrap: TextWrap,
     pub content_align_horizontal: AlignHorizontal,
     pub content_align_vertical: AlignVertical,
 
@@ -194,6 +196,8 @@ impl Default for ComputedStyle {
             text_align: TextAlign::default(),
             text_opacity: 1.0,
             text_style: TextStyle::default(),
+            text_overflow: TextOverflow::default(),
+            text_wrap: TextWrap::default(),
             content_align_horizontal: AlignHorizontal::default(),
             content_align_vertical: AlignVertical::default(),
             align_horizontal: AlignHorizontal::default(),

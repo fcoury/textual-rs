@@ -246,6 +246,8 @@ fn parse_single_declaration(input: &str) -> IResult<&str, Declaration> {
 
         // Text formatting properties
         "text-align" => map(values::parse_text_align, Declaration::TextAlign)(input)?,
+        "text-overflow" => map(values::parse_text_overflow, Declaration::TextOverflow)(input)?,
+        "text-wrap" => map(values::parse_text_wrap, Declaration::TextWrap)(input)?,
         "text-opacity" => map(values::parse_opacity, Declaration::TextOpacity)(input)?,
         "text-style" => map(values::parse_text_style, Declaration::TextStyle)(input)?,
 

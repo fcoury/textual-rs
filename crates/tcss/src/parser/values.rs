@@ -209,6 +209,35 @@ pub fn parse_text_align(input: &str) -> IResult<&str, crate::types::text::TextAl
     }
 }
 
+/// Parse text-overflow keywords.
+pub fn parse_text_overflow(input: &str) -> IResult<&str, crate::types::text::TextOverflow> {
+    let (input, ident) = parse_ident(input)?;
+    use crate::types::text::TextOverflow::*;
+    match ident.to_lowercase().as_str() {
+        "clip" => Ok((input, Clip)),
+        "fold" => Ok((input, Fold)),
+        "ellipsis" => Ok((input, Ellipsis)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
+/// Parse text-wrap keywords.
+pub fn parse_text_wrap(input: &str) -> IResult<&str, crate::types::text::TextWrap> {
+    let (input, ident) = parse_ident(input)?;
+    use crate::types::text::TextWrap::*;
+    match ident.to_lowercase().as_str() {
+        "wrap" => Ok((input, Wrap)),
+        "nowrap" => Ok((input, NoWrap)),
+        _ => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Tag,
+        ))),
+    }
+}
+
 /// Parse a u16 integer.
 pub fn parse_u16(input: &str) -> IResult<&str, u16> {
     let (input, digits) = digit1(input)?;

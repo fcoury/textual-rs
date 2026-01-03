@@ -173,6 +173,38 @@ pub enum TextAlign {
     Justify,
 }
 
+/// How to handle text that overflows the available width.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextOverflow {
+    /// Clip the overflow and keep a single line.
+    Clip,
+    /// Fold overflow onto additional lines (character wrap).
+    Fold,
+    /// Truncate overflow and append an ellipsis.
+    Ellipsis,
+}
+
+impl Default for TextOverflow {
+    fn default() -> Self {
+        Self::Fold
+    }
+}
+
+/// Whether text should wrap within its container.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextWrap {
+    /// Wrap text on word boundaries.
+    Wrap,
+    /// Do not wrap; rely on overflow handling.
+    NoWrap,
+}
+
+impl Default for TextWrap {
+    fn default() -> Self {
+        Self::Wrap
+    }
+}
+
 /// Horizontal alignment for content within a container.
 ///
 /// Used for `content-align-horizontal` to position child elements.
