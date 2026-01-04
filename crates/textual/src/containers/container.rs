@@ -647,6 +647,7 @@ Container {
 
         let width = region.width as usize;
         let height = region.height as usize;
+        let is_hidden = self.style.visibility == Visibility::Hidden;
 
         // 1. Create render cache for border handling
         let cache = RenderCache::new(&self.style);
@@ -749,16 +750,18 @@ Container {
         };
 
         // 3. Render each line (background fill + borders with titles)
-        for y in 0..height {
-            let strip = cache.render_line(
-                y,
-                height,
-                width,
-                None,
-                title_strip.as_ref(),
-                subtitle_strip.as_ref(),
-            );
-            canvas.render_strip(&strip, region.x, region.y + y as i32);
+        if !is_hidden {
+            for y in 0..height {
+                let strip = cache.render_line(
+                    y,
+                    height,
+                    width,
+                    None,
+                    title_strip.as_ref(),
+                    subtitle_strip.as_ref(),
+                );
+                canvas.render_strip(&strip, region.x, region.y + y as i32);
+            }
         }
 
         // 4. Calculate inner region for children
@@ -873,8 +876,7 @@ Container {
         canvas.push_clip(content_region);
         for placement in &placements {
             let child = &self.children[placement.child_index];
-            // Skip rendering if visibility is hidden (but widget still occupies space)
-            if child.get_style().visibility == Visibility::Hidden {
+            if !child.participates_in_layout() {
                 continue;
             }
 
@@ -898,14 +900,14 @@ Container {
         }
 
         // 7. Render keylines on top of children (if enabled)
-        if self.style.keyline.style != KeylineStyle::None {
+        if !is_hidden && self.style.keyline.style != KeylineStyle::None {
             self.render_keylines(canvas, content_region, &placements);
         }
 
         canvas.pop_clip();
 
         // 8. Render vertical scrollbar if needed
-        if self.render_vertical_scrollbar() {
+        if !is_hidden && self.render_vertical_scrollbar() {
             let v_region = self.vertical_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.vertical_colors();
             let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(
@@ -928,7 +930,7 @@ Container {
         }
 
         // 9. Render horizontal scrollbar if needed
-        if self.render_horizontal_scrollbar() {
+        if !is_hidden && self.render_horizontal_scrollbar() {
             let h_region = self.horizontal_scrollbar_region(inner_region);
             let (thumb_color, track_color) = self.horizontal_colors();
             let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(

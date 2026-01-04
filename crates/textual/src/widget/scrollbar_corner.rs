@@ -5,7 +5,7 @@
 
 use crate::canvas::TextAttributes;
 use crate::{Canvas, Region, Size, Widget};
-use tcss::types::{RgbaColor, ScrollbarStyle};
+use tcss::types::{RgbaColor, ScrollbarStyle, Visibility};
 use tcss::{ComputedStyle, StyleOverride};
 
 /// Fills the corner gap when both scrollbars are visible.
@@ -77,6 +77,9 @@ impl<M> Widget<M> for ScrollBarCorner {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if self.style.visibility == Visibility::Hidden {
+            return;
+        }
         let bg = self.effective_color();
 
         // Fill the corner with the background color

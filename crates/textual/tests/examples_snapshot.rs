@@ -1914,6 +1914,79 @@ fn snapshot_keyline_example() {
 }
 
 // ============================================================================
+// Visibility Containers Example
+// ============================================================================
+
+mod visibility_containers_example {
+    use super::*;
+    use textual::{Horizontal, Placeholder, VerticalScroll};
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct VisibilityContainersApp;
+
+    impl Compose for VisibilityContainersApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                VerticalScroll {
+                    Horizontal(id: "top") {
+                        Placeholder()
+                        Placeholder()
+                        Placeholder()
+                    }
+                    Horizontal(id: "middle") {
+                        Placeholder()
+                        Placeholder()
+                        Placeholder()
+                    }
+                    Horizontal(id: "bot") {
+                        Placeholder()
+                        Placeholder()
+                        Placeholder()
+                    }
+                }
+            }
+        }
+    }
+
+    pub const CSS: &str = r#"
+Horizontal {
+    padding: 1 2;
+    background: white;
+    height: 1fr;
+}
+
+#top {}
+
+#middle {
+    visibility: hidden;
+}
+
+#bot {
+    visibility: hidden;
+}
+
+#bot > Placeholder {
+    visibility: visible;
+}
+
+Placeholder {
+    width: 1fr;
+}
+"#;
+}
+
+#[test]
+fn snapshot_visibility_containers_example_svg() {
+    let app = visibility_containers_example::VisibilityContainersApp;
+    let canvas = render_to_canvas(&app, visibility_containers_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_svg(Some("Visibility Containers Example")));
+}
+
+// ============================================================================
 // Keyline Horizontal Example
 // ============================================================================
 

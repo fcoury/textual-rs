@@ -43,6 +43,29 @@ pub fn render_container_chrome(
     }
 
     // Calculate inner region for children
+    inner_region_from_cache(region, &cache, inner_width as i32, inner_height as i32)
+}
+
+/// Computes the inner region for a container without rendering chrome.
+pub fn inner_region_for_container(region: Region, style: &ComputedStyle) -> Region {
+    if region.width <= 0 || region.height <= 0 {
+        return region;
+    }
+
+    let width = region.width as usize;
+    let height = region.height as usize;
+    let cache = RenderCache::new(style);
+    let (inner_width, inner_height) = cache.inner_size(width, height);
+
+    inner_region_from_cache(region, &cache, inner_width as i32, inner_height as i32)
+}
+
+fn inner_region_from_cache(
+    region: Region,
+    cache: &RenderCache,
+    inner_width: i32,
+    inner_height: i32,
+) -> Region {
     let border_offset = if cache.has_border() { 1 } else { 0 };
     let padding_left = cache.padding_left() as i32;
     let padding_top = cache.padding_top() as i32;
@@ -50,8 +73,8 @@ pub fn render_container_chrome(
     Region::new(
         region.x + border_offset + padding_left,
         region.y + border_offset + padding_top,
-        inner_width as i32,
-        inner_height as i32,
+        inner_width,
+        inner_height,
     )
 }
 

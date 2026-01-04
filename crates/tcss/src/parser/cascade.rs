@@ -426,6 +426,7 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         }
         Declaration::Visibility(v) => {
             style.visibility = *v;
+            style.visibility_set = true;
         }
         Declaration::Opacity(val) => {
             style.opacity = *val;

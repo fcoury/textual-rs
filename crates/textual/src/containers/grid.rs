@@ -231,23 +231,28 @@ Grid {
             return;
         }
 
+        let is_hidden = self.style.visibility == Visibility::Hidden;
+
         // 1. Render background/border and get inner region
-        let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
+        let inner_region = if is_hidden {
+            crate::containers::inner_region_for_container(region, &self.style)
+        } else {
+            crate::containers::render_container_chrome(canvas, region, &self.style)
+        };
 
         // 2. Render children in inner region using the canvas viewport
         let viewport = canvas.viewport();
         canvas.push_clip(inner_region);
         for placement in self.compute_child_placements(inner_region, viewport) {
             let child = &self.children[placement.child_index];
-            // Skip rendering if visibility is hidden (but widget still occupies space)
-            if child.get_style().visibility == Visibility::Hidden {
+            if !child.participates_in_layout() {
                 continue;
             }
             child.render(canvas, placement.region);
         }
 
         // 3. Render keylines on top of children (if enabled)
-        if self.style.keyline.style != KeylineStyle::None {
+        if !is_hidden && self.style.keyline.style != KeylineStyle::None {
             self.render_keylines(canvas, inner_region);
         }
 

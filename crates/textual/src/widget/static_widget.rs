@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 use crossterm::event::MouseEventKind;
-use tcss::types::{AlignHorizontal, AlignVertical};
+use tcss::types::{AlignHorizontal, AlignVertical, Visibility};
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 use unicode_width::UnicodeWidthStr;
 
@@ -453,6 +453,9 @@ Static {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if self.style.visibility == Visibility::Hidden {
+            return;
+        }
         if region.width <= 0 || region.height <= 0 {
             return;
         }

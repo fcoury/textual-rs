@@ -96,7 +96,12 @@ HorizontalScroll {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "HorizontalScroll",
-            type_names: vec!["HorizontalScroll", "ScrollableContainer", "Widget", "DOMNode"],
+            type_names: vec![
+                "HorizontalScroll",
+                "ScrollableContainer",
+                "Widget",
+                "DOMNode",
+            ],
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: self.inner.get_state(),

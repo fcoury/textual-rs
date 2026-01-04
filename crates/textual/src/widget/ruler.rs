@@ -5,6 +5,7 @@
 
 use std::marker::PhantomData;
 
+use tcss::types::Visibility;
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::segment::{Segment, Style};
@@ -168,6 +169,9 @@ Ruler.-horizontal {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if self.style.visibility == Visibility::Hidden {
+            return;
+        }
         if region.width <= 0 || region.height <= 0 {
             return;
         }

@@ -8,7 +8,7 @@
 use crate::scroll::ScrollMessage;
 use crate::scrollbar::ScrollBarRender;
 use crate::{Canvas, MouseEvent, MouseEventKind, Region, Size, Widget};
-use tcss::types::{RgbaColor, ScrollbarStyle};
+use tcss::types::{RgbaColor, ScrollbarStyle, Visibility};
 use tcss::{ComputedStyle, StyleOverride, WidgetStates};
 
 /// Scrollbar interaction state.
@@ -178,6 +178,9 @@ where
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if self.computed_style.visibility == Visibility::Hidden {
+            return;
+        }
         let (thumb_color, track_color) = self.current_colors();
         let (thumb_color, track_color, draw_thumb) = ScrollBarRender::compose_colors(
             thumb_color,

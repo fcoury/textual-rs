@@ -15,6 +15,8 @@ pub struct InheritedContext {
     /// The effective background at this level (for auto color resolution)
     /// This is the composed background including background-tint.
     pub effective_background: Option<RgbaColor>,
+    /// Parent visibility for inheritance.
+    pub visibility: tcss::types::Visibility,
 }
 
 impl InheritedContext {
@@ -27,6 +29,7 @@ impl InheritedContext {
             color,
             auto_color: false,
             effective_background: None,
+            visibility: tcss::types::Visibility::Visible,
         }
     }
 }
@@ -142,6 +145,10 @@ fn apply_inheritance(style: &mut ComputedStyle, inherited: &InheritedContext) {
     // Store inherited effective background for auto color resolution
     // (used when this widget is transparent and needs parent's background for contrast)
     style.inherited_background = inherited.effective_background.clone();
+
+    if !style.visibility_set {
+        style.visibility = inherited.visibility;
+    }
 }
 
 /// Build the inherited context to pass to children.
@@ -156,6 +163,7 @@ fn build_inherited_context(
         color: style.color.clone(),
         auto_color: style.auto_color,
         effective_background: effective_bg,
+        visibility: style.visibility,
     }
 }
 

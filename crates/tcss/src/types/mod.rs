@@ -113,6 +113,8 @@ pub struct ComputedStyle {
     // Display & Visibility
     pub display: Display,
     pub visibility: Visibility,
+    /// True when visibility was explicitly set by a rule (not inherited/default).
+    pub visibility_set: bool,
     pub opacity: f64,
 
     // Layout mode
@@ -245,6 +247,7 @@ impl Default for ComputedStyle {
             align_vertical: AlignVertical::default(),
             display: Display::default(),
             visibility: Visibility::default(),
+            visibility_set: false,
             opacity: 1.0,
             layout: Layout::default(),
             position: Position::default(),

@@ -22,7 +22,7 @@
 
 use std::cell::Cell;
 
-use tcss::types::RgbaColor;
+use tcss::types::{RgbaColor, Visibility};
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, TextAttributes};
@@ -240,20 +240,47 @@ impl Placeholder {
         lines
     }
 
-    /// Get the background color (CSS or palette with 50% opacity).
+    /// Get the background color, composited with inherited background as needed.
     fn effective_background(&self) -> RgbaColor {
-        self.style.background.clone().unwrap_or_else(|| {
-            let (r, g, b) = PALETTE[self.palette_index];
-            RgbaColor::rgba(r, g, b, 0.5)
-        })
+        if self.style.background.is_some() {
+            return self
+                .style
+                .effective_background()
+                .unwrap_or_else(|| self.style.background.clone().unwrap());
+        }
+
+        let (r, g, b) = PALETTE[self.palette_index];
+        let overlay = RgbaColor::rgba(r, g, b, 0.5);
+        match &self.style.inherited_background {
+            Some(bg) => overlay.blend_over(bg),
+            None => overlay,
+        }
     }
 
-    /// Get the foreground color (CSS or contrasting white).
-    fn effective_foreground(&self) -> RgbaColor {
-        self.style.color.clone().unwrap_or_else(|| {
-            // White text for contrast on colored backgrounds
-            RgbaColor::rgb(255, 255, 255)
-        })
+    /// Get the foreground color, respecting auto color and opacity.
+    fn effective_foreground(&self, effective_bg: Option<&RgbaColor>) -> Option<RgbaColor> {
+        if self.style.auto_color {
+            effective_bg.map(|bg| {
+                let ratio = self.style.color.as_ref().map(|c| c.a).unwrap_or(1.0);
+                let contrasting = bg.get_contrasting_color(ratio);
+                match &self.style.inherited_background {
+                    Some(inherited_bg) => {
+                        contrasting.blend_toward(inherited_bg, self.style.opacity)
+                    }
+                    None => contrasting.with_opacity(self.style.opacity),
+                }
+            })
+        } else {
+            match (&self.style.color, &self.style.inherited_background) {
+                (Some(color), Some(bg)) => Some(color.blend_toward(bg, self.style.opacity)),
+                (Some(color), None) => Some(color.with_opacity(self.style.opacity)),
+                (None, Some(bg)) if self.style.opacity < 1.0 => {
+                    let white = RgbaColor::rgba(255, 255, 255, 1.0);
+                    Some(white.blend_toward(bg, self.style.opacity))
+                }
+                _ => None,
+            }
+        }
     }
 }
 
@@ -262,12 +289,22 @@ impl<M> Widget<M> for Placeholder {
         // Match Python Textual: width fills, height unspecified (fills in horizontal, intrinsic in vertical)
         r#"
 Placeholder {
+    content-align: center middle;
+    overflow: hidden;
+    color: $text;
     width: 1fr;
+
+    &:disabled {
+        opacity: 0.7;
+    }
 }
 "#
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if self.style.visibility == Visibility::Hidden {
+            return;
+        }
         if region.width <= 0 || region.height <= 0 {
             return;
         }
@@ -283,7 +320,9 @@ Placeholder {
         let content_height = (region.height - padding_top - padding_bottom).max(0);
 
         let bg = self.effective_background();
-        let fg = self.effective_foreground();
+        let fg = self
+            .effective_foreground(Some(&bg))
+            .unwrap_or_else(|| RgbaColor::rgb(255, 255, 255));
 
         // Fill background
         for y in region.y..(region.y + region.height) {

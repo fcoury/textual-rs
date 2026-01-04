@@ -665,8 +665,14 @@ ScrollableContainer {
             return;
         }
 
+        let is_hidden = self.style.visibility == Visibility::Hidden;
+
         // 1. Render background/border and get inner region
-        let inner_region = crate::containers::render_container_chrome(canvas, region, &self.style);
+        let inner_region = if is_hidden {
+            crate::containers::inner_region_for_container(region, &self.style)
+        } else {
+            crate::containers::render_container_chrome(canvas, region, &self.style)
+        };
 
         let viewport = canvas.viewport();
         let layout = self.compute_scroll_layout(inner_region, viewport);
@@ -712,7 +718,7 @@ ScrollableContainer {
 
         for placement in &layout.placements {
             let child = &self.children[placement.child_index];
-            if child.get_style().visibility == Visibility::Hidden {
+            if !child.participates_in_layout() {
                 continue;
             }
 
@@ -738,7 +744,7 @@ ScrollableContainer {
         let render_horizontal = self.render_horizontal_scrollbar(layout.show_horizontal);
 
         // Render vertical scrollbar ON TOP of chrome
-        if render_vertical {
+        if !is_hidden && render_vertical {
             let v_region =
                 self.vertical_scrollbar_region_with_flags(inner_region, layout.show_horizontal);
             let (thumb_color, track_color) = self.vertical_colors();
@@ -761,7 +767,7 @@ ScrollableContainer {
         }
 
         // Render horizontal scrollbar ON TOP of chrome
-        if render_horizontal {
+        if !is_hidden && render_horizontal {
             let h_region =
                 self.horizontal_scrollbar_region_with_flags(inner_region, layout.show_vertical);
             let (thumb_color, track_color) = self.horizontal_colors();
@@ -784,7 +790,7 @@ ScrollableContainer {
         }
 
         // Render corner if both scrollbars visible
-        if render_vertical && render_horizontal {
+        if !is_hidden && render_vertical && render_horizontal {
             let corner_region = self.corner_region(inner_region);
             let style = self.scrollbar_style();
             let mut corner = ScrollBarCorner::new(style.size.vertical, style.size.horizontal);

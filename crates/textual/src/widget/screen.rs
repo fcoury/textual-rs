@@ -24,7 +24,7 @@ use crate::widget::Widget;
 use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::{KeyCode, MouseEvent};
 use crossterm::event::KeyModifiers;
-use tcss::types::{Overflow, RgbaColor, ScrollbarGutter, ScrollbarVisibility, Unit, Visibility};
+use tcss::types::{Overflow, RgbaColor, ScrollbarGutter, ScrollbarVisibility, Unit};
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 /// Breakpoint configuration: threshold and class name to apply.
@@ -550,9 +550,7 @@ Screen {
         canvas.push_clip(content_region);
         for placement in &placements {
             if let Some(child) = self.children.get(placement.child_index) {
-                if !child.participates_in_layout()
-                    || child.get_style().visibility == Visibility::Hidden
-                {
+                if !child.participates_in_layout() {
                     continue;
                 }
                 let scrolled_region = Region {

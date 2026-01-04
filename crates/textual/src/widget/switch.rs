@@ -1,3 +1,4 @@
+use tcss::types::Visibility;
 use tcss::{ComputedStyle, StyleOverride, WidgetStates};
 
 use crate::canvas::TextAttributes;
@@ -160,6 +161,9 @@ where
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
+        if self.style.visibility == Visibility::Hidden {
+            return;
+        }
         // Log to verify what colors are actually in the struct right now
         log::debug!(
             "SWITCH RENDER: fg={:?} bg={:?} loading={} disabled={}",
