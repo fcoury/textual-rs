@@ -343,7 +343,10 @@ impl<M> Static<M> {
 
         // Build aligned lines with vertical padding
         let mut result = Vec::with_capacity(height);
-        let pad_style = Some(style);
+        let pad_style = Some(Style {
+            reverse: false,
+            ..style.clone()
+        });
 
         // Add top padding
         for _ in 0..v_offset {

@@ -184,8 +184,9 @@ impl Layout for HorizontalLayout {
             let height = if let Some(h) = &child_style.height {
                 match h.unit {
                     Unit::Auto => {
-                        // Auto means intrinsic - already includes chrome
-                        desired_size.height as i32
+                        // Auto means intrinsic height for the resolved width
+                        let width_u16 = width.clamp(0, u16::MAX as i32) as u16;
+                        child.node.intrinsic_height_for_width(width_u16) as i32
                     }
                     Unit::Fraction => {
                         // fr fills available - no box-sizing adjustment
