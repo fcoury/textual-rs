@@ -166,6 +166,47 @@ pub struct ComputedStyle {
     pub outline: Border,
 }
 
+/// Inline style overrides applied after CSS cascade.
+///
+/// This mirrors CSS inline styles in that it has the highest priority and
+/// should be applied on top of computed styles.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StyleOverride {
+    /// Tint color overlay applied to all colors (both fg and bg).
+    pub tint: Option<RgbaColor>,
+    /// Tint color overlay applied only to background.
+    pub background_tint: Option<RgbaColor>,
+}
+
+impl StyleOverride {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn tint(mut self, tint: RgbaColor) -> Self {
+        self.tint = Some(tint);
+        self
+    }
+
+    pub fn background_tint(mut self, tint: RgbaColor) -> Self {
+        self.background_tint = Some(tint);
+        self
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.tint.is_none() && self.background_tint.is_none()
+    }
+
+    pub fn apply_to(&self, style: &mut ComputedStyle) {
+        if let Some(tint) = &self.tint {
+            style.tint = Some(tint.clone());
+        }
+        if let Some(tint) = &self.background_tint {
+            style.background_tint = Some(tint.clone());
+        }
+    }
+}
+
 impl Default for ComputedStyle {
     fn default() -> Self {
         Self {

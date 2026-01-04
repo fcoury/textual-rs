@@ -6,7 +6,7 @@
 //! - `stretch_height`: Force all cells in a row to equal height
 //! - `regular`: Ensure no partial rows (even distribution)
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates, types::Visibility};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates, types::Visibility};
 
 use crate::canvas::{Canvas, Region, Size};
 use crate::layouts::{self, GridLayout, Layout};
@@ -32,6 +32,7 @@ use crate::{KeyCode, MouseEvent};
 pub struct ItemGrid<M> {
     children: Vec<Box<dyn Widget<M>>>,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     dirty: bool,
     id: Option<String>,
 
@@ -49,6 +50,7 @@ impl<M> ItemGrid<M> {
         Self {
             children,
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
             id: None,
             min_column_width: None,
@@ -164,6 +166,7 @@ impl<M> Widget<M> for ItemGrid<M> {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "ItemGrid",
+            type_names: vec!["ItemGrid", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: Vec::new(),
             states: WidgetStates::empty(),
@@ -176,6 +179,24 @@ impl<M> Widget<M> for ItemGrid<M> {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn is_dirty(&self) -> bool {

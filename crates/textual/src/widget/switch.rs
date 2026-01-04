@@ -1,4 +1,4 @@
-use tcss::{ComputedStyle, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetStates};
 
 use crate::canvas::TextAttributes;
 use crate::{Canvas, KeyCode, MouseEvent, MouseEventKind, Region, Size, Widget};
@@ -24,6 +24,8 @@ where
     pub value: bool,
     /// Computed CSS styles
     pub style: ComputedStyle,
+    /// Inline style override
+    inline_style: StyleOverride,
     /// Whether styles need to be recomputed
     dirty: bool,
     /// Optional widget ID for message tracking
@@ -57,6 +59,7 @@ where
             spinner_frame: 0,
             on_change,
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
         }
     }
 
@@ -206,6 +209,24 @@ where
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn on_event(&mut self, key: KeyCode) -> Option<M> {

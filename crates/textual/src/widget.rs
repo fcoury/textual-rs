@@ -8,7 +8,7 @@ pub mod scrollbar_corner;
 pub mod static_widget;
 pub mod switch;
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::{
     KeyCode, MouseEvent, Size,
@@ -103,6 +103,7 @@ pub trait Widget<M> {
 
         WidgetMeta {
             type_name,
+            type_names: vec![type_name, "Widget", "DOMNode"],
             id: self.id().map(|s| s.to_string()),
             classes: Vec::new(),
             states: self.get_state(),
@@ -177,6 +178,19 @@ pub trait Widget<M> {
     fn get_style(&self) -> ComputedStyle {
         ComputedStyle::default()
     }
+
+    /// Set an inline style override for this widget.
+    ///
+    /// Inline styles have the highest priority and are applied after the CSS cascade.
+    fn set_inline_style(&mut self, _style: StyleOverride) {}
+
+    /// Get the current inline style override, if any.
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        None
+    }
+
+    /// Clear any inline style override.
+    fn clear_inline_style(&mut self) {}
 
     /// Called before layout arrangement to allow runtime configuration.
     ///

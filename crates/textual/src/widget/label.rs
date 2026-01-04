@@ -237,6 +237,7 @@ Label {
     fn get_meta(&self) -> tcss::WidgetMeta {
         let mut meta = self.inner.get_meta();
         meta.type_name = "Label";
+        meta.type_names = vec!["Label", "Static", "Widget", "DOMNode"];
         meta
     }
 
@@ -250,6 +251,18 @@ Label {
 
     fn get_style(&self) -> tcss::ComputedStyle {
         self.inner.get_style()
+    }
+
+    fn set_inline_style(&mut self, style: tcss::StyleOverride) {
+        self.inner.set_inline_style(style)
+    }
+
+    fn inline_style(&self) -> Option<&tcss::StyleOverride> {
+        self.inner.inline_style()
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inner.clear_inline_style()
     }
 
     fn is_dirty(&self) -> bool {

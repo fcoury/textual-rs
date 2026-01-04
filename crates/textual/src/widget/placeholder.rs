@@ -23,7 +23,7 @@
 use std::cell::Cell;
 
 use tcss::types::RgbaColor;
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, TextAttributes};
 use crate::widget::Widget;
@@ -100,6 +100,7 @@ pub struct Placeholder {
     label: Option<String>,
     palette_index: usize,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     dirty: bool,
     id: Option<String>,
     classes: Vec<String>,
@@ -118,6 +119,7 @@ impl Placeholder {
             label: None,
             palette_index: index % PALETTE.len(),
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
             id: None,
             classes: Vec::new(),
@@ -477,6 +479,7 @@ Placeholder {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "Placeholder",
+            type_names: vec!["Placeholder", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: WidgetStates::empty(),
@@ -489,6 +492,24 @@ Placeholder {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn is_dirty(&self) -> bool {

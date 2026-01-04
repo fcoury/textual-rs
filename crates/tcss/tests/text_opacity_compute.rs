@@ -16,6 +16,7 @@ fn computes_text_opacity_for_label() {
     let stylesheet = parse_stylesheet(css).expect("failed to parse stylesheet");
     let meta = WidgetMeta {
         type_name: "Label",
+        type_names: vec!["Label", "Widget", "DOMNode"],
         id: Some("quarter-opacity".to_string()),
         classes: Vec::new(),
         states: WidgetStates::empty(),

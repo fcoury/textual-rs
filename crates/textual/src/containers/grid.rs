@@ -26,7 +26,8 @@
 //! ```
 
 use tcss::{
-    ComputedStyle, WidgetMeta, WidgetStates, types::Visibility, types::keyline::KeylineStyle,
+    ComputedStyle, StyleOverride, WidgetMeta, WidgetStates, types::Visibility,
+    types::keyline::KeylineStyle,
 };
 
 use crate::keyline_canvas::KeylineCanvas;
@@ -42,6 +43,7 @@ use crate::{Canvas, KeyCode, MouseEvent, Region, Size, Widget};
 pub struct Grid<M> {
     children: Vec<Box<dyn Widget<M>>>,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     dirty: bool,
     id: Option<String>,
 }
@@ -52,6 +54,7 @@ impl<M> Grid<M> {
         Self {
             children,
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
             id: None,
         }
@@ -279,6 +282,7 @@ Grid {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "Grid",
+            type_names: vec!["Grid", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: Vec::new(),
             states: WidgetStates::empty(),
@@ -291,6 +295,24 @@ Grid {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn is_dirty(&self) -> bool {

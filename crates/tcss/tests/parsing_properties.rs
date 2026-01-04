@@ -1147,6 +1147,7 @@ Vertical {
     // Test Vertical with id "tint1"
     let meta = WidgetMeta {
         type_name: "Vertical",
+        type_names: vec!["Vertical", "Widget", "DOMNode"],
         id: Some("tint1".to_string()),
         classes: vec![],
         states: WidgetStates::empty(),

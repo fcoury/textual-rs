@@ -15,6 +15,7 @@ fn get_theme() -> Theme {
 fn button() -> WidgetMeta {
     WidgetMeta {
         type_name: "Button",
+        type_names: vec!["Button", "Widget", "DOMNode"],
         ..Default::default()
     }
 }

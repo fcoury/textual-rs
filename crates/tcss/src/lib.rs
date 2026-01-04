@@ -75,4 +75,4 @@ pub mod types;
 
 pub use error::TcssError;
 pub use parser::cascade::{WidgetMeta, WidgetStates};
-pub use types::ComputedStyle;
+pub use types::{ComputedStyle, StyleOverride};

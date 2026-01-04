@@ -62,6 +62,7 @@ Vertical {
     // Compute style using the widget's meta
     let tcss_meta = WidgetMeta {
         type_name: meta.type_name,
+        type_names: meta.type_names,
         id: meta.id,
         classes: meta.classes,
         states: WidgetStates::empty(),

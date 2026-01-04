@@ -73,6 +73,9 @@ pub struct WidgetMeta {
     /// The widget's type name (e.g., "Button", "Label", "Container").
     /// Static str to avoid allocation on every style resolution call.
     pub type_name: &'static str,
+    /// The widget's type hierarchy, from most-specific to base types.
+    /// For example, a Label should include ["Label", "Static"].
+    pub type_names: Vec<&'static str>,
     /// The widget's unique ID, if set (e.g., "submit", "header").
     pub id: Option<String>,
     /// The widget's CSS classes (e.g., ["primary", "active"]).
@@ -93,7 +96,13 @@ impl WidgetMeta {
     /// Checks if this widget matches a simple selector.
     pub fn matches_selector(&self, selector: &Selector) -> bool {
         match selector {
-            Selector::Type(name) => self.type_name == *name,
+            Selector::Type(name) => {
+                if self.type_names.is_empty() {
+                    self.type_name == *name
+                } else {
+                    self.type_names.iter().any(|t| t == name)
+                }
+            }
             Selector::Id(id) => self.id.as_ref() == Some(id),
             Selector::Class(class) => self.classes.contains(class),
             Selector::Universal => true,
@@ -641,6 +650,7 @@ Container {
 
         let widget = WidgetMeta {
             type_name: "Container",
+            type_names: vec!["Container", "Widget", "DOMNode"],
             id: Some("vertical-layout".to_string()),
             classes: vec![],
             states: WidgetStates::empty(),
@@ -674,6 +684,7 @@ Label {
 
         let widget = WidgetMeta {
             type_name: "Label",
+            type_names: vec!["Label", "Widget", "DOMNode"],
             id: None,
             classes: vec![],
             states: WidgetStates::empty(),
@@ -715,6 +726,7 @@ Label {
 
         let widget = WidgetMeta {
             type_name: "Label",
+            type_names: vec!["Label", "Widget", "DOMNode"],
             id: Some("zero-opacity".to_string()),
             classes: vec![],
             states: WidgetStates::empty(),
@@ -768,6 +780,7 @@ Label {
 
         let widget = WidgetMeta {
             type_name: "Label",
+            type_names: vec!["Label", "Widget", "DOMNode"],
             id: Some("zero-opacity".to_string()),
             classes: vec![],
             states: WidgetStates::empty(),

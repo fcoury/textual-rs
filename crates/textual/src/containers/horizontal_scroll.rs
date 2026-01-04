@@ -96,6 +96,7 @@ HorizontalScroll {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "HorizontalScroll",
+            type_names: vec!["HorizontalScroll", "ScrollableContainer", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: self.inner.get_state(),
@@ -112,6 +113,18 @@ HorizontalScroll {
 
     fn get_style(&self) -> ComputedStyle {
         self.inner.get_style()
+    }
+
+    fn set_inline_style(&mut self, style: tcss::StyleOverride) {
+        self.inner.set_inline_style(style)
+    }
+
+    fn inline_style(&self) -> Option<&tcss::StyleOverride> {
+        self.inner.inline_style()
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inner.clear_inline_style()
     }
 
     fn is_dirty(&self) -> bool {

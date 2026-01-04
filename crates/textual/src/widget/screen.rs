@@ -25,7 +25,7 @@ use crate::widget::scrollbar_corner::ScrollBarCorner;
 use crate::{KeyCode, MouseEvent};
 use crossterm::event::KeyModifiers;
 use tcss::types::{Overflow, RgbaColor, ScrollbarGutter, ScrollbarVisibility, Unit};
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 /// Breakpoint configuration: threshold and class name to apply.
 pub type Breakpoint = (u16, &'static str);
@@ -52,6 +52,7 @@ pub struct Screen<M> {
     /// Responsive classes are static strings from breakpoints, avoiding allocations.
     responsive_classes: Vec<&'static str>,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     is_dirty: bool,
     scroll: RefCell<ScrollState>,
     /// Which scrollbar is being hovered (Some(true) = vertical, Some(false) = horizontal).
@@ -69,6 +70,7 @@ impl<M> Screen<M> {
             children,
             responsive_classes: Vec::new(),
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             is_dirty: true,
             scroll: RefCell::new(ScrollState::default()),
             scrollbar_hover: None,
@@ -644,6 +646,7 @@ Screen {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "Screen",
+            type_names: vec!["Screen", "Widget", "DOMNode"],
             // Convert &'static str to String only when metadata is requested
             classes: self
                 .responsive_classes
@@ -699,6 +702,24 @@ Screen {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.is_dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.is_dirty = true;
     }
 
     // Delegate event handling

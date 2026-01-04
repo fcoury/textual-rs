@@ -5,7 +5,7 @@
 
 use std::marker::PhantomData;
 
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::segment::{Segment, Style};
 use crate::strip::Strip;
@@ -55,6 +55,7 @@ pub struct Ruler<M> {
     id: Option<String>,
     classes: Vec<String>,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     dirty: bool,
     _phantom: PhantomData<M>,
 }
@@ -66,6 +67,7 @@ impl<M> Default for Ruler<M> {
             id: None,
             classes: vec!["-vertical".to_string()],
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
             _phantom: PhantomData,
         }
@@ -205,6 +207,7 @@ Ruler.-horizontal {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "Ruler",
+            type_names: vec!["Ruler", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: WidgetStates::empty(),
@@ -221,6 +224,24 @@ Ruler.-horizontal {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn is_dirty(&self) -> bool {

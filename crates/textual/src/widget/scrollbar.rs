@@ -9,7 +9,7 @@ use crate::scroll::ScrollMessage;
 use crate::scrollbar::ScrollBarRender;
 use crate::{Canvas, MouseEvent, MouseEventKind, Region, Size, Widget};
 use tcss::types::{RgbaColor, ScrollbarStyle};
-use tcss::{ComputedStyle, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetStates};
 
 /// Scrollbar interaction state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -50,6 +50,8 @@ where
     scrollbar_style: ScrollbarStyle,
     /// Computed style for this widget
     computed_style: ComputedStyle,
+    /// Inline style override
+    inline_style: StyleOverride,
     /// Callback to convert ScrollMessage to app message
     on_scroll: F,
     /// Dirty flag for style recomputation
@@ -78,6 +80,7 @@ where
             state: ScrollBarState::Normal,
             scrollbar_style: ScrollbarStyle::default(),
             computed_style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             on_scroll,
             dirty: true,
             id: None,
@@ -361,6 +364,24 @@ where
 
     fn get_style(&self) -> ComputedStyle {
         self.computed_style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn is_dirty(&self) -> bool {

@@ -14,7 +14,7 @@
 use crate::canvas::{Canvas, Region, Size};
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent};
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 /// The root DOM node that wraps Screen.
 ///
@@ -27,6 +27,7 @@ use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
 pub struct AppWidget<M> {
     child: Box<dyn Widget<M>>,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     is_dirty: bool,
 }
 
@@ -36,6 +37,7 @@ impl<M> AppWidget<M> {
         Self {
             child,
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             is_dirty: true,
         }
     }
@@ -64,6 +66,7 @@ impl<M> Widget<M> for AppWidget<M> {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "App",
+            type_names: vec!["App", "DOMNode"],
             classes: vec![],
             states: WidgetStates::empty(),
             id: None,
@@ -108,6 +111,24 @@ impl<M> Widget<M> for AppWidget<M> {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.is_dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.is_dirty = true;
     }
 
     // Delegate event handling

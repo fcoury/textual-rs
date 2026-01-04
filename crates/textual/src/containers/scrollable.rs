@@ -21,7 +21,7 @@ use tcss::types::{
     Layout as LayoutDirection, Overflow, ScrollbarGutter, ScrollbarStyle, ScrollbarVisibility,
     Visibility,
 };
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 /// Scroll amount for single scroll events (arrow keys).
 /// Matches Python Textual's behavior of scrolling 1 line per key press.
@@ -42,6 +42,8 @@ pub struct ScrollableContainer<M> {
     scroll: RefCell<ScrollState>,
     /// Computed style from CSS
     style: ComputedStyle,
+    /// Inline style override
+    inline_style: StyleOverride,
     /// Dirty flag
     dirty: bool,
     /// Scrollbar interaction state: None, Some(vertical: bool)
@@ -70,6 +72,7 @@ impl<M> ScrollableContainer<M> {
             children,
             scroll: RefCell::new(ScrollState::default()),
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
             scrollbar_hover: None,
             scrollbar_drag: None,
@@ -799,6 +802,24 @@ ScrollableContainer {
         self.style.clone()
     }
 
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
+    }
+
     fn is_dirty(&self) -> bool {
         self.dirty || self.children.iter().any(|c| c.is_dirty())
     }
@@ -823,6 +844,7 @@ ScrollableContainer {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "ScrollableContainer",
+            type_names: vec!["ScrollableContainer", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: WidgetStates::empty(),

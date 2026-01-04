@@ -34,6 +34,7 @@ Screen {
 
     let screen_meta = WidgetMeta {
         type_name: "Screen",
+        type_names: vec!["Screen", "Widget", "DOMNode"],
         id: None,
         classes: vec![],
         states: WidgetStates::empty(),
@@ -64,6 +65,7 @@ Static {
 
     let static_meta = WidgetMeta {
         type_name: "Static",
+        type_names: vec!["Static", "Widget", "DOMNode"],
         id: None,
         classes: vec![],
         states: WidgetStates::empty(),

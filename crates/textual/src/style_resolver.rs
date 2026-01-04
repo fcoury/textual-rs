@@ -88,6 +88,11 @@ pub fn resolve_dirty_styles<M>(
         // Apply CSS inheritance for properties that weren't explicitly set
         apply_inheritance(&mut style, inherited);
 
+        // Apply inline style overrides (highest priority)
+        if let Some(inline) = widget.inline_style() {
+            inline.apply_to(&mut style);
+        }
+
         log::trace!(
             "CASCADE: Widget='{}' States={:?} -> Color={:?} (dirty={})",
             meta.type_name,

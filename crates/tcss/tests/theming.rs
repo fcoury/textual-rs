@@ -61,7 +61,8 @@ fn test_theme_color_modifiers() {
     let css = "Button { color: $primary-lighten-2; }";
     let stylesheet = parse_stylesheet(css).unwrap();
     let widget = WidgetMeta {
-        type_name: "Button".into(),
+        type_name: "Button",
+        type_names: vec!["Button", "Widget", "DOMNode"],
         ..Default::default()
     };
 

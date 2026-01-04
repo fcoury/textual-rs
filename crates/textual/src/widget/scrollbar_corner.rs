@@ -5,8 +5,8 @@
 
 use crate::canvas::TextAttributes;
 use crate::{Canvas, Region, Size, Widget};
-use tcss::ComputedStyle;
 use tcss::types::{RgbaColor, ScrollbarStyle};
+use tcss::{ComputedStyle, StyleOverride};
 
 /// Fills the corner gap when both scrollbars are visible.
 ///
@@ -21,6 +21,8 @@ pub struct ScrollBarCorner {
     height: u16,
     /// Computed style
     style: ComputedStyle,
+    /// Inline style override
+    inline_style: StyleOverride,
     /// Dirty flag
     dirty: bool,
 }
@@ -37,6 +39,7 @@ impl ScrollBarCorner {
             width,
             height,
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
         }
     }
@@ -103,6 +106,24 @@ impl<M> Widget<M> for ScrollBarCorner {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn is_dirty(&self) -> bool {

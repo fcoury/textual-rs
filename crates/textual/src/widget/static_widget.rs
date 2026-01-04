@@ -14,7 +14,7 @@ use std::marker::PhantomData;
 
 use crossterm::event::MouseEventKind;
 use tcss::types::{AlignHorizontal, AlignVertical};
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 use unicode_width::UnicodeWidthStr;
 
 use crate::content::{Content, WrappedLine};
@@ -82,6 +82,7 @@ pub struct Static<M> {
     classes: Vec<String>,
     disabled: bool,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     dirty: bool,
     /// Title displayed in the top border (supports markup).
     border_title: Option<String>,
@@ -111,6 +112,7 @@ impl<M> Default for Static<M> {
             classes: Vec::new(),
             disabled: false,
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
             border_title: None,
             border_subtitle: None,
@@ -344,6 +346,11 @@ impl<M> Static<M> {
         // Build aligned lines with vertical padding
         let mut result = Vec::with_capacity(height);
         let pad_style = Some(Style {
+            bold: false,
+            dim: false,
+            italic: false,
+            underline: false,
+            strike: false,
             reverse: false,
             ..style.clone()
         });
@@ -804,6 +811,7 @@ Static {
         }
         WidgetMeta {
             type_name: "Static",
+            type_names: vec!["Static", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: self.classes.clone(),
             states,
@@ -824,6 +832,24 @@ Static {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
     }
 
     fn is_dirty(&self) -> bool {

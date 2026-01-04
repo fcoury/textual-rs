@@ -1,4 +1,4 @@
-use textual::{App, Compose, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Grid, KeyCode, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}

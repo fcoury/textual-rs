@@ -59,6 +59,7 @@ macro_rules! impl_widget_delegation {
             fn get_meta(&self) -> ::tcss::WidgetMeta {
                 let mut meta = self.$field.get_meta();
                 meta.type_name = $name;
+                meta.type_names = vec![$name, "Widget", "DOMNode"];
                 meta
             }
 
@@ -72,6 +73,18 @@ macro_rules! impl_widget_delegation {
 
             fn get_style(&self) -> ::tcss::ComputedStyle {
                 self.$field.get_style()
+            }
+
+            fn set_inline_style(&mut self, style: ::tcss::StyleOverride) {
+                self.$field.set_inline_style(style)
+            }
+
+            fn inline_style(&self) -> Option<&::tcss::StyleOverride> {
+                self.$field.inline_style()
+            }
+
+            fn clear_inline_style(&mut self) {
+                self.$field.clear_inline_style()
             }
 
             fn default_css(&self) -> &'static str {

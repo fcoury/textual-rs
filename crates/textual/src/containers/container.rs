@@ -12,7 +12,7 @@ use tcss::types::ScrollbarGutter;
 use tcss::types::ScrollbarVisibility;
 use tcss::types::Visibility;
 use tcss::types::keyline::KeylineStyle;
-use tcss::{ComputedStyle, WidgetMeta, WidgetStates};
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, Size};
 use crate::content::Content;
@@ -49,6 +49,7 @@ pub use tcss::types::Layout as ContainerLayoutDirection;
 pub struct Container<M> {
     children: Vec<Box<dyn Widget<M>>>,
     style: ComputedStyle,
+    inline_style: StyleOverride,
     dirty: bool,
     id: Option<String>,
     /// CSS classes for styling.
@@ -81,6 +82,7 @@ impl<M> Container<M> {
         Self {
             children,
             style: ComputedStyle::default(),
+            inline_style: StyleOverride::default(),
             dirty: true,
             id: None,
             classes: Vec::new(),
@@ -1299,6 +1301,7 @@ Container {
     fn get_meta(&self) -> WidgetMeta {
         WidgetMeta {
             type_name: "Container",
+            type_names: vec!["Container", "Widget", "DOMNode"],
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: WidgetStates::empty(),
@@ -1313,6 +1316,26 @@ Container {
 
     fn get_style(&self) -> ComputedStyle {
         self.style.clone()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inline_style = style;
+        self.dirty = true;
+        *self.cached_layout.borrow_mut() = None;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        if self.inline_style.is_empty() {
+            None
+        } else {
+            Some(&self.inline_style)
+        }
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inline_style = StyleOverride::default();
+        self.dirty = true;
+        *self.cached_layout.borrow_mut() = None;
     }
 
     fn is_dirty(&self) -> bool {
