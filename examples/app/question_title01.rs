@@ -1,0 +1,54 @@
+use textual::{App, Button, EventContext, Header, Label, MessageEnvelope, Widget, ui};
+
+#[derive(Clone)]
+enum Message {
+    Pressed,
+}
+
+struct QuestionApp {
+    answer: Option<String>,
+}
+
+impl QuestionApp {
+    fn new() -> Self {
+        Self { answer: None }
+    }
+}
+
+impl App for QuestionApp {
+    type Message = Message;
+
+    const CSS: &'static str = include_str!("question02.tcss");
+
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+        ui! {
+            Header("A Question App", subtitle: "The most important question")
+            Label("Do you love Textual?", id: "question")
+            Button("Yes", id: "yes", variant: "primary", message: Message::Pressed)
+            Button("No", id: "no", variant: "error", message: Message::Pressed)
+        }
+    }
+
+    fn handle_message(
+        &mut self,
+        envelope: MessageEnvelope<Self::Message>,
+        _ctx: &mut EventContext<Self::Message>,
+    ) {
+        match envelope.message {
+            Message::Pressed => {
+                self.answer = envelope.sender_id.clone();
+                self.request_quit();
+            }
+        }
+    }
+}
+
+fn main() -> textual::Result<()> {
+    let mut app = QuestionApp::new();
+    app.run()?;
+
+    if let Some(answer) = app.answer {
+        println!("{answer}");
+    }
+    Ok(())
+}

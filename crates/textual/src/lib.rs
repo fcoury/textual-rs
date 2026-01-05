@@ -51,6 +51,7 @@ pub use scrollbar::{ScrollBarRender, ScrollbarGlyphs};
 pub use tcss::TcssError;
 pub use tree::{DOMQuery, clear_all_hover, collect_pending_actions_mut};
 pub use visual::VisualType;
+pub use widget::header::Header;
 pub use widget::label::{Label, LabelVariant};
 pub use widget::static_widget::Static;
 
