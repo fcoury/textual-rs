@@ -421,6 +421,11 @@ impl<'a, M: 'static> EventContext<'a, M> {
         self.tree.query(selector)
     }
 
+    /// Focus the first focusable widget with the given ID.
+    pub fn focus_by_id(&mut self, id: &str) -> bool {
+        self.tree.focus_by_id(id)
+    }
+
     /// Get the underlying AppContext for timer/interval operations.
     pub fn app_context(&self) -> &AppContext<M> {
         &self.app_ctx

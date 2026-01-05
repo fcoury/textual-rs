@@ -51,8 +51,12 @@ pub use scrollbar::{ScrollBarRender, ScrollbarGlyphs};
 pub use tcss::TcssError;
 pub use tree::{DOMQuery, clear_all_hover, collect_pending_actions_mut};
 pub use visual::VisualType;
+pub use widget::command_palette::CommandPalette;
 pub use widget::header::Header;
+pub use widget::input::Input;
 pub use widget::label::{Label, LabelVariant};
+pub use widget::loading_indicator::LoadingIndicator;
+pub use widget::option_list::OptionList;
 pub use widget::static_widget::Static;
 
 // Re-export the log crate so users can use textual::log::info!, etc.
@@ -143,6 +147,8 @@ pub trait App {
     type Message: Send + 'static;
 
     const CSS: &'static str = "";
+    /// Enable the system command palette overlay.
+    const ENABLE_COMMAND_PALETTE: bool = true;
 
     /// Returns a vector of widgets that make up this composition.
     ///
@@ -186,6 +192,24 @@ pub trait App {
     /// Return true when the application should exit.
     fn should_quit(&self) -> bool {
         DEFAULT_QUIT.with(|flag| flag.get())
+    }
+
+    /// Provide commands for the command palette.
+    ///
+    /// Each command is `(name, action, help)`.
+    fn command_palette_commands(&self) -> Vec<(String, String, Option<String>)> {
+        vec![
+            (
+                "Quit".to_string(),
+                "app.quit".to_string(),
+                Some("Quit the application".to_string()),
+            ),
+            (
+                "Bell".to_string(),
+                "app.bell".to_string(),
+                Some("Ring the bell".to_string()),
+            ),
+        ]
     }
 
     /// Handle an action string from a link click (e.g., "app.bell", "app.quit").
@@ -262,6 +286,23 @@ pub trait App {
             }
             "app.bell" | "bell" => {
                 self.bell();
+            }
+            "app.command_palette" | "command_palette" => {
+                if Self::ENABLE_COMMAND_PALETTE {
+                    let opened = ctx
+                        .query_one_as::<CommandPalette<Self::Message>, _, _>(
+                            "CommandPalette",
+                            |palette| {
+                                palette.open();
+                            },
+                        )
+                        .is_some();
+                    if !opened {
+                        log::debug!("CommandPalette widget not found");
+                    } else {
+                        ctx.focus_by_id("--command-palette");
+                    }
+                }
             }
             _ => {
                 // Unknown action - log and ignore
@@ -456,7 +497,11 @@ pub trait App {
             let screen = Screen::new(self.compose())
                 .with_horizontal_breakpoints(self.horizontal_breakpoints())
                 .with_vertical_breakpoints(self.vertical_breakpoints());
-            let root = Box::new(widget::app_widget::AppWidget::new(Box::new(screen)));
+            let mut root_children: Vec<Box<dyn Widget<Self::Message>>> = vec![Box::new(screen)];
+            if Self::ENABLE_COMMAND_PALETTE {
+                root_children.push(Box::new(CommandPalette::new()));
+            }
+            let root = Box::new(widget::app_widget::AppWidget::new(root_children));
             let mut tree = WidgetTree::new(root);
 
             // Initialize Screen with current terminal size for breakpoints
@@ -507,7 +552,12 @@ pub trait App {
                     let screen = Screen::new(self.compose())
                         .with_horizontal_breakpoints(self.horizontal_breakpoints())
                         .with_vertical_breakpoints(self.vertical_breakpoints());
-                    let root = Box::new(widget::app_widget::AppWidget::new(Box::new(screen)));
+                    let mut root_children: Vec<Box<dyn Widget<Self::Message>>> =
+                        vec![Box::new(screen)];
+                    if Self::ENABLE_COMMAND_PALETTE {
+                        root_children.push(Box::new(CommandPalette::new()));
+                    }
+                    let root = Box::new(widget::app_widget::AppWidget::new(root_children));
                     tree = WidgetTree::new(root);
 
                     // Re-apply resize to new tree so breakpoints are correct
@@ -534,6 +584,17 @@ pub trait App {
                     tree.update_focus(current_focus);
                     last_focus_index = current_focus;
                     needs_render = true;
+                }
+
+                // If the currently focused widget is no longer focusable (e.g. hidden modal),
+                // fall back to the first available focusable widget.
+                if let Some(is_focusable) = tree.with_focused(|widget| widget.is_focusable()) {
+                    if !is_focusable {
+                        if tree.set_focus_index(0) {
+                            last_focus_index = self.focus_index();
+                            needs_render = true;
+                        }
+                    }
                 }
 
                 if needs_render {
@@ -565,14 +626,37 @@ pub trait App {
                     maybe_event = event_stream.next() => {
                         match maybe_event {
                             Some(Ok(Event::Key(key_event))) => {
+                                let handled_by_system = key_event.modifiers.contains(KeyModifiers::CONTROL)
+                                    && matches!(key_event.code, KeyCode::Char('p') | KeyCode::Char('P'))
+                                    && Self::ENABLE_COMMAND_PALETTE;
+
+                                if handled_by_system {
+                                    let event_ctx = AppContext::new(tx.clone());
+                                    let mut ctx = EventContext::new(event_ctx, &mut tree);
+                                    self.dispatch_action("app.command_palette", &mut ctx);
+                                    needs_recompose = self.needs_recompose();
+                                    needs_render = true;
+                                    continue;
+                                }
+
+                                let palette_open = tree
+                                    .query_one_as::<CommandPalette<Self::Message>, _, _>(
+                                        "CommandPalette",
+                                        |palette| palette.is_open(),
+                                    )
+                                    .unwrap_or(false);
                                 // Global focus navigation (Tab / Shift+Tab)
                                 let mut focus_changed = false;
                                 match key_event.code {
                                     KeyCode::Tab => {
-                                        focus_changed = tree.focus_next().is_some();
+                                        if !palette_open {
+                                            focus_changed = tree.focus_next().is_some();
+                                        }
                                     }
                                     KeyCode::BackTab => {
-                                        focus_changed = tree.focus_previous().is_some();
+                                        if !palette_open {
+                                            focus_changed = tree.focus_previous().is_some();
+                                        }
                                     }
                                     _ => {}
                                 }
@@ -596,7 +680,19 @@ pub trait App {
                                     let event_ctx =
                                         AppContext::new(tx.clone());
                                     let mut ctx = EventContext::new(event_ctx, &mut tree);
-                                    self.on_key(key_event.code, &mut ctx);
+                                    if !palette_open {
+                                        self.on_key(key_event.code, &mut ctx);
+                                    }
+                                }
+                                // Collect and dispatch pending actions from key events
+                                let actions = collect_pending_actions_mut(tree.root_mut());
+                                if !actions.is_empty() {
+                                    let event_ctx =
+                                        AppContext::new(tx.clone());
+                                    let mut ctx = EventContext::new(event_ctx, &mut tree);
+                                    for action in actions {
+                                        self.dispatch_action(&action, &mut ctx);
+                                    }
                                 }
                                 // Check if app wants tree rebuild (Elm-style)
                                 needs_recompose = self.needs_recompose();

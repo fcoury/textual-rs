@@ -1,7 +1,11 @@
 pub mod app_widget;
 pub mod button;
+pub mod command_palette;
 pub mod header;
+pub mod input;
 pub mod label;
+pub mod loading_indicator;
+pub mod option_list;
 pub mod placeholder;
 pub mod ruler;
 pub mod screen;

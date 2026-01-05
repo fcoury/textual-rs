@@ -101,6 +101,15 @@ impl<M> WidgetTree<M> {
         self.root.count_focusable()
     }
 
+    /// Focus the first focusable widget with the given ID.
+    pub fn focus_by_id(&mut self, id: &str) -> bool {
+        let mut index = 0usize;
+        if let Some(found) = find_focus_index_by_id(self.root.as_mut(), id, &mut index) {
+            return self.set_focus_index(found);
+        }
+        false
+    }
+
     /// Set focus to the nth focusable widget and update the cached path.
     pub fn set_focus_index(&mut self, focus_index: usize) -> bool {
         let count = self.focusable_count();
@@ -529,6 +538,33 @@ fn find_focus_path_recursive<M>(
     }
 
     false
+}
+
+/// Recursively compute the focus index for a widget with the given ID.
+fn find_focus_index_by_id<M>(
+    widget: &mut dyn Widget<M>,
+    id: &str,
+    index: &mut usize,
+) -> Option<usize> {
+    if !widget.participates_in_layout() {
+        return None;
+    }
+    if widget.is_focusable() {
+        if widget.id() == Some(id) {
+            return Some(*index);
+        }
+        *index += 1;
+    }
+
+    let child_count = widget.child_count();
+    for i in 0..child_count {
+        if let Some(child) = widget.get_child_mut(i) {
+            if let Some(found) = find_focus_index_by_id(child, id, index) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }
 
 /// Recursively find a widget by ID and apply a closure.

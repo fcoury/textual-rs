@@ -1,0 +1,391 @@
+//! Input widget for editable text.
+//!
+//! This is a minimal single-line input widget used by the command palette.
+
+use std::marker::PhantomData;
+
+use tcss::types::Visibility;
+use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
+
+use crate::canvas::{Canvas, Region};
+use crate::widget::static_widget::Static;
+use crate::{KeyCode, MouseEvent, Size, Widget};
+
+/// Escape markup control characters so user input is rendered literally.
+fn escape_markup(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '[' | ']' | '\\' => {
+                out.push('\\');
+                out.push(ch);
+            }
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+/// A single-line input widget.
+pub struct Input<M> {
+    inner: Static<M>,
+    value: String,
+    placeholder: Option<String>,
+    cursor: usize,
+    focused: bool,
+    dirty: bool,
+    _phantom: PhantomData<M>,
+}
+
+impl<M> Input<M> {
+    pub fn new() -> Self {
+        let mut inner = Static::new("");
+        inner = inner.with_markup(true);
+        Self {
+            inner,
+            value: String::new(),
+            placeholder: None,
+            cursor: 0,
+            focused: false,
+            dirty: true,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn with_placeholder(mut self, placeholder: impl Into<String>) -> Self {
+        self.placeholder = Some(placeholder.into());
+        self.refresh_display();
+        self
+    }
+
+    pub fn with_id(mut self, id: impl Into<String>) -> Self {
+        self.inner = self.inner.with_id(id);
+        self
+    }
+
+    pub fn with_classes(mut self, classes: impl Into<String>) -> Self {
+        self.inner = self.inner.with_classes(classes);
+        self
+    }
+
+    pub fn with_name(mut self, name: impl Into<String>) -> Self {
+        self.inner = self.inner.with_name(name);
+        self
+    }
+
+    pub fn with_disabled(mut self, disabled: bool) -> Self {
+        self.inner = self.inner.with_disabled(disabled);
+        self
+    }
+
+    pub fn set_value(&mut self, value: impl Into<String>) {
+        self.value = value.into();
+        self.cursor = self.cursor.min(self.value.chars().count());
+        self.refresh_display();
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    pub fn set_placeholder(&mut self, placeholder: impl Into<String>) {
+        self.placeholder = Some(placeholder.into());
+        self.refresh_display();
+    }
+
+    pub fn clear_placeholder(&mut self) {
+        self.placeholder = None;
+        self.refresh_display();
+    }
+
+    pub fn set_cursor(&mut self, cursor: usize) {
+        self.cursor = cursor.min(self.value.chars().count());
+        self.refresh_display();
+    }
+
+    fn refresh_display(&mut self) {
+        let display = self.build_display();
+        self.inner.update(display);
+        self.dirty = false;
+    }
+
+    fn build_display(&self) -> String {
+        if self.value.is_empty() && !self.focused {
+            if let Some(placeholder) = &self.placeholder {
+                return format!("[dim]{}[/]", escape_markup(placeholder));
+            }
+        }
+
+        let escaped = escape_markup(&self.value);
+        if !self.focused {
+            return escaped;
+        }
+
+        let chars: Vec<char> = self.value.chars().collect();
+        let cursor = self.cursor.min(chars.len());
+
+        if cursor >= chars.len() {
+            format!("{escaped}[reverse] [/]")
+        } else {
+            let prefix: String = chars[..cursor].iter().collect();
+            let cursor_char = chars[cursor];
+            let suffix: String = chars[cursor + 1..].iter().collect();
+            format!(
+                "{}[reverse]{}[/]{}",
+                escape_markup(&prefix),
+                escape_markup(&cursor_char.to_string()),
+                escape_markup(&suffix)
+            )
+        }
+    }
+
+    fn insert_char(&mut self, ch: char) {
+        let mut chars: Vec<char> = self.value.chars().collect();
+        let cursor = self.cursor.min(chars.len());
+        chars.insert(cursor, ch);
+        self.cursor = cursor + 1;
+        self.value = chars.iter().collect();
+        self.refresh_display();
+    }
+
+    fn backspace(&mut self) {
+        if self.cursor == 0 {
+            return;
+        }
+        let mut chars: Vec<char> = self.value.chars().collect();
+        let cursor = self.cursor.min(chars.len());
+        if cursor == 0 {
+            return;
+        }
+        chars.remove(cursor - 1);
+        self.cursor = cursor - 1;
+        self.value = chars.iter().collect();
+        self.refresh_display();
+    }
+
+    fn delete(&mut self) {
+        let mut chars: Vec<char> = self.value.chars().collect();
+        let cursor = self.cursor.min(chars.len());
+        if cursor >= chars.len() {
+            return;
+        }
+        chars.remove(cursor);
+        self.value = chars.iter().collect();
+        self.refresh_display();
+    }
+}
+
+impl<M: 'static> Widget<M> for Input<M> {
+    fn default_css(&self) -> &'static str {
+        r#"
+Input {
+    width: 1fr;
+    height: auto;
+    border: blank;
+    background: transparent;
+    padding-left: 0;
+}
+"#
+    }
+
+    fn render(&self, canvas: &mut Canvas, region: Region) {
+        if self.get_style().visibility == Visibility::Hidden {
+            return;
+        }
+        self.inner.render(canvas, region);
+    }
+
+    fn desired_size(&self) -> Size {
+        self.inner.desired_size()
+    }
+
+    fn intrinsic_height_for_width(&self, width: u16) -> u16 {
+        self.inner.intrinsic_height_for_width(width)
+    }
+
+    fn on_event(&mut self, key: KeyCode) -> Option<M> {
+        if self.is_disabled() || !self.is_visible() {
+            return None;
+        }
+        match key {
+            KeyCode::Char(ch) => {
+                self.insert_char(ch);
+            }
+            KeyCode::Backspace => {
+                self.backspace();
+            }
+            KeyCode::Delete => {
+                self.delete();
+            }
+            KeyCode::Left => {
+                if self.cursor > 0 {
+                    self.cursor -= 1;
+                    self.refresh_display();
+                }
+            }
+            KeyCode::Right => {
+                let max = self.value.chars().count();
+                if self.cursor < max {
+                    self.cursor += 1;
+                    self.refresh_display();
+                }
+            }
+            KeyCode::Home => {
+                self.cursor = 0;
+                self.refresh_display();
+            }
+            KeyCode::End => {
+                self.cursor = self.value.chars().count();
+                self.refresh_display();
+            }
+            _ => {}
+        }
+        None
+    }
+
+    fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        self.inner.on_mouse(event, region)
+    }
+
+    fn get_meta(&self) -> WidgetMeta {
+        let mut meta = self.inner.get_meta();
+        meta.type_name = "Input";
+        meta.type_names = vec!["Input", "Static", "Widget", "DOMNode"];
+        meta.states = self.get_state();
+        meta
+    }
+
+    fn get_state(&self) -> WidgetStates {
+        let mut states = WidgetStates::empty();
+        if self.focused {
+            states |= WidgetStates::FOCUS;
+        }
+        if self.is_disabled() {
+            states |= WidgetStates::DISABLED;
+        }
+        states
+    }
+
+    fn set_style(&mut self, style: ComputedStyle) {
+        self.inner.set_style(style);
+    }
+
+    fn get_style(&self) -> ComputedStyle {
+        self.inner.get_style()
+    }
+
+    fn set_inline_style(&mut self, style: StyleOverride) {
+        self.inner.set_inline_style(style);
+        self.dirty = true;
+    }
+
+    fn inline_style(&self) -> Option<&StyleOverride> {
+        self.inner.inline_style()
+    }
+
+    fn clear_inline_style(&mut self) {
+        self.inner.clear_inline_style();
+        self.dirty = true;
+    }
+
+    fn is_dirty(&self) -> bool {
+        self.dirty || self.inner.is_dirty()
+    }
+
+    fn mark_dirty(&mut self) {
+        self.dirty = true;
+        self.inner.mark_dirty();
+    }
+
+    fn mark_clean(&mut self) {
+        self.dirty = false;
+        self.inner.mark_clean();
+    }
+
+    fn is_focusable(&self) -> bool {
+        self.is_visible() && !self.is_disabled()
+    }
+
+    fn set_focus(&mut self, is_focused: bool) {
+        if self.focused != is_focused {
+            self.focused = is_focused;
+            self.refresh_display();
+        }
+    }
+
+    fn is_focused(&self) -> bool {
+        self.focused
+    }
+
+    fn is_visible(&self) -> bool {
+        self.inner.is_visible()
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        self.inner.set_visible(visible);
+    }
+
+    fn is_loading(&self) -> bool {
+        self.inner.is_loading()
+    }
+
+    fn set_loading(&mut self, loading: bool) {
+        self.inner.set_loading(loading);
+    }
+
+    fn is_disabled(&self) -> bool {
+        self.inner.is_disabled()
+    }
+
+    fn set_disabled(&mut self, disabled: bool) {
+        self.inner.set_disabled(disabled);
+    }
+
+    fn handle_message(&mut self, envelope: &mut crate::MessageEnvelope<M>) -> Option<M> {
+        self.inner.handle_message(envelope)
+    }
+
+    fn id(&self) -> Option<&str> {
+        self.inner.id()
+    }
+
+    fn type_name(&self) -> &'static str {
+        "Input"
+    }
+
+    fn on_resize(&mut self, size: Size) {
+        self.inner.on_resize(size);
+    }
+
+    fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
+        self.inner.for_each_child(f);
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn add_class(&mut self, class: &str) {
+        self.inner.add_class(class);
+    }
+
+    fn remove_class(&mut self, class: &str) {
+        self.inner.remove_class(class);
+    }
+
+    fn has_class(&self, class: &str) -> bool {
+        self.inner.has_class(class)
+    }
+
+    fn set_classes(&mut self, classes: &str) {
+        self.inner.set_classes(classes);
+    }
+
+    fn classes(&self) -> Vec<String> {
+        self.inner.classes()
+    }
+}

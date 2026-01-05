@@ -25,21 +25,26 @@ use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 /// This matches Python Textual's architecture where App is a DOMNode
 /// at the root of the widget tree.
 pub struct AppWidget<M> {
-    child: Box<dyn Widget<M>>,
+    children: Vec<Box<dyn Widget<M>>>,
     style: ComputedStyle,
     inline_style: StyleOverride,
     is_dirty: bool,
 }
 
 impl<M> AppWidget<M> {
-    /// Create a new AppWidget wrapping the given child (typically Screen).
-    pub fn new(child: Box<dyn Widget<M>>) -> Self {
+    /// Create a new AppWidget wrapping the given children (typically Screen + overlays).
+    pub fn new(children: Vec<Box<dyn Widget<M>>>) -> Self {
         Self {
-            child,
+            children,
             style: ComputedStyle::default(),
             inline_style: StyleOverride::default(),
             is_dirty: true,
         }
+    }
+
+    /// Convenience helper to wrap a single child.
+    pub fn new_single(child: Box<dyn Widget<M>>) -> Self {
+        Self::new(vec![child])
     }
 }
 
@@ -50,17 +55,24 @@ impl<M> Widget<M> for AppWidget<M> {
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {
-        // Delegate rendering entirely to child
-        self.child.render(canvas, region);
+        // Render children in order (later children overlay earlier ones)
+        for child in &self.children {
+            child.render(canvas, region);
+        }
     }
 
     fn desired_size(&self) -> Size {
-        // App fills available space (delegates to Screen which also fills)
-        self.child.desired_size()
+        // App fills available space (use the max child size)
+        self.children.iter().fold(Size::new(0, 0), |acc, child| {
+            let size = child.desired_size();
+            Size::new(acc.width.max(size.width), acc.height.max(size.height))
+        })
     }
 
     fn on_resize(&mut self, size: Size) {
-        self.child.on_resize(size);
+        for child in &mut self.children {
+            child.on_resize(size);
+        }
     }
 
     fn get_meta(&self) -> WidgetMeta {
@@ -75,34 +87,39 @@ impl<M> Widget<M> for AppWidget<M> {
 
     // Delegate hierarchy traversal to child
     fn for_each_child(&mut self, f: &mut dyn FnMut(&mut dyn Widget<M>)) {
-        f(self.child.as_mut());
+        for child in &mut self.children {
+            f(child.as_mut());
+        }
     }
 
     fn child_count(&self) -> usize {
-        1
+        self.children.len()
     }
 
     fn get_child_mut(&mut self, index: usize) -> Option<&mut (dyn Widget<M> + '_)> {
-        if index == 0 {
-            Some(self.child.as_mut())
-        } else {
-            None
+        match self.children.get_mut(index) {
+            Some(child) => Some(child.as_mut()),
+            None => None,
         }
     }
 
     // Delegate state management
     fn is_dirty(&self) -> bool {
-        self.is_dirty || self.child.is_dirty()
+        self.is_dirty || self.children.iter().any(|child| child.is_dirty())
     }
 
     fn mark_dirty(&mut self) {
         self.is_dirty = true;
-        self.child.mark_dirty();
+        for child in &mut self.children {
+            child.mark_dirty();
+        }
     }
 
     fn mark_clean(&mut self) {
         self.is_dirty = false;
-        self.child.mark_clean();
+        for child in &mut self.children {
+            child.mark_clean();
+        }
     }
 
     fn set_style(&mut self, style: ComputedStyle) {
@@ -133,11 +150,22 @@ impl<M> Widget<M> for AppWidget<M> {
 
     // Delegate event handling
     fn on_event(&mut self, key: KeyCode) -> Option<M> {
-        self.child.on_event(key)
+        // Forward to the top-most child that handles the event
+        for child in self.children.iter_mut().rev() {
+            if let Some(msg) = child.on_event(key) {
+                return Some(msg);
+            }
+        }
+        None
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
-        self.child.on_mouse(event, region)
+        for child in self.children.iter_mut().rev() {
+            if let Some(msg) = child.on_mouse(event, region) {
+                return Some(msg);
+            }
+        }
+        None
     }
 
     fn on_mouse_with_sender(
@@ -145,35 +173,73 @@ impl<M> Widget<M> for AppWidget<M> {
         event: MouseEvent,
         region: Region,
     ) -> Option<(M, crate::widget::SenderInfo)> {
-        self.child.on_mouse_with_sender(event, region)
+        for child in self.children.iter_mut().rev() {
+            if let Some(result) = child.on_mouse_with_sender(event, region) {
+                return Some(result);
+            }
+        }
+        None
     }
 
     fn set_hover(&mut self, is_hovered: bool) -> bool {
-        self.child.set_hover(is_hovered)
+        let mut any_changed = false;
+        for child in &mut self.children {
+            any_changed |= child.set_hover(is_hovered);
+        }
+        any_changed
     }
 
     fn clear_hover(&mut self) {
-        self.child.clear_hover();
+        for child in &mut self.children {
+            child.clear_hover();
+        }
     }
 
     fn set_active(&mut self, is_active: bool) -> bool {
-        self.child.set_active(is_active)
+        let mut any_changed = false;
+        for child in &mut self.children {
+            any_changed |= child.set_active(is_active);
+        }
+        any_changed
     }
 
     fn handle_message(&mut self, envelope: &mut crate::MessageEnvelope<M>) -> Option<M> {
-        self.child.handle_message(envelope)
+        let mut handled = None;
+        for child in &mut self.children {
+            handled = child.handle_message(envelope);
+        }
+        handled
     }
 
     // Focus delegation
     fn count_focusable(&self) -> usize {
-        self.child.count_focusable()
+        self.children
+            .iter()
+            .filter(|child| child.participates_in_layout())
+            .map(|child| child.count_focusable())
+            .sum()
     }
 
     fn focus_nth(&mut self, n: usize) -> bool {
-        self.child.focus_nth(n)
+        let mut remaining = n;
+        for child in &mut self.children {
+            if !child.participates_in_layout() {
+                continue;
+            }
+            let count = child.count_focusable();
+            if remaining < count {
+                return child.focus_nth(remaining);
+            }
+            remaining -= count;
+        }
+        false
     }
 
     fn clear_focus(&mut self) {
-        self.child.clear_focus();
+        for child in &mut self.children {
+            if child.participates_in_layout() {
+                child.clear_focus();
+            }
+        }
     }
 }
