@@ -1,12 +1,14 @@
-use textual::{App, Compose, Static, Widget, ui};
+use textual::{App, Static, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct BackgroundTransparencyApp;
 
-impl Compose for BackgroundTransparencyApp {
+impl App for BackgroundTransparencyApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("background_transparency.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -22,10 +24,6 @@ impl Compose for BackgroundTransparencyApp {
             Static("100%", id: "t100")
         }
     }
-}
-
-impl App for BackgroundTransparencyApp {
-    const CSS: &'static str = include_str!("background_transparency.tcss");
 }
 
 fn main() -> textual::Result<()> {

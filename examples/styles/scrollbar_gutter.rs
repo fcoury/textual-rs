@@ -1,4 +1,4 @@
-use textual::{App, Compose, Static, Widget, ui};
+use textual::{App, Static, Widget, ui};
 
 const TEXT: &str = r#"I must not fear.
 Fear is the mind-killer.
@@ -13,18 +13,16 @@ enum Message {}
 
 struct ScrollbarGutterApp;
 
-impl Compose for ScrollbarGutterApp {
+impl App for ScrollbarGutterApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("scrollbar_gutter.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
             Static(TEXT, id: "text-box")
         }
     }
-}
-
-impl App for ScrollbarGutterApp {
-    const CSS: &'static str = include_str!("scrollbar_gutter.tcss");
 }
 
 fn main() -> textual::Result<()> {

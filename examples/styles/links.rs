@@ -1,4 +1,4 @@
-use textual::{App, Compose, Static, Widget, ui};
+use textual::{App, Static, Widget, ui};
 
 const TEXT: &str = "Here is a [@click='app.bell']link[/] which you can click!\n";
 
@@ -7,8 +7,10 @@ enum Message {}
 
 struct LinksApp;
 
-impl Compose for LinksApp {
+impl App for LinksApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("links.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -16,10 +18,6 @@ impl Compose for LinksApp {
             Static(TEXT, id: "custom")
         }
     }
-}
-
-impl App for LinksApp {
-    const CSS: &'static str = include_str!("links.tcss");
 }
 
 fn main() -> textual::Result<()> {

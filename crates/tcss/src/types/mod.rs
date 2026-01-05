@@ -178,6 +178,10 @@ pub struct StyleOverride {
     pub tint: Option<RgbaColor>,
     /// Tint color overlay applied only to background.
     pub background_tint: Option<RgbaColor>,
+    /// Inline background override.
+    pub background: Option<RgbaColor>,
+    /// Inline foreground (text) override.
+    pub color: Option<RgbaColor>,
 }
 
 impl StyleOverride {
@@ -195,8 +199,21 @@ impl StyleOverride {
         self
     }
 
+    pub fn background(mut self, background: RgbaColor) -> Self {
+        self.background = Some(background);
+        self
+    }
+
+    pub fn color(mut self, color: RgbaColor) -> Self {
+        self.color = Some(color);
+        self
+    }
+
     pub fn is_empty(&self) -> bool {
-        self.tint.is_none() && self.background_tint.is_none()
+        self.tint.is_none()
+            && self.background_tint.is_none()
+            && self.background.is_none()
+            && self.color.is_none()
     }
 
     pub fn apply_to(&self, style: &mut ComputedStyle) {
@@ -205,6 +222,12 @@ impl StyleOverride {
         }
         if let Some(tint) = &self.background_tint {
             style.background_tint = Some(tint.clone());
+        }
+        if let Some(background) = &self.background {
+            style.background = Some(background.clone());
+        }
+        if let Some(color) = &self.color {
+            style.color = Some(color.clone());
         }
     }
 }

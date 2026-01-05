@@ -1,12 +1,28 @@
-use textual::{App, Compose, Container, Grid, Label, Widget};
+use textual::{App, Container, Grid, Label, Widget};
 
 #[derive(Clone)]
 enum Message {}
 
 struct AllBorderApp;
 
-impl Compose for AllBorderApp {
+fn make_label_container<M: 'static>(
+    text: &str,
+    id: &str,
+    border_title: &str,
+    border_subtitle: &str,
+) -> Box<Container<M>> {
+    let label = Label::new(text)
+        .with_id(id)
+        .with_border_title(border_title)
+        .with_border_subtitle(border_subtitle);
+
+    Box::new(Container::new(vec![Box::new(label)]))
+}
+
+impl App for AllBorderApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("border_sub_title_align_all.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         vec![Box::new(Grid::new(vec![
@@ -73,24 +89,6 @@ impl Compose for AllBorderApp {
             ),
         ]))]
     }
-}
-
-fn make_label_container<M: 'static>(
-    text: &str,
-    id: &str,
-    border_title: &str,
-    border_subtitle: &str,
-) -> Box<Container<M>> {
-    let label = Label::new(text)
-        .with_id(id)
-        .with_border_title(border_title)
-        .with_border_subtitle(border_subtitle);
-
-    Box::new(Container::new(vec![Box::new(label)]))
-}
-
-impl App for AllBorderApp {
-    const CSS: &'static str = include_str!("border_sub_title_align_all.tcss");
 }
 
 fn main() -> textual::Result<()> {

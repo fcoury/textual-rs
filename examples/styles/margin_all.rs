@@ -1,12 +1,14 @@
-use textual::{App, Compose, Container, Grid, Placeholder, Widget, ui};
+use textual::{App, Container, Grid, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct MarginAllApp;
 
-impl Compose for MarginAllApp {
+impl App for MarginAllApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("margin_all.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -22,10 +24,6 @@ impl Compose for MarginAllApp {
             }
         }
     }
-}
-
-impl App for MarginAllApp {
-    const CSS: &'static str = include_str!("margin_all.tcss");
 }
 
 fn main() -> textual::Result<()> {

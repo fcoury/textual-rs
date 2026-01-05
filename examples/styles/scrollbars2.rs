@@ -1,4 +1,4 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 const TEXT: &str = r#"I must not fear.
 Fear is the mind-killer.
@@ -14,18 +14,16 @@ enum Message {}
 
 struct Scrollbar2App;
 
-impl Compose for Scrollbar2App {
+impl App for Scrollbar2App {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("scrollbars2.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
             Label(TEXT.repeat(10))
         }
     }
-}
-
-impl App for Scrollbar2App {
-    const CSS: &'static str = include_str!("scrollbars2.tcss");
 }
 
 fn main() -> textual::Result<()> {

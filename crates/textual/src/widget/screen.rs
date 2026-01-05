@@ -460,7 +460,7 @@ impl<M> Screen<M> {
     }
 }
 
-impl<M> Widget<M> for Screen<M> {
+impl<M: 'static> Widget<M> for Screen<M> {
     fn default_css(&self) -> &'static str {
         // Match Python Textual's Screen DEFAULT_CSS
         r#"
@@ -718,6 +718,14 @@ Screen {
         } else {
             Some(&self.inline_style)
         }
+    }
+
+    fn as_any(&self) -> Option<&dyn std::any::Any> {
+        Some(self)
+    }
+
+    fn as_any_mut(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
     }
 
     fn clear_inline_style(&mut self) {

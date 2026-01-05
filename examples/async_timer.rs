@@ -8,8 +8,8 @@
 use std::time::Duration;
 
 use textual::{
-    App, AppContext, Center, Compose, IntervalHandle, KeyCode, MessageEnvelope, Middle, Result,
-    Switch, Vertical, Widget, log, ui,
+    App, AppContext, Center, IntervalHandle, KeyCode, MessageEnvelope, Middle, Result, Switch,
+    Vertical, Widget, log, ui,
 };
 
 #[derive(Debug, Clone)]
@@ -63,23 +63,9 @@ impl TimerApp {
     }
 }
 
-impl Compose for TimerApp {
+impl App for TimerApp {
     type Message = Message;
 
-    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
-        ui! {
-            Middle {
-                Center {
-                    Vertical {
-                        Switch(self.timer_enabled, Message::SwitchToggled, id: "timer-toggle")
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl App for TimerApp {
     const CSS: &'static str = "
         Switch { color: #00FF00; }
         Switch:focus { color: #FFFF00; background: #333333; }
@@ -102,7 +88,7 @@ impl App for TimerApp {
         // ctx.set_timer(Duration::from_secs(5), Message::Timeout);
     }
 
-    fn on_key(&mut self, key: KeyCode) {
+    fn on_key(&mut self, key: KeyCode, _ctx: &mut textual::EventContext<Self::Message>) {
         if key == KeyCode::Char('q') {
             self.running = false;
         }
@@ -119,7 +105,11 @@ impl App for TimerApp {
     /// Handle messages from widgets and timers.
     ///
     /// The envelope provides metadata about where the message came from.
-    fn handle_message(&mut self, envelope: MessageEnvelope<Message>) {
+    fn handle_message(
+        &mut self,
+        envelope: MessageEnvelope<Message>,
+        _ctx: &mut textual::EventContext<Self::Message>,
+    ) {
         match envelope.message {
             Message::Tick => {
                 self.tick_count += 1;
@@ -132,6 +122,18 @@ impl App for TimerApp {
                     "Timer toggled by {:?}",
                     envelope.sender_id.as_deref().unwrap_or("unknown")
                 );
+            }
+        }
+    }
+
+    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
+        ui! {
+            Middle {
+                Center {
+                    Vertical {
+                        Switch(self.timer_enabled, Message::SwitchToggled, id: "timer-toggle")
+                    }
+                }
             }
         }
     }

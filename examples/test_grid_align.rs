@@ -1,30 +1,10 @@
 use textual::testing::render_to_canvas;
-use textual::{Compose, Container, Grid, Label, Widget, ui};
+use textual::{Container, Grid, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct TestApp;
-
-impl Compose for TestApp {
-    type Message = Message;
-
-    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
-        ui! {
-            Grid {
-                Container { Label("1") }
-                Container { Label("2") }
-                Container { Label("3") }
-                Container { Label("4") }
-                Container { Label("5") }
-                Container { Label("6") }
-                Container { Label("7") }
-                Container { Label("8") }
-                Container { Label("9") }
-            }
-        }
-    }
-}
 
 fn main() {
     // Clear the debug log

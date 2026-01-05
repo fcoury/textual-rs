@@ -1,4 +1,4 @@
-use textual::{App, Compose, Horizontal, Static, VerticalScroll, Widget, ui};
+use textual::{App, Horizontal, Static, VerticalScroll, Widget, ui};
 
 const TEXT: &str = r#"I must not fear.
 Fear is the mind-killer.
@@ -13,8 +13,10 @@ enum Message {}
 
 struct OutlineBorderApp;
 
-impl Compose for OutlineBorderApp {
+impl App for OutlineBorderApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("overflow.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -24,10 +26,6 @@ impl Compose for OutlineBorderApp {
             }
         }
     }
-}
-
-impl App for OutlineBorderApp {
-    const CSS: &'static str = include_str!("overflow.tcss");
 }
 
 fn main() -> textual::Result<()> {

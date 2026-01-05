@@ -1,12 +1,14 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct ContentAlignApp;
 
-impl Compose for ContentAlignApp {
+impl App for ContentAlignApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("content_align.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -15,10 +17,6 @@ impl Compose for ContentAlignApp {
             Label("...Horizontally [i]and[/] vertically!", id: "box3")
         }
     }
-}
-
-impl App for ContentAlignApp {
-    const CSS: &'static str = include_str!("content_align.tcss");
 }
 
 fn main() -> textual::Result<()> {

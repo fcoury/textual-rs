@@ -15,8 +15,8 @@
 use std::time::Duration;
 
 use textual::{
-    App, AppContext, Center, Compose, IntervalHandle, KeyCode, MessageEnvelope, Middle, Result,
-    Switch, Vertical, Widget, log, ui,
+    App, AppContext, Center, IntervalHandle, KeyCode, MessageEnvelope, Middle, Result, Switch,
+    Vertical, Widget, log, ui,
 };
 
 #[derive(Debug, Clone)]
@@ -69,30 +69,9 @@ impl ApiApp {
     }
 }
 
-impl Compose for ApiApp {
+impl App for ApiApp {
     type Message = Message;
 
-    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
-        ui! {
-            Middle {
-                Center {
-                    Vertical {
-                        // WiFi switch - starts loading, then shows actual state
-                        Switch(self.wifi_enabled, Message::WifiToggled,
-                            id: "wifi", loading: self.wifi_loading, spinner_frame: self.spinner_frame)
-                        // Bluetooth switch - starts loading, then shows actual state
-                        Switch(self.bluetooth_enabled, Message::BluetoothToggled,
-                            id: "bluetooth", loading: self.bluetooth_loading, spinner_frame: self.spinner_frame)
-                        // Disabled switch - always disabled, shows how disabled state works
-                        Switch(false, Message::DisabledToggled, id: "disabled-demo", disabled: true)
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl App for ApiApp {
     const CSS: &'static str = "
         Switch { color: #00FF00; }
         Switch:focus { color: #FFFF00; background: #333333; }
@@ -118,7 +97,7 @@ impl App for ApiApp {
         log::info!("Waiting for API responses...");
     }
 
-    fn on_key(&mut self, key: KeyCode) {
+    fn on_key(&mut self, key: KeyCode, _ctx: &mut textual::EventContext<Self::Message>) {
         match key {
             KeyCode::Char('q') => self.running = false,
             KeyCode::Tab | KeyCode::Down => {
@@ -150,7 +129,11 @@ impl App for ApiApp {
         true
     }
 
-    fn handle_message(&mut self, envelope: MessageEnvelope<Message>) {
+    fn handle_message(
+        &mut self,
+        envelope: MessageEnvelope<Message>,
+        _ctx: &mut textual::EventContext<Self::Message>,
+    ) {
         match envelope.message {
             Message::SpinnerTick => {
                 // Advance the global spinner frame
@@ -197,6 +180,25 @@ impl App for ApiApp {
             Message::DisabledToggled(_) => {
                 // This should never fire because the switch is disabled
                 log::warn!("Disabled switch was somehow toggled! This shouldn't happen.");
+            }
+        }
+    }
+
+    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
+        ui! {
+            Middle {
+                Center {
+                    Vertical {
+                        // WiFi switch - starts loading, then shows actual state
+                        Switch(self.wifi_enabled, Message::WifiToggled,
+                            id: "wifi", loading: self.wifi_loading, spinner_frame: self.spinner_frame)
+                        // Bluetooth switch - starts loading, then shows actual state
+                        Switch(self.bluetooth_enabled, Message::BluetoothToggled,
+                            id: "bluetooth", loading: self.bluetooth_loading, spinner_frame: self.spinner_frame)
+                        // Disabled switch - always disabled, shows how disabled state works
+                        Switch(false, Message::DisabledToggled, id: "disabled-demo", disabled: true)
+                    }
+                }
             }
         }
     }

@@ -1,13 +1,15 @@
 use tcss::{StyleOverride, types::RgbaColor};
-use textual::{App, Compose, Label, Widget};
+use textual::{App, Label, Widget};
 
 #[derive(Clone)]
 enum Message {}
 
 struct WrapApp;
 
-impl Compose for WrapApp {
+impl App for WrapApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("tint.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         let color = RgbaColor::parse("green").unwrap();
@@ -23,10 +25,6 @@ impl Compose for WrapApp {
 
         res
     }
-}
-
-impl App for WrapApp {
-    const CSS: &'static str = include_str!("tint.tcss");
 }
 
 fn main() -> textual::Result<()> {

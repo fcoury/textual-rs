@@ -1,12 +1,14 @@
-use textual::{App, Compose, Container, Widget, ui};
+use textual::{App, Container, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct HeightApp;
 
-impl Compose for HeightApp {
+impl App for HeightApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("height.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         // NOTE: this example doesn't match the one from textual python exactly. On python it uses
@@ -17,10 +19,6 @@ impl Compose for HeightApp {
             Container {}
         }
     }
-}
-
-impl App for HeightApp {
-    const CSS: &'static str = include_str!("height.tcss");
 }
 
 fn main() -> textual::Result<()> {

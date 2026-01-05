@@ -1,6 +1,6 @@
 use textual::{
-    App, Center, Compose, Horizontal, KeyCode, MessageEnvelope, Middle, Result, Switch, Vertical,
-    Widget, log, ui,
+    App, Center, Horizontal, KeyCode, MessageEnvelope, Middle, Result, Switch, Vertical, Widget,
+    log, ui,
 };
 
 enum Message {
@@ -22,30 +22,9 @@ impl SwitchApp {
     }
 }
 
-impl Compose for SwitchApp {
+impl App for SwitchApp {
     type Message = Message;
 
-    /// Build the widget tree ONCE (persistent tree architecture).
-    ///
-    /// Note: We don't pass `.with_focus()` here anymore - focus is managed
-    /// by the run loop via `clear_focus()` and `focus_nth()`.
-    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
-        ui! {
-            Middle {
-                Center {
-                    Vertical {
-                        Horizontal {
-                            Switch(false, Message::WifiToggled, id: "wifi-switch")
-                            Switch(false, Message::BluetoothToggled, id: "bluetooth-switch")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-impl App for SwitchApp {
     const CSS: &'static str = "
         Switch { color: #00FF00; }
         Switch:hover { color: #66FF66; background: #222222; }
@@ -53,7 +32,7 @@ impl App for SwitchApp {
         Switch:active { color: #FF6600; background: #444444; }
     ";
 
-    fn on_key(&mut self, key: KeyCode) {
+    fn on_key(&mut self, key: KeyCode, _ctx: &mut textual::EventContext<Self::Message>) {
         match key {
             KeyCode::Char('q') => self.running = false,
             KeyCode::Tab | KeyCode::Down => {
@@ -82,7 +61,11 @@ impl App for SwitchApp {
     /// Messages are for the app to react (e.g., make API calls, show notifications).
     ///
     /// The envelope provides metadata like sender_id and sender_type.
-    fn handle_message(&mut self, envelope: MessageEnvelope<Message>) {
+    fn handle_message(
+        &mut self,
+        envelope: MessageEnvelope<Message>,
+        _ctx: &mut textual::EventContext<Self::Message>,
+    ) {
         // The envelope provides sender metadata
         let sender_id = envelope.sender_id.as_deref().unwrap_or("unknown");
 
@@ -92,6 +75,21 @@ impl App for SwitchApp {
             }
             Message::BluetoothToggled(on) => {
                 log::info!("Bluetooth toggled to: {} (sender: {})", on, sender_id);
+            }
+        }
+    }
+
+    fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
+        ui! {
+            Middle {
+                Center {
+                    Vertical {
+                        Horizontal {
+                            Switch(false, Message::WifiToggled, id: "wifi-switch")
+                            Switch(false, Message::BluetoothToggled, id: "bluetooth-switch")
+                        }
+                    }
+                }
             }
         }
     }

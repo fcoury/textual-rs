@@ -14,7 +14,7 @@
 //!
 //! Run with: cargo run --example breakpoints
 
-use textual::{App, Compose, Grid, KeyCode, MessageEnvelope, Placeholder, Widget};
+use textual::{App, Grid, KeyCode, MessageEnvelope, Placeholder, Widget};
 
 #[derive(Clone)]
 enum Message {}
@@ -29,30 +29,9 @@ impl BreakpointApp {
     }
 }
 
-impl Compose for BreakpointApp {
+impl App for BreakpointApp {
     type Message = Message;
 
-    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
-        // Create a grid of placeholders - the grid-size is controlled by CSS
-        // based on the current breakpoint class
-        vec![Box::new(Grid::new(vec![
-            Box::new(Placeholder::new().with_label("Item 1")),
-            Box::new(Placeholder::new().with_label("Item 2")),
-            Box::new(Placeholder::new().with_label("Item 3")),
-            Box::new(Placeholder::new().with_label("Item 4")),
-            Box::new(Placeholder::new().with_label("Item 5")),
-            Box::new(Placeholder::new().with_label("Item 6")),
-            Box::new(Placeholder::new().with_label("Item 7")),
-            Box::new(Placeholder::new().with_label("Item 8")),
-            Box::new(Placeholder::new().with_label("Item 9")),
-            Box::new(Placeholder::new().with_label("Item 10")),
-            Box::new(Placeholder::new().with_label("Item 11")),
-            Box::new(Placeholder::new().with_label("Item 12")),
-        ]))]
-    }
-}
-
-impl App for BreakpointApp {
     // CSS with nested breakpoint rules
     // The `&` selector refers to the parent (Screen)
     const CSS: &'static str = r#"
@@ -100,9 +79,14 @@ impl App for BreakpointApp {
         ]
     }
 
-    fn handle_message(&mut self, _envelope: MessageEnvelope<Self::Message>) {}
+    fn handle_message(
+        &mut self,
+        _envelope: MessageEnvelope<Self::Message>,
+        _ctx: &mut textual::EventContext<Self::Message>,
+    ) {
+    }
 
-    fn on_key(&mut self, key: KeyCode) {
+    fn on_key(&mut self, key: KeyCode, _ctx: &mut textual::EventContext<Self::Message>) {
         if key == KeyCode::Char('q') || key == KeyCode::Esc {
             self.quit = true;
         }
@@ -110,6 +94,25 @@ impl App for BreakpointApp {
 
     fn should_quit(&self) -> bool {
         self.quit
+    }
+
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+        // Create a grid of placeholders - the grid-size is controlled by CSS
+        // based on the current breakpoint class
+        vec![Box::new(Grid::new(vec![
+            Box::new(Placeholder::new().with_label("Item 1")),
+            Box::new(Placeholder::new().with_label("Item 2")),
+            Box::new(Placeholder::new().with_label("Item 3")),
+            Box::new(Placeholder::new().with_label("Item 4")),
+            Box::new(Placeholder::new().with_label("Item 5")),
+            Box::new(Placeholder::new().with_label("Item 6")),
+            Box::new(Placeholder::new().with_label("Item 7")),
+            Box::new(Placeholder::new().with_label("Item 8")),
+            Box::new(Placeholder::new().with_label("Item 9")),
+            Box::new(Placeholder::new().with_label("Item 10")),
+            Box::new(Placeholder::new().with_label("Item 11")),
+            Box::new(Placeholder::new().with_label("Item 12")),
+        ]))]
     }
 }
 

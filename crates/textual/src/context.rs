@@ -218,7 +218,7 @@ pub struct MountContext<'a, M> {
     tree: &'a mut WidgetTree<M>,
 }
 
-impl<'a, M> MountContext<'a, M> {
+impl<'a, M: 'static> MountContext<'a, M> {
     /// Create a new MountContext wrapping an AppContext and WidgetTree.
     pub fn new(app_ctx: AppContext<M>, tree: &'a mut WidgetTree<M>) -> Self {
         Self { app_ctx, tree }
@@ -320,6 +320,14 @@ impl<'a, M> MountContext<'a, M> {
         self.tree.query_one_as::<W, F, R>(selector, f)
     }
 
+    /// Convenience method to access the implicit Screen widget.
+    pub fn screen_mut<F, R>(&mut self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut crate::widget::screen::Screen<M>) -> R,
+    {
+        self.query_one_as::<crate::widget::screen::Screen<M>, _, _>("Screen", f)
+    }
+
     /// Query for multiple widgets matching a selector.
     ///
     /// Returns a `DOMQuery` that enables bulk operations on all matching widgets.
@@ -353,6 +361,111 @@ impl<'a, M> MountContext<'a, M> {
     /// Get the underlying AppContext for timer/interval operations.
     pub fn app_context(&self) -> &AppContext<M> {
         &self.app_ctx
+    }
+}
+
+// =============================================================================
+// EventContext - Context with widget tree access for runtime events
+// =============================================================================
+
+/// Context provided during runtime event handlers such as `on_key` and `handle_message`.
+///
+/// `EventContext` mirrors `MountContext` but is available during the event loop,
+/// giving apps access to the widget tree for dynamic updates.
+pub struct EventContext<'a, M> {
+    app_ctx: AppContext<M>,
+    tree: &'a mut WidgetTree<M>,
+}
+
+impl<'a, M: 'static> EventContext<'a, M> {
+    /// Create a new EventContext wrapping an AppContext and WidgetTree.
+    pub fn new(app_ctx: AppContext<M>, tree: &'a mut WidgetTree<M>) -> Self {
+        Self { app_ctx, tree }
+    }
+
+    /// Find a widget by ID and call a closure with mutable access.
+    pub fn with_widget_by_id<F, R>(&mut self, id: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        self.tree.with_widget_by_id(id, f)
+    }
+
+    /// Find a widget by type name and call a closure with mutable access.
+    pub fn with_widget_by_type<F, R>(&mut self, type_name: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        self.tree.with_widget_by_type(type_name, f)
+    }
+
+    /// Query for a single widget using a CSS-like selector.
+    pub fn query_one<F, R>(&mut self, selector: &str, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut dyn Widget<M>) -> R,
+    {
+        self.tree.query_one(selector, f)
+    }
+
+    /// Query for a single widget using a selector, with typed downcast access.
+    pub fn query_one_as<W, F, R>(&mut self, selector: &str, f: F) -> Option<R>
+    where
+        W: 'static,
+        F: FnOnce(&mut W) -> R,
+    {
+        self.tree.query_one_as::<W, F, R>(selector, f)
+    }
+
+    /// Query for multiple widgets matching a selector.
+    pub fn query(&mut self, selector: &str) -> DOMQuery<'_, M> {
+        self.tree.query(selector)
+    }
+
+    /// Get the underlying AppContext for timer/interval operations.
+    pub fn app_context(&self) -> &AppContext<M> {
+        &self.app_ctx
+    }
+
+    /// Convenience method to access the implicit Screen widget.
+    pub fn screen_mut<F, R>(&mut self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut crate::widget::screen::Screen<M>) -> R,
+    {
+        self.query_one_as::<crate::widget::screen::Screen<M>, _, _>("Screen", f)
+    }
+}
+
+// Delegate AppContext methods to EventContext
+impl<'a, M: Send + 'static> EventContext<'a, M> {
+    /// Post a message to be processed in the next event loop tick.
+    ///
+    /// See [`AppContext::post`] for details.
+    pub fn post(&self, message: M) {
+        self.app_ctx.post(message);
+    }
+
+    /// Set a one-shot timer that fires a message after a delay.
+    ///
+    /// See [`AppContext::set_timer`] for details.
+    pub fn set_timer(&self, delay: Duration, message: M) {
+        self.app_ctx.set_timer(delay, message);
+    }
+
+    /// Set a repeating interval that fires a message periodically.
+    ///
+    /// See [`AppContext::set_interval`] for details.
+    pub fn set_interval<F>(&self, interval: Duration, message_fn: F) -> IntervalHandle
+    where
+        F: Fn() -> M + Send + 'static,
+    {
+        self.app_ctx.set_interval(interval, message_fn)
+    }
+
+    /// Get a clone of the sender for use in async tasks.
+    ///
+    /// See [`AppContext::sender`] for details.
+    pub fn sender(&self) -> mpsc::UnboundedSender<MessageEnvelope<M>> {
+        self.app_ctx.sender()
     }
 }
 

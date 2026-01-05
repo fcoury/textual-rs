@@ -1,12 +1,14 @@
-use textual::{App, Compose, Horizontal, Placeholder, Widget, ui};
+use textual::{App, Horizontal, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct MinHeightApp;
 
-impl Compose for MinHeightApp {
+impl App for MinHeightApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("min_height.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -18,10 +20,6 @@ impl Compose for MinHeightApp {
             }
         }
     }
-}
-
-impl App for MinHeightApp {
-    const CSS: &'static str = include_str!("min_height.tcss");
 }
 
 fn main() -> textual::Result<()> {

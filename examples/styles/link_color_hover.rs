@@ -1,12 +1,14 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct LinkColorHoverApp;
 
-impl Compose for LinkColorHoverApp {
+impl App for LinkColorHoverApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("link_color_hover.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -28,10 +30,6 @@ impl Compose for LinkColorHoverApp {
             )
         }
     }
-}
-
-impl App for LinkColorHoverApp {
-    const CSS: &'static str = include_str!("link_color_hover.tcss");
 }
 
 fn main() -> textual::Result<()> {

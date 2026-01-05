@@ -11,7 +11,7 @@
 //! Run with: cargo run --example screen_breakpoints
 
 use textual::canvas::TextAttributes;
-use textual::{App, Canvas, Compose, KeyCode, MessageEnvelope, Region, Size, Widget};
+use textual::{App, Canvas, KeyCode, MessageEnvelope, Region, Size, Widget};
 
 // A simple label widget that displays text
 struct Label {
@@ -111,8 +111,40 @@ impl BreakpointApp {
     }
 }
 
-impl Compose for BreakpointApp {
+impl App for BreakpointApp {
     type Message = Message;
+
+    const CSS: &'static str = r#"
+        Screen {
+            background: #1a1a2e;
+        }
+
+        /* These styles would apply based on breakpoints */
+        Screen.-narrow Label {
+            color: #e94560;
+        }
+
+        Screen.-wide Label {
+            color: #0f3460;
+        }
+    "#;
+
+    fn handle_message(
+        &mut self,
+        _envelope: MessageEnvelope<Self::Message>,
+        _ctx: &mut textual::EventContext<Self::Message>,
+    ) {
+    }
+
+    fn on_key(&mut self, key: KeyCode, _ctx: &mut textual::EventContext<Self::Message>) {
+        if key == KeyCode::Char('q') {
+            self.quit = true;
+        }
+    }
+
+    fn should_quit(&self) -> bool {
+        self.quit
+    }
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         use textual::Vertical;
@@ -136,35 +168,6 @@ impl Compose for BreakpointApp {
             Box::new(Label::new("")),
             Box::new(Label::new("Press 'q' to quit")),
         ]))]
-    }
-}
-
-impl App for BreakpointApp {
-    const CSS: &'static str = r#"
-        Screen {
-            background: #1a1a2e;
-        }
-
-        /* These styles would apply based on breakpoints */
-        Screen.-narrow Label {
-            color: #e94560;
-        }
-
-        Screen.-wide Label {
-            color: #0f3460;
-        }
-    "#;
-
-    fn handle_message(&mut self, _envelope: MessageEnvelope<Self::Message>) {}
-
-    fn on_key(&mut self, key: KeyCode) {
-        if key == KeyCode::Char('q') {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
     }
 }
 

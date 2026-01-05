@@ -4,24 +4,16 @@
 //! It shows how to use `MountContext::with_widget_by_id` to modify widgets
 //! after the tree is built.
 
-use textual::{App, Compose, Label, MountContext, Widget, ui};
+use textual::{App, Label, MountContext, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct BorderTitleApp;
 
-impl Compose for BorderTitleApp {
+impl App for BorderTitleApp {
     type Message = Message;
 
-    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
-        ui! {
-            Label("Hello, World!", id: "label")
-        }
-    }
-}
-
-impl App for BorderTitleApp {
     const CSS: &'static str = include_str!("border_title_colors.tcss");
 
     fn on_mount(&mut self, ctx: &mut MountContext<Self::Message>) {
@@ -29,6 +21,12 @@ impl App for BorderTitleApp {
             widget.set_border_title("Textual Rocks");
             widget.set_border_subtitle("Textual Rocks");
         });
+    }
+
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+        ui! {
+            Label("Hello, World!", id: "label")
+        }
     }
 }
 

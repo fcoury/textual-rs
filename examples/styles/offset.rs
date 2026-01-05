@@ -1,12 +1,14 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct OffsetApp;
 
-impl Compose for OffsetApp {
+impl App for OffsetApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("offset.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -15,10 +17,6 @@ impl Compose for OffsetApp {
             Label("Chani (offset 0 -3)", classes: "chani")
         }
     }
-}
-
-impl App for OffsetApp {
-    const CSS: &'static str = include_str!("offset.tcss");
 }
 
 fn main() -> textual::Result<()> {

@@ -1,12 +1,14 @@
-use textual::{App, Compose, Static, Widget, ui};
+use textual::{App, Static, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct BoxSizingApp;
 
-impl Compose for BoxSizingApp {
+impl App for BoxSizingApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("box_sizing.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -14,10 +16,6 @@ impl Compose for BoxSizingApp {
             Static("I'm using content-box!", id: "static2")
         }
     }
-}
-
-impl App for BoxSizingApp {
-    const CSS: &'static str = include_str!("box_sizing.tcss");
 }
 
 fn main() -> textual::Result<()> {

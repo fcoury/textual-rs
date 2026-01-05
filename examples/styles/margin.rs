@@ -1,4 +1,4 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 const TEXT: &str = r#"I must not fear.
 Fear is the mind-killer.
@@ -13,18 +13,16 @@ enum Message {}
 
 struct MarginApp;
 
-impl Compose for MarginApp {
+impl App for MarginApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("margin.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
             Label(TEXT)
         }
     }
-}
-
-impl App for MarginApp {
-    const CSS: &'static str = include_str!("margin.tcss");
 }
 
 fn main() -> textual::Result<()> {

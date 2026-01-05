@@ -41,7 +41,7 @@ pub use containers::{
     horizontal_scroll::HorizontalScroll, item_grid::ItemGrid, scrollable::ScrollableContainer,
     vertical::Vertical, vertical_scroll::VerticalScroll,
 };
-pub use context::{AppContext, IntervalHandle, MountContext};
+pub use context::{AppContext, EventContext, IntervalHandle, MountContext};
 pub use error::Result;
 pub use fraction::Fraction;
 pub use log_init::init_logger;
@@ -115,7 +115,7 @@ fn collect_default_css<M>(widget: &mut dyn Widget<M>, collected: &mut HashSet<&'
 /// Build a combined stylesheet from widget defaults and app CSS.
 ///
 /// Widget default CSS is prepended (lower specificity), so app CSS can override.
-fn build_combined_css<M>(root: &mut dyn Widget<M>, app_css: &str) -> String {
+fn build_combined_css<M: 'static>(root: &mut dyn Widget<M>, app_css: &str) -> String {
     let mut defaults: HashSet<&'static str> = HashSet::new();
     collect_default_css(root, &mut defaults);
 
@@ -138,11 +138,20 @@ fn build_combined_css<M>(root: &mut dyn Widget<M>, app_css: &str) -> String {
 ///
 /// The `Message` associated type (from `Compose`) defines the events your UI can produce.
 /// This enables type-safe event handling with exhaustive pattern matching.
-pub trait App: Compose
-where
-    Self::Message: Send + 'static,
-{
+pub trait App {
+    type Message: Send + 'static;
+
     const CSS: &'static str = "";
+
+    /// Returns a vector of widgets that make up this composition.
+    ///
+    /// The returned widgets become children of the implicit `Screen` container.
+    /// Screen applies CSS layout properties (grid, horizontal, vertical) to arrange them.
+    ///
+    /// Default: no UI.
+    fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+        Vec::new()
+    }
 
     /// Handle a message produced by a widget.
     ///
@@ -152,13 +161,22 @@ where
     /// - `envelope.sender_type` - type name of the widget that produced the message
     ///
     /// Use pattern matching on `envelope.message` to handle each variant of your Message enum.
-    fn handle_message(&mut self, _envelope: MessageEnvelope<Self::Message>) {}
+    ///
+    /// The `EventContext` provides runtime access to the widget tree.
+    fn handle_message(
+        &mut self,
+        _envelope: MessageEnvelope<Self::Message>,
+        _ctx: &mut EventContext<Self::Message>,
+    ) {
+    }
 
     /// Handle global key events (e.g., 'q' to quit).
     /// Called after widget event handling.
     ///
     /// Default behavior: quit on 'q' or Escape.
-    fn on_key(&mut self, key: KeyCode) {
+    ///
+    /// The `EventContext` provides runtime access to the widget tree.
+    fn on_key(&mut self, key: KeyCode, _ctx: &mut EventContext<Self::Message>) {
         if key == KeyCode::Char('q') || key == KeyCode::Esc {
             self.request_quit();
         }
@@ -178,7 +196,7 @@ where
     ///
     /// # Example
     /// ```ignore
-    /// fn on_action(&mut self, action: &str) -> bool {
+    /// fn on_action(&mut self, action: &str, ctx: &mut EventContext<Self::Message>) -> bool {
     ///     match action {
     ///         "my_custom_action" => {
     ///             // Handle custom action
@@ -188,7 +206,7 @@ where
     ///     }
     /// }
     /// ```
-    fn on_action(&mut self, _action: &str) -> bool {
+    fn on_action(&mut self, _action: &str, _ctx: &mut EventContext<Self::Message>) -> bool {
         false // Default: no custom handling
     }
 
@@ -230,9 +248,9 @@ where
     /// Built-in actions:
     /// - `app.quit` / `quit` - calls `request_quit()`
     /// - `app.bell` / `bell` - calls `bell()`
-    fn dispatch_action(&mut self, action: &str) {
+    fn dispatch_action(&mut self, action: &str, ctx: &mut EventContext<Self::Message>) {
         // First, let the app handle custom actions
-        if self.on_action(action) {
+        if self.on_action(action, ctx) {
             return;
         }
 
@@ -556,11 +574,19 @@ where
                                     let bubbled = tree.bubble_message(envelope);
 
                                     // App is always the final handler (even if bubbling was stopped)
-                                    self.handle_message(bubbled);
-                                    // Check if app wants tree rebuild (Elm-style)
-                                    needs_recompose = self.needs_recompose();
+                                    let event_ctx =
+                                        AppContext::new(tx.clone());
+                                    let mut ctx = EventContext::new(event_ctx, &mut tree);
+                                    self.handle_message(bubbled, &mut ctx);
                                 }
-                                self.on_key(key_event.code);
+                                {
+                                    let event_ctx =
+                                        AppContext::new(tx.clone());
+                                    let mut ctx = EventContext::new(event_ctx, &mut tree);
+                                    self.on_key(key_event.code, &mut ctx);
+                                }
+                                // Check if app wants tree rebuild (Elm-style)
+                                needs_recompose = self.needs_recompose();
                                 needs_render = true;
                             }
                             Some(Ok(Event::Resize(nw, nh))) => {
@@ -590,17 +616,25 @@ where
                                 // For now, messages go directly to App without parent interception.
                                 if let Some(msg) = tree.root_mut().on_mouse(mouse_event, region) {
                                     let envelope = MessageEnvelope::new(msg, None, "Widget");
-                                    self.handle_message(envelope);
-                                    // Check if app wants tree rebuild (Elm-style)
-                                    needs_recompose = self.needs_recompose();
+                                    let event_ctx =
+                                        AppContext::new(tx.clone());
+                                    let mut ctx = EventContext::new(event_ctx, &mut tree);
+                                    self.handle_message(envelope, &mut ctx);
                                 }
 
                                 // Collect and dispatch pending actions from link clicks
                                 let actions = collect_pending_actions_mut(tree.root_mut());
-                                for action in actions {
-                                    self.dispatch_action(&action);
+                                if !actions.is_empty() {
+                                    let event_ctx =
+                                        AppContext::new(tx.clone());
+                                    let mut ctx = EventContext::new(event_ctx, &mut tree);
+                                    for action in actions {
+                                        self.dispatch_action(&action, &mut ctx);
+                                    }
                                 }
 
+                                // Check if app wants tree rebuild (Elm-style)
+                                needs_recompose = self.needs_recompose();
                                 needs_render = true;
                             }
                             Some(Ok(_)) => {}
@@ -612,7 +646,9 @@ where
                     // Messages from async tasks (timers, background work)
                     Some(envelope) = rx.recv() => {
                         log::debug!("EVENT_LOOP: Received message from {:?}", envelope.sender_type);
-                        self.handle_message(envelope);
+                        let event_ctx = AppContext::new(tx.clone());
+                        let mut ctx = EventContext::new(event_ctx, &mut tree);
+                        self.handle_message(envelope, &mut ctx);
                         // Check if app wants tree rebuild (Elm-style)
                         needs_recompose = self.needs_recompose();
                     }

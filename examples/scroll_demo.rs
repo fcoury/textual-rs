@@ -13,7 +13,7 @@
 use textual::canvas::TextAttributes;
 use textual::containers::scrollable::ScrollableContainer;
 use textual::widget::Widget;
-use textual::{App, Canvas, Compose, KeyCode, MessageEnvelope, Region, Result, Size};
+use textual::{App, Canvas, KeyCode, MessageEnvelope, Region, Result, Size};
 
 /// A simple widget that renders multiple lines of text for scrolling demo.
 struct TextList {
@@ -71,8 +71,40 @@ impl ScrollApp {
     }
 }
 
-impl Compose for ScrollApp {
+impl App for ScrollApp {
     type Message = Message;
+
+    const CSS: &'static str = r#"
+        ScrollableContainer {
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-color: #00CCFF;
+            scrollbar-color-hover: #66DDFF;
+            scrollbar-color-active: #FFFFFF;
+            scrollbar-background: #333333;
+            scrollbar-background-hover: #444444;
+            scrollbar-size-vertical: 1;
+            scrollbar-size-horizontal: 0;
+        }
+    "#;
+
+    fn on_key(&mut self, key: KeyCode, _ctx: &mut textual::EventContext<Self::Message>) {
+        if key == KeyCode::Char('q') {
+            self.running = false;
+        }
+    }
+
+    fn should_quit(&self) -> bool {
+        !self.running
+    }
+
+    fn handle_message(
+        &mut self,
+        _envelope: MessageEnvelope<Message>,
+        _ctx: &mut textual::EventContext<Self::Message>,
+    ) {
+        // No messages from TextList
+    }
 
     fn compose(&self) -> Vec<Box<dyn Widget<Message>>> {
         // Create 50 lines of content to scroll through
@@ -96,36 +128,6 @@ impl Compose for ScrollApp {
 
         // Wrap in ScrollableContainer
         vec![Box::new(ScrollableContainer::from_child(Box::new(content)))]
-    }
-}
-
-impl App for ScrollApp {
-    const CSS: &'static str = r#"
-        ScrollableContainer {
-            overflow-y: auto;
-            overflow-x: hidden;
-            scrollbar-color: #00CCFF;
-            scrollbar-color-hover: #66DDFF;
-            scrollbar-color-active: #FFFFFF;
-            scrollbar-background: #333333;
-            scrollbar-background-hover: #444444;
-            scrollbar-size-vertical: 1;
-            scrollbar-size-horizontal: 0;
-        }
-    "#;
-
-    fn on_key(&mut self, key: KeyCode) {
-        if key == KeyCode::Char('q') {
-            self.running = false;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        !self.running
-    }
-
-    fn handle_message(&mut self, _envelope: MessageEnvelope<Message>) {
-        // No messages from TextList
     }
 }
 

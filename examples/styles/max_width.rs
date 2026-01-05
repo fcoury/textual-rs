@@ -1,12 +1,14 @@
-use textual::{App, Compose, Placeholder, VerticalScroll, Widget, ui};
+use textual::{App, Placeholder, VerticalScroll, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct MaxWidthApp;
 
-impl Compose for MaxWidthApp {
+impl App for MaxWidthApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("max_width.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -18,10 +20,6 @@ impl Compose for MaxWidthApp {
             }
         }
     }
-}
-
-impl App for MaxWidthApp {
-    const CSS: &'static str = include_str!("max_width.tcss");
 }
 
 fn main() -> textual::Result<()> {

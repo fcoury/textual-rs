@@ -1,12 +1,14 @@
-use textual::{App, Compose, Horizontal, Placeholder, Ruler, Widget, ui};
+use textual::{App, Horizontal, Placeholder, Ruler, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct WidthComparisonApp;
 
-impl Compose for WidthComparisonApp {
+impl App for WidthComparisonApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("width_comparison.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         let mut widgets = ui! {
@@ -26,10 +28,6 @@ impl Compose for WidthComparisonApp {
         widgets.push(Box::new(Ruler::horizontal()));
         widgets
     }
-}
-
-impl App for WidthComparisonApp {
-    const CSS: &'static str = include_str!("width_comparison.tcss");
 }
 
 fn main() -> textual::Result<()> {

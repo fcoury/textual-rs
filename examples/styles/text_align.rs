@@ -1,4 +1,4 @@
-use textual::{App, Compose, Grid, Label, Widget, ui};
+use textual::{App, Grid, Label, Widget, ui};
 
 const TEXT: &str = concat!(
     "I must not fear. Fear is the mind-killer. Fear is the little-death that ",
@@ -11,8 +11,10 @@ enum Message {}
 
 struct TextAlign;
 
-impl Compose for TextAlign {
+impl App for TextAlign {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("text_align.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         let text = TEXT;
@@ -25,10 +27,6 @@ impl Compose for TextAlign {
             }
         }
     }
-}
-
-impl App for TextAlign {
-    const CSS: &'static str = include_str!("text_align.tcss");
 }
 
 fn main() -> textual::Result<()> {

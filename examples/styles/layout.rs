@@ -1,12 +1,14 @@
-use textual::{App, Compose, Container, Label, Widget, ui};
+use textual::{App, Container, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct LayoutApp;
 
-impl Compose for LayoutApp {
+impl App for LayoutApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("layout.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -22,10 +24,6 @@ impl Compose for LayoutApp {
             }
         }
     }
-}
-
-impl App for LayoutApp {
-    const CSS: &'static str = include_str!("layout.tcss");
 }
 
 fn main() -> textual::Result<()> {

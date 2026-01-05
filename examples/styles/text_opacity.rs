@@ -1,12 +1,14 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct TextOpacityApp;
 
-impl Compose for TextOpacityApp {
+impl App for TextOpacityApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("text_opacity.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -17,10 +19,6 @@ impl Compose for TextOpacityApp {
             Label("text-opacity: 100%", id: "full-opacity")
         }
     }
-}
-
-impl App for TextOpacityApp {
-    const CSS: &'static str = include_str!("text_opacity.tcss");
 }
 
 fn main() -> textual::Result<()> {

@@ -1,12 +1,14 @@
-use textual::{App, Compose, Placeholder, Ruler, VerticalScroll, Widget, ui};
+use textual::{App, Placeholder, Ruler, VerticalScroll, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct HeightApp;
 
-impl Compose for HeightApp {
+impl App for HeightApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("height_comparison.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -24,10 +26,6 @@ impl Compose for HeightApp {
             Ruler {}
         }
     }
-}
-
-impl App for HeightApp {
-    const CSS: &'static str = include_str!("height_comparison.tcss");
 }
 
 fn main() -> textual::Result<()> {

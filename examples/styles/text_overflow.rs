@@ -1,4 +1,4 @@
-use textual::{App, Compose, Static, Widget, ui};
+use textual::{App, Static, Widget, ui};
 
 static TEXT: &str = "I must not fear. Fear is the mind-killer. Fear is the little-death that brings total obliteration. I will face my fear.";
 
@@ -7,8 +7,10 @@ enum Message {}
 
 struct WrapApp;
 
-impl Compose for WrapApp {
+impl App for WrapApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("text_overflow.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -17,10 +19,6 @@ impl Compose for WrapApp {
             Static(TEXT, id: "static3")
         }
     }
-}
-
-impl App for WrapApp {
-    const CSS: &'static str = include_str!("text_overflow.tcss");
 }
 
 fn main() -> textual::Result<()> {

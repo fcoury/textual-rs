@@ -1,4 +1,4 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 const TEXT: &str = r#"I must not fear.
 Fear is the mind-killer.
@@ -14,18 +14,16 @@ enum Message {}
 
 struct ScrollbarCornerColorApp;
 
-impl Compose for ScrollbarCornerColorApp {
+impl App for ScrollbarCornerColorApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("scrollbar_corner_color.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
             Label(format!("{}\n{}", TEXT.replace("\n", " "), TEXT.repeat(10)))
         }
     }
-}
-
-impl App for ScrollbarCornerColorApp {
-    const CSS: &'static str = include_str!("scrollbar_corner_color.tcss");
 }
 
 fn main() -> textual::Result<()> {

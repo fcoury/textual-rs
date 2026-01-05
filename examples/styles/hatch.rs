@@ -4,7 +4,7 @@
 //! to dynamically generate widgets from a list, similar to Python Textual's
 //! ability to interleave loops with UI declarations.
 
-use textual::{App, Compose, Horizontal, Static, Vertical, Widget, ui, widget};
+use textual::{App, Horizontal, Static, Vertical, Widget, ui, widget};
 
 const HATCHES: &[&str] = &["cross", "horizontal", "custom", "left", "right"];
 
@@ -13,8 +13,10 @@ enum Message {}
 
 struct HatchApp;
 
-impl Compose for HatchApp {
+impl App for HatchApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("hatch.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         // Build widgets dynamically from the HATCHES list
@@ -51,10 +53,6 @@ impl Compose for HatchApp {
             }
         }
     }
-}
-
-impl App for HatchApp {
-    const CSS: &'static str = include_str!("hatch.tcss");
 }
 
 fn main() -> textual::Result<()> {

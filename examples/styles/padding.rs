@@ -1,4 +1,4 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 const TEXT: &str = r#"I must not fear.
 Fear is the mind-killer.
@@ -13,18 +13,16 @@ enum Message {}
 
 struct OutlineBorderApp;
 
-impl Compose for OutlineBorderApp {
+impl App for OutlineBorderApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("padding.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
             Label(TEXT)
         }
     }
-}
-
-impl App for OutlineBorderApp {
-    const CSS: &'static str = include_str!("padding.tcss");
 }
 
 fn main() -> textual::Result<()> {

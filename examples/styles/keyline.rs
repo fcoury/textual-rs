@@ -1,12 +1,14 @@
-use textual::{App, Compose, Grid, Placeholder, Widget, ui};
+use textual::{App, Grid, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct KeylineApp;
 
-impl Compose for KeylineApp {
+impl App for KeylineApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("keyline.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -19,10 +21,6 @@ impl Compose for KeylineApp {
             }
         }
     }
-}
-
-impl App for KeylineApp {
-    const CSS: &'static str = include_str!("keyline.tcss");
 }
 
 fn main() -> textual::Result<()> {

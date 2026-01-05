@@ -1,12 +1,14 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct BorderTitleAlignApp;
 
-impl Compose for BorderTitleAlignApp {
+impl App for BorderTitleAlignApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("border_title_align.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -15,10 +17,6 @@ impl Compose for BorderTitleAlignApp {
             Label("My title is on the right", id:"label3", border_title: "Right >")
         }
     }
-}
-
-impl App for BorderTitleAlignApp {
-    const CSS: &'static str = include_str!("border_title_align.tcss");
 }
 
 fn main() -> textual::Result<()> {

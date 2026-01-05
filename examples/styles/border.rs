@@ -1,12 +1,14 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct BorderApp;
 
-impl Compose for BorderApp {
+impl App for BorderApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("border.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -15,10 +17,6 @@ impl Compose for BorderApp {
             Label("My border is tall blue", id: "label3")
         }
     }
-}
-
-impl App for BorderApp {
-    const CSS: &'static str = include_str!("border.tcss");
 }
 
 fn main() -> textual::Result<()> {

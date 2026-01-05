@@ -1,12 +1,14 @@
-use textual::{App, Compose, Label, Widget, ui};
+use textual::{App, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
 struct LinkHoverBackgroundApp;
 
-impl Compose for LinkHoverBackgroundApp {
+impl App for LinkHoverBackgroundApp {
     type Message = Message;
+
+    const CSS: &'static str = include_str!("link_background_hover.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
         ui! {
@@ -28,10 +30,6 @@ impl Compose for LinkHoverBackgroundApp {
             )
         }
     }
-}
-
-impl App for LinkHoverBackgroundApp {
-    const CSS: &'static str = include_str!("link_background_hover.tcss");
 }
 
 fn main() -> textual::Result<()> {
