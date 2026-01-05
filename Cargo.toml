@@ -42,4 +42,283 @@ crossterm = { version = "0.27", features = ["event-stream"] }
 phf = { version = "0.11", features = ["macros"] }  # Static hash maps for border chars
 once_cell = "1.19"                                  # Lazy static cache for border box
 unicode-width = "0.2"                               # Cell width calculation
+[[example]]
+name = "styles-align"
+path = "examples/styles/align.rs"
+
+[[example]]
+name = "styles-align_all"
+path = "examples/styles/align_all.rs"
+
+[[example]]
+name = "styles-background"
+path = "examples/styles/background.rs"
+
+[[example]]
+name = "styles-background_tint"
+path = "examples/styles/background_tint.rs"
+
+[[example]]
+name = "styles-background_transparency"
+path = "examples/styles/background_transparency.rs"
+
+[[example]]
+name = "styles-border"
+path = "examples/styles/border.rs"
+
+[[example]]
+name = "styles-border_all"
+path = "examples/styles/border_all.rs"
+
+[[example]]
+name = "styles-border_sub_title_align_all"
+path = "examples/styles/border_sub_title_align_all.rs"
+
+[[example]]
+name = "styles-border_subtitle_align"
+path = "examples/styles/border_subtitle_align.rs"
+
+[[example]]
+name = "styles-border_title_align"
+path = "examples/styles/border_title_align.rs"
+
+[[example]]
+name = "styles-border_title_colors"
+path = "examples/styles/border_title_colors.rs"
+
+[[example]]
+name = "styles-box_sizing"
+path = "examples/styles/box_sizing.rs"
+
+[[example]]
+name = "styles-color"
+path = "examples/styles/color.rs"
+
+[[example]]
+name = "styles-color_auto"
+path = "examples/styles/color_auto.rs"
+
+[[example]]
+name = "styles-column_span"
+path = "examples/styles/column_span.rs"
+
+[[example]]
+name = "styles-content_align"
+path = "examples/styles/content_align.rs"
+
+[[example]]
+name = "styles-content_align_all"
+path = "examples/styles/content_align_all.rs"
+
+[[example]]
+name = "styles-display"
+path = "examples/styles/display.rs"
+
+[[example]]
+name = "styles-dock_all"
+path = "examples/styles/dock_all.rs"
+
+[[example]]
+name = "styles-grid"
+path = "examples/styles/grid.rs"
+
+[[example]]
+name = "styles-grid_columns"
+path = "examples/styles/grid_columns.rs"
+
+[[example]]
+name = "styles-grid_size_both"
+path = "examples/styles/grid_size_both.rs"
+
+[[example]]
+name = "styles-grid_size_columns"
+path = "examples/styles/grid_size_columns.rs"
+
+[[example]]
+name = "styles-hatch"
+path = "examples/styles/hatch.rs"
+
+[[example]]
+name = "styles-height"
+path = "examples/styles/height.rs"
+
+[[example]]
+name = "styles-height_comparison"
+path = "examples/styles/height_comparison.rs"
+
+[[example]]
+name = "styles-keyline"
+path = "examples/styles/keyline.rs"
+
+[[example]]
+name = "styles-keyline_horizontal"
+path = "examples/styles/keyline_horizontal.rs"
+
+[[example]]
+name = "styles-layout"
+path = "examples/styles/layout.rs"
+
+[[example]]
+name = "styles-link_background"
+path = "examples/styles/link_background.rs"
+
+[[example]]
+name = "styles-link_background_hover"
+path = "examples/styles/link_background_hover.rs"
+
+[[example]]
+name = "styles-link_color"
+path = "examples/styles/link_color.rs"
+
+[[example]]
+name = "styles-link_color_hover"
+path = "examples/styles/link_color_hover.rs"
+
+[[example]]
+name = "styles-link_style"
+path = "examples/styles/link_style.rs"
+
+[[example]]
+name = "styles-link_style_hover"
+path = "examples/styles/link_style_hover.rs"
+
+[[example]]
+name = "styles-links"
+path = "examples/styles/links.rs"
+
+[[example]]
+name = "styles-margin"
+path = "examples/styles/margin.rs"
+
+[[example]]
+name = "styles-margin_all"
+path = "examples/styles/margin_all.rs"
+
+[[example]]
+name = "styles-max_height"
+path = "examples/styles/max_height.rs"
+
+[[example]]
+name = "styles-max_width"
+path = "examples/styles/max_width.rs"
+
+[[example]]
+name = "styles-min_height"
+path = "examples/styles/min_height.rs"
+
+[[example]]
+name = "styles-min_width"
+path = "examples/styles/min_width.rs"
+
+[[example]]
+name = "styles-offset"
+path = "examples/styles/offset.rs"
+
+[[example]]
+name = "styles-opacity"
+path = "examples/styles/opacity.rs"
+
+[[example]]
+name = "styles-outline"
+path = "examples/styles/outline.rs"
+
+[[example]]
+name = "styles-outline_all"
+path = "examples/styles/outline_all.rs"
+
+[[example]]
+name = "styles-outline_vs_border"
+path = "examples/styles/outline_vs_border.rs"
+
+[[example]]
+name = "styles-overflow"
+path = "examples/styles/overflow.rs"
+
+[[example]]
+name = "styles-padding"
+path = "examples/styles/padding.rs"
+
+[[example]]
+name = "styles-padding_all"
+path = "examples/styles/padding_all.rs"
+
+[[example]]
+name = "styles-position"
+path = "examples/styles/position.rs"
+
+[[example]]
+name = "styles-row_span"
+path = "examples/styles/row_span.rs"
+
+[[example]]
+name = "styles-scrollbar_corner_color"
+path = "examples/styles/scrollbar_corner_color.rs"
+
+[[example]]
+name = "styles-scrollbar_gutter"
+path = "examples/styles/scrollbar_gutter.rs"
+
+[[example]]
+name = "styles-scrollbar_size"
+path = "examples/styles/scrollbar_size.rs"
+
+[[example]]
+name = "styles-scrollbar_size2"
+path = "examples/styles/scrollbar_size2.rs"
+
+[[example]]
+name = "styles-scrollbar_visibility"
+path = "examples/styles/scrollbar_visibility.rs"
+
+[[example]]
+name = "styles-scrollbars"
+path = "examples/styles/scrollbars.rs"
+
+[[example]]
+name = "styles-scrollbars2"
+path = "examples/styles/scrollbars2.rs"
+
+[[example]]
+name = "styles-text_align"
+path = "examples/styles/text_align.rs"
+
+[[example]]
+name = "styles-text_opacity"
+path = "examples/styles/text_opacity.rs"
+
+[[example]]
+name = "styles-text_overflow"
+path = "examples/styles/text_overflow.rs"
+
+[[example]]
+name = "styles-text_style"
+path = "examples/styles/text_style.rs"
+
+[[example]]
+name = "styles-text_style_all"
+path = "examples/styles/text_style_all.rs"
+
+[[example]]
+name = "styles-text_wrap"
+path = "examples/styles/text_wrap.rs"
+
+[[example]]
+name = "styles-tint"
+path = "examples/styles/tint.rs"
+
+[[example]]
+name = "styles-visibility"
+path = "examples/styles/visibility.rs"
+
+[[example]]
+name = "styles-visibility_containers"
+path = "examples/styles/visibility_containers.rs"
+
+[[example]]
+name = "styles-width"
+path = "examples/styles/width.rs"
+
+[[example]]
+name = "styles-width_comparison"
+path = "examples/styles/width_comparison.rs"
 

@@ -166,14 +166,20 @@ for ex in "${py_examples[@]}"; do
   ensure_window rust
   ensure_window python
 
-  rust_cmd="cd \"$TEXRS_DIR\" && cargo run --quiet --example \"$ex\""
+  rust_example=""
+  if [[ -f "$TEXRS_DIR/examples/styles/${ex}.rs" ]]; then
+    rust_example="styles-${ex}"
+  elif [[ -f "$TEXRS_DIR/examples/${ex}.rs" ]]; then
+    rust_example="$ex"
+  fi
+  rust_cmd="cd \"$TEXRS_DIR\" && cargo run --quiet --example \"$rust_example\""
   if [[ -n "$PY_ACTIVATE" ]]; then
     py_cmd="cd \"$TEXTUAL_DIR\" && source \"$PY_ACTIVATE\" && python3 docs/examples/styles/${ex}.py"
   else
     py_cmd="cd \"$TEXTUAL_DIR\" && python3 docs/examples/styles/${ex}.py"
   fi
 
-  if [[ ! -f "$TEXRS_DIR/examples/${ex}.rs" ]]; then
+  if [[ -z "$rust_example" ]]; then
     echo "[skip] rust example not found: $ex"
     skipped+=("$ex")
     continue
