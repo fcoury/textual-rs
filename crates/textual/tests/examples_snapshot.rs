@@ -4,8 +4,11 @@
 //! against stored snapshots. Run `cargo insta test --accept` to update snapshots.
 
 use insta::assert_snapshot;
-use textual::testing::render_to_canvas;
-use textual::{Compose, Grid, Label, Widget, ui};
+use textual::testing::{build_combined_css, render_to_canvas};
+use textual::{Button, Canvas, Compose, Grid, Label, Region, Size, Theme, Widget, parse_stylesheet, ui};
+use textual::style_resolver::resolve_styles;
+use textual::tree::WidgetTree;
+use textual::widget::screen::Screen;
 
 // ============================================================================
 // Border Example
@@ -2567,5 +2570,69 @@ fn snapshot_outline_all_example() {
 fn snapshot_outline_all_example_ansi() {
     let app = outline_all_example::OutlineAllApp;
     let canvas = render_to_canvas(&app, outline_all_example::CSS, 80, 24);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+// ============================================================================
+// Question01 Example (Button focus + border shading)
+// ============================================================================
+
+mod question01_example {
+    use super::*;
+
+    #[derive(Clone)]
+    pub enum Message {}
+
+    pub struct QuestionApp;
+
+    impl Compose for QuestionApp {
+        type Message = Message;
+
+        fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
+            ui! {
+                Label("Do you love Textual?")
+                Button("Yes", id: "yes", variant: "primary")
+                Button("No", id: "no", variant: "error")
+            }
+        }
+    }
+
+    pub const CSS: &str = "";
+}
+
+fn render_question_canvas(focus_index: usize) -> Canvas {
+    let app = question01_example::QuestionApp;
+    let themes = Theme::standard_themes();
+    let theme = themes
+        .get("textual-dark")
+        .cloned()
+        .unwrap_or_else(|| Theme::new("default", true));
+
+    let root = Box::new(Screen::new(app.compose()));
+    let mut tree = WidgetTree::new(root);
+    let size = Size::new(40, 10);
+    tree.root_mut().on_resize(size);
+    tree.set_focus_index(focus_index);
+
+    let combined_css = build_combined_css(tree.root_mut(), question01_example::CSS);
+    let stylesheet = parse_stylesheet(&combined_css).expect("CSS parsing failed");
+    let mut ancestors = std::collections::VecDeque::new();
+    resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
+
+    let mut canvas = Canvas::new(size.width, size.height);
+    let region = Region::from_u16(0, 0, size.width, size.height);
+    tree.root().render(&mut canvas, region);
+    canvas
+}
+
+#[test]
+fn snapshot_question01_focus_yes_ansi() {
+    let canvas = render_question_canvas(0);
+    assert_snapshot!(canvas.to_ansi_snapshot());
+}
+
+#[test]
+fn snapshot_question01_focus_no_ansi() {
+    let canvas = render_question_canvas(1);
     assert_snapshot!(canvas.to_ansi_snapshot());
 }
