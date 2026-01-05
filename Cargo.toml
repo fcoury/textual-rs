@@ -329,3 +329,11 @@ path = "examples/app/event01.rs"
 [[example]]
 name = "app-question01"
 path = "examples/app/question01.rs"
+
+[[example]]
+name = "app-question02"
+path = "examples/app/question02.rs"
+
+[[example]]
+name = "app-question03"
+path = "examples/app/question03.rs"
