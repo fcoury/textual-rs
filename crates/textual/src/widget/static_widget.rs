@@ -484,7 +484,9 @@ Static {
             .with_hovered_action(self.hovered_link.borrow().clone());
 
         let line_pad = self.style.line_pad as usize;
-        let wrap_width = inner_width.saturating_sub(line_pad.saturating_mul(2)).max(1);
+        let wrap_width = inner_width
+            .saturating_sub(line_pad.saturating_mul(2))
+            .max(1);
         let mut lines = if inner_width > 0 {
             content.wrap_with_line_end_overflow(
                 wrap_width,
@@ -726,17 +728,13 @@ Static {
                 Unit::Auto => {
                     let text = self.text();
                     let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
-                    content_width
-                        .saturating_add(style.line_pad.saturating_mul(2))
-                        + chrome_width
+                    content_width.saturating_add(style.line_pad.saturating_mul(2)) + chrome_width
                 }
             }
         } else {
             let text = self.text();
             let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
-            content_width
-                .saturating_add(style.line_pad.saturating_mul(2))
-                + chrome_width
+            content_width.saturating_add(style.line_pad.saturating_mul(2)) + chrome_width
         };
 
         let height = if let Some(h) = &style.height {

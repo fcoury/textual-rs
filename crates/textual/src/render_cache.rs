@@ -75,25 +75,27 @@ impl RenderCache {
         let border_box = if has_border {
             let border_type = border_kind_to_str(border_kind);
             let effective_opacity = style.opacity * style.opacity;
-            let resolve_edge_color = |edge: &tcss::types::border::BorderEdge| -> Option<tcss::types::RgbaColor> {
-                let base = edge.color.clone().or_else(|| style.color.clone());
-                match (&base, &style.inherited_background) {
-                    (Some(color), Some(bg)) => Some(color.blend_toward(bg, effective_opacity)),
-                    (Some(color), None) => Some(color.with_opacity(effective_opacity)),
-                    _ => None,
-                }
-            };
+            let resolve_edge_color =
+                |edge: &tcss::types::border::BorderEdge| -> Option<tcss::types::RgbaColor> {
+                    let base = edge.color.clone().or_else(|| style.color.clone());
+                    match (&base, &style.inherited_background) {
+                        (Some(color), Some(bg)) => Some(color.blend_toward(bg, effective_opacity)),
+                        (Some(color), None) => Some(color.with_opacity(effective_opacity)),
+                        _ => None,
+                    }
+                };
 
             let top_color = resolve_edge_color(&style.border.top);
             let right_color = resolve_edge_color(&style.border.right);
             let bottom_color = resolve_edge_color(&style.border.bottom);
             let left_color = resolve_edge_color(&style.border.left);
 
-            let make_style = |fg: Option<tcss::types::RgbaColor>, bg: Option<tcss::types::RgbaColor>| Style {
-                fg,
-                bg,
-                ..Default::default()
-            };
+            let make_style =
+                |fg: Option<tcss::types::RgbaColor>, bg: Option<tcss::types::RgbaColor>| Style {
+                    fg,
+                    bg,
+                    ..Default::default()
+                };
 
             let top_inner = make_style(top_color.clone(), effective_bg.clone());
             let top_outer = make_style(top_color.clone(), style.inherited_background.clone());
@@ -104,9 +106,8 @@ impl RenderCache {
             let right_inner = make_style(right_color.clone(), effective_bg.clone());
             let right_outer = make_style(right_color.clone(), style.inherited_background.clone());
 
-            let uniform = top_color == bottom_color
-                && top_color == left_color
-                && top_color == right_color;
+            let uniform =
+                top_color == bottom_color && top_color == left_color && top_color == right_color;
 
             if uniform {
                 Some(get_box(border_type, &top_inner, &top_outer))
@@ -722,8 +723,18 @@ fn build_border_box_per_edge(
         )
     };
 
-    let top_row = build_row(0, top_inner, top_outer, top_inner, top_outer, top_inner, top_outer);
-    let middle_row = build_row(1, left_inner, left_outer, top_inner, top_outer, right_inner, right_outer);
+    let top_row = build_row(
+        0, top_inner, top_outer, top_inner, top_outer, top_inner, top_outer,
+    );
+    let middle_row = build_row(
+        1,
+        left_inner,
+        left_outer,
+        top_inner,
+        top_outer,
+        right_inner,
+        right_outer,
+    );
     let bottom_row = build_row(
         2,
         bottom_inner,

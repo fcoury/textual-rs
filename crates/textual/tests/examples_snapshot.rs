@@ -4,11 +4,13 @@
 //! against stored snapshots. Run `cargo insta test --accept` to update snapshots.
 
 use insta::assert_snapshot;
-use textual::testing::{build_combined_css, render_to_canvas};
-use textual::{Button, Canvas, Compose, Grid, Label, Region, Size, Theme, Widget, parse_stylesheet, ui};
 use textual::style_resolver::resolve_styles;
+use textual::testing::{build_combined_css, render_to_canvas};
 use textual::tree::WidgetTree;
 use textual::widget::screen::Screen;
+use textual::{
+    Button, Canvas, Compose, Grid, Label, Region, Size, Theme, Widget, parse_stylesheet, ui,
+};
 
 // ============================================================================
 // Border Example

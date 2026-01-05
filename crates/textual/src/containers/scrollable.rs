@@ -1465,7 +1465,6 @@ impl<M> ScrollableContainer<M> {
         None
     }
 
-
     /// Handle click on horizontal scrollbar.
     fn handle_horizontal_scrollbar_click(
         &mut self,

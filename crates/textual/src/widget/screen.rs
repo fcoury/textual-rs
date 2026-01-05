@@ -916,8 +916,7 @@ Screen {
             };
             if scrolled_region.contains_point(mx, my) {
                 if let Some(child) = self.children.get_mut(placement.child_index) {
-                    if let Some((msg, _sender)) =
-                        child.on_mouse_with_sender(event, scrolled_region)
+                    if let Some((msg, _sender)) = child.on_mouse_with_sender(event, scrolled_region)
                     {
                         return Some(msg);
                     }
