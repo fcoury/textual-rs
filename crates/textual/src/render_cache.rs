@@ -7,7 +7,9 @@ use tcss::types::ComputedStyle;
 use tcss::types::border::BorderKind;
 
 use crate::border_box::{BoxSegments, get_box};
+use crate::border_chars::{get_border_chars, get_border_locations};
 use crate::border_render::render_row;
+use crate::segment::Segment;
 use crate::segment::Style;
 use crate::strip::Strip;
 
@@ -72,36 +74,55 @@ impl RenderCache {
 
         let border_box = if has_border {
             let border_type = border_kind_to_str(border_kind);
-            // Use border color for the foreground, falling back to text color
-            // Apply opacity SQUARED to border color to match Python Textual's behavior.
-            // Python applies opacity twice: once in multiply_alpha when computing border_color,
-            // then again in _apply_opacity (post-processing) which blends ALL segments.
-            // Two sequential blends at factor f equals one blend at f².
-            let base_border_color = style
-                .border
-                .top
-                .color
-                .clone()
-                .or_else(|| style.color.clone());
             let effective_opacity = style.opacity * style.opacity;
-            let border_color = match (&base_border_color, &style.inherited_background) {
-                (Some(color), Some(bg)) => Some(color.blend_toward(bg, effective_opacity)),
-                (Some(color), None) => Some(color.with_opacity(effective_opacity)),
-                _ => None,
+            let resolve_edge_color = |edge: &tcss::types::border::BorderEdge| -> Option<tcss::types::RgbaColor> {
+                let base = edge.color.clone().or_else(|| style.color.clone());
+                match (&base, &style.inherited_background) {
+                    (Some(color), Some(bg)) => Some(color.blend_toward(bg, effective_opacity)),
+                    (Some(color), None) => Some(color.with_opacity(effective_opacity)),
+                    _ => None,
+                }
             };
-            let inner_style = Style {
-                fg: border_color.clone(),
-                bg: effective_bg.clone(),
-                ..Default::default()
-            };
-            // Outer style uses inherited/parent background for zone 2/3 color reversal
-            let outer_style = Style {
-                fg: border_color.clone(),
-                bg: style.inherited_background.clone(),
+
+            let top_color = resolve_edge_color(&style.border.top);
+            let right_color = resolve_edge_color(&style.border.right);
+            let bottom_color = resolve_edge_color(&style.border.bottom);
+            let left_color = resolve_edge_color(&style.border.left);
+
+            let make_style = |fg: Option<tcss::types::RgbaColor>, bg: Option<tcss::types::RgbaColor>| Style {
+                fg,
+                bg,
                 ..Default::default()
             };
 
-            Some(get_box(border_type, &inner_style, &outer_style))
+            let top_inner = make_style(top_color.clone(), effective_bg.clone());
+            let top_outer = make_style(top_color.clone(), style.inherited_background.clone());
+            let bottom_inner = make_style(bottom_color.clone(), effective_bg.clone());
+            let bottom_outer = make_style(bottom_color.clone(), style.inherited_background.clone());
+            let left_inner = make_style(left_color.clone(), effective_bg.clone());
+            let left_outer = make_style(left_color.clone(), style.inherited_background.clone());
+            let right_inner = make_style(right_color.clone(), effective_bg.clone());
+            let right_outer = make_style(right_color.clone(), style.inherited_background.clone());
+
+            let uniform = top_color == bottom_color
+                && top_color == left_color
+                && top_color == right_color;
+
+            if uniform {
+                Some(get_box(border_type, &top_inner, &top_outer))
+            } else {
+                Some(build_border_box_per_edge(
+                    border_type,
+                    &top_inner,
+                    &top_outer,
+                    &bottom_inner,
+                    &bottom_outer,
+                    &left_inner,
+                    &left_outer,
+                    &right_inner,
+                    &right_outer,
+                ))
+            }
         } else {
             None
         };
@@ -638,6 +659,82 @@ fn border_kind_to_str(kind: BorderKind) -> &'static str {
         BorderKind::Vkey => "vkey",
         BorderKind::Wide => "wide",
     }
+}
+
+fn build_border_box_per_edge(
+    border_type: &str,
+    top_inner: &Style,
+    top_outer: &Style,
+    bottom_inner: &Style,
+    bottom_outer: &Style,
+    left_inner: &Style,
+    left_outer: &Style,
+    right_inner: &Style,
+    right_outer: &Style,
+) -> [BoxSegments; 3] {
+    let chars = get_border_chars(border_type);
+    let locations = get_border_locations(border_type);
+
+    let style_for_zone = |zone: u8, inner: &Style, outer: &Style| -> Style {
+        match zone {
+            0 => inner.clone(),
+            1 => outer.clone(),
+            2 => Style {
+                fg: inner.fg.clone(),
+                bg: outer.bg.clone(),
+                reverse: true,
+                ..inner.clone()
+            },
+            3 => Style {
+                fg: outer.fg.clone(),
+                bg: inner.bg.clone(),
+                reverse: true,
+                ..outer.clone()
+            },
+            _ => inner.clone(),
+        }
+    };
+
+    let build_row = |row_idx: usize,
+                     left_in: &Style,
+                     left_out: &Style,
+                     fill_in: &Style,
+                     fill_out: &Style,
+                     right_in: &Style,
+                     right_out: &Style|
+     -> BoxSegments {
+        let left_char = chars[row_idx][0];
+        let fill_char = chars[row_idx][1];
+        let right_char = chars[row_idx][2];
+
+        let left_loc = locations[row_idx][0];
+        let fill_loc = locations[row_idx][1];
+        let right_loc = locations[row_idx][2];
+
+        let left_style = style_for_zone(left_loc, left_in, left_out);
+        let fill_style = style_for_zone(fill_loc, fill_in, fill_out);
+        let right_style = style_for_zone(right_loc, right_in, right_out);
+
+        (
+            Segment::styled(left_char.to_string(), left_style),
+            Segment::styled(fill_char.to_string(), fill_style),
+            Segment::styled(right_char.to_string(), right_style),
+        )
+    };
+
+    let top_row = build_row(0, top_inner, top_outer, top_inner, top_outer, top_inner, top_outer);
+    let middle_row = build_row(1, left_inner, left_outer, top_inner, top_outer, right_inner, right_outer);
+    let bottom_row = build_row(
+        2,
+        bottom_inner,
+        bottom_outer,
+        bottom_inner,
+        bottom_outer,
+        bottom_inner,
+        bottom_outer,
+    );
+
+    [top_row, middle_row, bottom_row]
 }
 
 #[cfg(test)]

@@ -1175,6 +1175,207 @@ ScrollableContainer {
         }
     }
 
+    fn on_mouse_with_sender(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<(M, crate::widget::SenderInfo)> {
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        let inner_region = self.compute_inner_region(region);
+        let viewport = layouts::Viewport::from(region);
+        let layout = self.compute_scroll_layout(inner_region, viewport);
+        let content_region = layout.content_region;
+
+        // Check scrollbar regions first
+        let v_region =
+            self.vertical_scrollbar_region_with_flags(inner_region, layout.show_horizontal);
+        let h_region =
+            self.horizontal_scrollbar_region_with_flags(inner_region, layout.show_vertical);
+
+        let render_vertical = self.render_vertical_scrollbar(layout.show_vertical);
+        let render_horizontal = self.render_horizontal_scrollbar(layout.show_horizontal);
+        let on_vertical = render_vertical && v_region.contains_point(mx, my);
+        let on_horizontal = render_horizontal && h_region.contains_point(mx, my);
+
+        match event.kind {
+            MouseEventKind::Moved => {
+                // Handle drag
+                if let Some((vertical, grab_offset)) = self.scrollbar_drag {
+                    return self
+                        .handle_scrollbar_drag(event, inner_region, vertical, grab_offset)
+                        .map(|msg| (msg, self.sender_info()));
+                }
+
+                // Update hover state
+                let new_hover = if on_vertical {
+                    Some(true)
+                } else if on_horizontal {
+                    Some(false)
+                } else {
+                    None
+                };
+
+                if self.scrollbar_hover != new_hover {
+                    self.scrollbar_hover = new_hover;
+                    self.dirty = true;
+                }
+
+                // Pass to content if in content area
+                if content_region.contains_point(mx, my) {
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index]
+                                .on_mouse_with_sender(event, scrolled);
+                        }
+                    }
+                }
+                None
+            }
+
+            MouseEventKind::Down(_) => {
+                if on_vertical {
+                    return self
+                        .handle_vertical_scrollbar_click(event, v_region)
+                        .map(|msg| (msg, self.sender_info()));
+                } else if on_horizontal {
+                    return self
+                        .handle_horizontal_scrollbar_click(event, h_region)
+                        .map(|msg| (msg, self.sender_info()));
+                } else if content_region.contains_point(mx, my) {
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index]
+                                .on_mouse_with_sender(event, scrolled);
+                        }
+                    }
+                }
+                None
+            }
+
+            MouseEventKind::Drag(_) => {
+                if let Some((vertical, grab_offset)) = self.scrollbar_drag {
+                    return self
+                        .handle_scrollbar_drag(event, inner_region, vertical, grab_offset)
+                        .map(|msg| (msg, self.sender_info()));
+                }
+                // Pass to content
+                if content_region.contains_point(mx, my) {
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index]
+                                .on_mouse_with_sender(event, scrolled);
+                        }
+                    }
+                }
+                None
+            }
+
+            MouseEventKind::Up(_) => {
+                if self.scrollbar_drag.is_some() {
+                    self.scrollbar_drag = None;
+                    self.dirty = true;
+                }
+                // Pass to content
+                if content_region.contains_point(mx, my) {
+                    let (offset_x, offset_y) = {
+                        let scroll = self.scroll.borrow();
+                        (scroll.offset_x, scroll.offset_y)
+                    };
+                    for placement in &layout.placements {
+                        let scrolled = Region {
+                            x: placement.region.x - offset_x,
+                            y: placement.region.y - offset_y,
+                            width: placement.region.width,
+                            height: placement.region.height,
+                        };
+                        if scrolled.contains_point(mx, my) {
+                            return self.children[placement.child_index]
+                                .on_mouse_with_sender(event, scrolled);
+                        }
+                    }
+                }
+                None
+            }
+
+            MouseEventKind::ScrollDown => {
+                // Shift or Ctrl + scroll converts vertical scroll to horizontal
+                if event.modifiers.contains(KeyModifiers::SHIFT)
+                    || event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    if self.allow_horizontal_scroll() {
+                        self.handle_scroll(ScrollMessage::ScrollRight);
+                        return None;
+                    }
+                } else if self.allow_vertical_scroll() {
+                    self.handle_scroll(ScrollMessage::ScrollDown);
+                    return None;
+                }
+                None
+            }
+
+            MouseEventKind::ScrollUp => {
+                if event.modifiers.contains(KeyModifiers::SHIFT)
+                    || event.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    if self.allow_horizontal_scroll() {
+                        self.handle_scroll(ScrollMessage::ScrollLeft);
+                        return None;
+                    }
+                } else if self.allow_vertical_scroll() {
+                    self.handle_scroll(ScrollMessage::ScrollUp);
+                    return None;
+                }
+                None
+            }
+
+            MouseEventKind::ScrollLeft => {
+                if self.allow_horizontal_scroll() {
+                    self.handle_scroll(ScrollMessage::ScrollLeft);
+                }
+                None
+            }
+
+            MouseEventKind::ScrollRight => {
+                if self.allow_horizontal_scroll() {
+                    self.handle_scroll(ScrollMessage::ScrollRight);
+                }
+                None
+            }
+        }
+    }
+
     fn count_focusable(&self) -> usize {
         self.children
             .iter()
@@ -1263,6 +1464,7 @@ impl<M> ScrollableContainer<M> {
         }
         None
     }
+
 
     /// Handle click on horizontal scrollbar.
     fn handle_horizontal_scrollbar_click(

@@ -517,7 +517,8 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
             style.text_opacity = *value;
         }
         Declaration::TextStyle(s) => {
-            style.text_style.merge(s);
+            let resolved = resolve_theme_style(s, theme);
+            style.text_style.merge(&resolved);
         }
 
         // Content alignment properties (text within widget)

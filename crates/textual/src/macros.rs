@@ -112,6 +112,14 @@ macro_rules! impl_widget_delegation {
                 self.$field.on_mouse(event, region)
             }
 
+            fn on_mouse_with_sender(
+                &mut self,
+                event: $crate::MouseEvent,
+                region: $crate::Region,
+            ) -> Option<($m, $crate::widget::SenderInfo)> {
+                self.$field.on_mouse_with_sender(event, region)
+            }
+
             fn set_hover(&mut self, is_hovered: bool) -> bool {
                 self.$field.set_hover(is_hovered)
             }

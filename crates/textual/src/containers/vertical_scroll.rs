@@ -149,6 +149,14 @@ VerticalScroll {
         self.inner.on_mouse(event, region)
     }
 
+    fn on_mouse_with_sender(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<(M, crate::widget::SenderInfo)> {
+        self.inner.on_mouse_with_sender(event, region)
+    }
+
     fn set_hover(&mut self, is_hovered: bool) -> bool {
         self.inner.set_hover(is_hovered)
     }

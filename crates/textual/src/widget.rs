@@ -17,6 +17,15 @@ use crate::{
     layouts::Layout,
 };
 
+/// Sender information extracted from a widget.
+#[derive(Debug, Clone)]
+pub struct SenderInfo {
+    /// The widget's ID (if set via `with_id`).
+    pub id: Option<String>,
+    /// The widget's type name.
+    pub type_name: &'static str,
+}
+
 /// A widget that can render itself and handle events.
 /// Generic over `M`, the message type that events produce.
 pub trait Widget<M> {
@@ -252,6 +261,18 @@ pub trait Widget<M> {
         None
     }
 
+    /// Handle a mouse event and return the message with sender info.
+    ///
+    /// Containers should override this to return the child sender instead of themselves.
+    fn on_mouse_with_sender(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<(M, SenderInfo)> {
+        self.on_mouse(event, region)
+            .map(|msg| (msg, self.sender_info()))
+    }
+
     /// Sets the hover state on this widget and clears hover from all other widgets.
     ///
     /// Returns true if this widget's hover state changed.
@@ -401,6 +422,14 @@ pub trait Widget<M> {
             .split("::")
             .last()
             .unwrap_or(full)
+    }
+
+    /// Returns sender info for this widget (id + type name).
+    fn sender_info(&self) -> SenderInfo {
+        SenderInfo {
+            id: self.id().map(|s| s.to_string()),
+            type_name: self.type_name(),
+        }
     }
 
     // =========================================================================
@@ -588,6 +617,14 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
         self.as_mut().on_mouse(event, region)
     }
 
+    fn on_mouse_with_sender(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<(M, SenderInfo)> {
+        self.as_mut().on_mouse_with_sender(event, region)
+    }
+
     fn set_hover(&mut self, is_hovered: bool) -> bool {
         self.as_mut().set_hover(is_hovered)
     }
@@ -668,6 +705,10 @@ impl<M> Widget<M> for Box<dyn Widget<M>> {
         // Box<dyn Widget> should delegate to inner widget's type_name
         // but we can't call it through trait object, so return generic name
         "Widget"
+    }
+
+    fn sender_info(&self) -> SenderInfo {
+        self.as_ref().sender_info()
     }
 
     fn on_resize(&mut self, size: Size) {

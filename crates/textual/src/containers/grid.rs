@@ -387,6 +387,36 @@ Grid {
         None
     }
 
+    fn on_mouse_with_sender(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<(M, crate::widget::SenderInfo)> {
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        if !region.contains_point(mx, my) {
+            return None;
+        }
+
+        // Compute placements first (borrows self immutably)
+        // For mouse handling, approximate viewport as region
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
+
+        for placement in placements {
+            if placement.region.contains_point(mx, my) {
+                if let Some(result) = self.children[placement.child_index]
+                    .on_mouse_with_sender(event, placement.region)
+                {
+                    return Some(result);
+                }
+            }
+        }
+
+        None
+    }
+
     fn count_focusable(&self) -> usize {
         self.children
             .iter()

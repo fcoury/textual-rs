@@ -6,16 +6,7 @@
 
 use crate::KeyCode;
 use crate::message::MessageEnvelope;
-use crate::widget::Widget;
-
-/// Sender information extracted from a widget.
-#[derive(Debug, Clone)]
-pub struct SenderInfo {
-    /// The widget's ID (if set via `with_id`).
-    pub id: Option<String>,
-    /// The widget's type name.
-    pub type_name: &'static str,
-}
+use crate::widget::{SenderInfo, Widget};
 
 /// A path from the root to a specific widget in the tree.
 ///
@@ -98,6 +89,69 @@ impl<M> WidgetTree<M> {
     /// Get the current focus path.
     pub fn focus_path(&self) -> &FocusPath {
         &self.focus_path
+    }
+
+    /// Get the current focus index tracked by the tree.
+    pub fn current_focus_index(&self) -> usize {
+        self.current_focus_index
+    }
+
+    /// Count how many focusable widgets exist in the tree.
+    pub fn focusable_count(&self) -> usize {
+        self.root.count_focusable()
+    }
+
+    /// Set focus to the nth focusable widget and update the cached path.
+    pub fn set_focus_index(&mut self, focus_index: usize) -> bool {
+        let count = self.focusable_count();
+        if count == 0 {
+            self.focus_path.clear();
+            self.current_focus_index = 0;
+            self.root.clear_focus();
+            return false;
+        }
+        if focus_index >= count {
+            return false;
+        }
+
+        self.root.clear_focus();
+        if !self.root.focus_nth(focus_index) {
+            return false;
+        }
+        self.update_focus(focus_index);
+        true
+    }
+
+    /// Move focus forward (Tab behavior), wrapping around.
+    pub fn focus_next(&mut self) -> Option<usize> {
+        let count = self.focusable_count();
+        if count == 0 {
+            return None;
+        }
+        let next = (self.current_focus_index + 1) % count;
+        if self.set_focus_index(next) {
+            Some(next)
+        } else {
+            None
+        }
+    }
+
+    /// Move focus backward (Shift+Tab behavior), wrapping around.
+    pub fn focus_previous(&mut self) -> Option<usize> {
+        let count = self.focusable_count();
+        if count == 0 {
+            return None;
+        }
+        let prev = if self.current_focus_index == 0 {
+            count - 1
+        } else {
+            self.current_focus_index - 1
+        };
+        if self.set_focus_index(prev) {
+            Some(prev)
+        } else {
+            None
+        }
     }
 
     /// Update the focus path for a given focus index.

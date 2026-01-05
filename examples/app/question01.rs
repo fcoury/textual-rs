@@ -43,6 +43,7 @@ impl App for QuestionApp {
 fn main() -> textual::Result<()> {
     let mut app = QuestionApp::new();
     app.run()?;
+
     if let Some(answer) = app.answer {
         println!("{answer}");
     }

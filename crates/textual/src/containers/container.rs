@@ -1445,6 +1445,68 @@ Container {
         None
     }
 
+    fn on_mouse_with_sender(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<(M, crate::widget::SenderInfo)> {
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        if !region.contains_point(mx, my) {
+            return None;
+        }
+
+        // Handle mouse wheel for scrolling
+        const SCROLL_AMOUNT: i32 = 3; // Scroll 3 lines per wheel event
+
+        match event.kind {
+            MouseEventKind::ScrollDown => {
+                if self.show_vertical_scrollbar() || self.style.overflow_y == Overflow::Auto {
+                    self.scroll.borrow_mut().scroll_down(SCROLL_AMOUNT);
+                    self.dirty = true;
+                    return None;
+                }
+            }
+            MouseEventKind::ScrollUp => {
+                if self.show_vertical_scrollbar() || self.style.overflow_y == Overflow::Auto {
+                    self.scroll.borrow_mut().scroll_up(SCROLL_AMOUNT);
+                    self.dirty = true;
+                    return None;
+                }
+            }
+            _ => {}
+        }
+
+        // Compute placements and dispatch mouse events
+        // For mouse handling, approximate viewport as region (only available during render)
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
+
+        // Get scroll offset to adjust mouse coordinates for children
+        let offset_y = self.scroll.borrow().offset_y;
+
+        for placement in placements {
+            // Adjust placement for scroll offset when checking hit
+            let scrolled_placement = Region {
+                x: placement.region.x,
+                y: placement.region.y - offset_y,
+                width: placement.region.width,
+                height: placement.region.height,
+            };
+
+            if scrolled_placement.contains_point(mx, my) {
+                if let Some(result) = self.children[placement.child_index]
+                    .on_mouse_with_sender(event, scrolled_placement)
+                {
+                    return Some(result);
+                }
+            }
+        }
+
+        None
+    }
+
     fn count_focusable(&self) -> usize {
         self.children
             .iter()

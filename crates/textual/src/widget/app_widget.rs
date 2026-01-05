@@ -140,6 +140,14 @@ impl<M> Widget<M> for AppWidget<M> {
         self.child.on_mouse(event, region)
     }
 
+    fn on_mouse_with_sender(
+        &mut self,
+        event: MouseEvent,
+        region: Region,
+    ) -> Option<(M, crate::widget::SenderInfo)> {
+        self.child.on_mouse_with_sender(event, region)
+    }
+
     fn set_hover(&mut self, is_hovered: bool) -> bool {
         self.child.set_hover(is_hovered)
     }

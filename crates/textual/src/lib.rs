@@ -564,6 +564,18 @@ pub trait App {
                     maybe_event = event_stream.next() => {
                         match maybe_event {
                             Some(Ok(Event::Key(key_event))) => {
+                                // Global focus navigation (Tab / Shift+Tab)
+                                let mut focus_changed = false;
+                                match key_event.code {
+                                    KeyCode::Tab => {
+                                        focus_changed = tree.focus_next().is_some();
+                                    }
+                                    KeyCode::BackTab => {
+                                        focus_changed = tree.focus_previous().is_some();
+                                    }
+                                    _ => {}
+                                }
+
                                 // Dispatch key event to the focused widget using cached focus path
                                 if let Some(msg) = tree.dispatch_key(key_event.code) {
                                     // Get sender info using cached focus path (O(d) access)
@@ -587,7 +599,7 @@ pub trait App {
                                 }
                                 // Check if app wants tree rebuild (Elm-style)
                                 needs_recompose = self.needs_recompose();
-                                needs_render = true;
+                                needs_render = needs_render || focus_changed;
                             }
                             Some(Ok(Event::Resize(nw, nh))) => {
                                 // Handle terminal window resizing
@@ -614,8 +626,11 @@ pub trait App {
                                 // NOTE: Mouse events use hit-testing, not focus path.
                                 // Full mouse bubbling would require on_mouse to track the hit path.
                                 // For now, messages go directly to App without parent interception.
-                                if let Some(msg) = tree.root_mut().on_mouse(mouse_event, region) {
-                                    let envelope = MessageEnvelope::new(msg, None, "Widget");
+                                if let Some((msg, sender)) =
+                                    tree.root_mut().on_mouse_with_sender(mouse_event, region)
+                                {
+                                    let envelope =
+                                        MessageEnvelope::new(msg, sender.id.as_deref(), sender.type_name);
                                     let event_ctx =
                                         AppContext::new(tx.clone());
                                     let mut ctx = EventContext::new(event_ctx, &mut tree);
