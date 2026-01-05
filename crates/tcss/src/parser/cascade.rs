@@ -248,7 +248,7 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
     match decl {
         Declaration::Color(c) => {
             let resolved = resolve_theme_color(c, theme);
-            style.auto_color = c.auto;
+            style.auto_color = c.auto || resolved.auto;
             style.color = Some(resolved);
         }
         Declaration::Background(c) => {

@@ -5,7 +5,7 @@ use crate::fraction::Fraction;
 use tcss::types::ComputedStyle;
 use tcss::types::geometry::Unit;
 
-use super::size_resolver::{apply_box_sizing_height, apply_box_sizing_width};
+use super::size_resolver::{apply_box_sizing_height, apply_box_sizing_width, horizontal_chrome};
 use super::{Layout, LayoutChild, Viewport, WidgetPlacement};
 
 /// Horizontal layout - stacks children left-to-right.
@@ -22,12 +22,22 @@ impl Layout for HorizontalLayout {
         _parent_style: &ComputedStyle,
         children: &[LayoutChild],
         available: Region,
-        _viewport: Viewport,
+        viewport: Viewport,
     ) -> Vec<WidgetPlacement> {
         let mut placements = Vec::with_capacity(children.len());
+        let percent_to_fraction = |value: f64, basis: i32| {
+            let scaled = (value * 1000.0).round() as i64;
+            Fraction::new(basis as i64 * scaled, 100 * 1000)
+        };
+        let apply_box_sizing_width_fraction = |width: Fraction, style: &ComputedStyle| match style
+            .box_sizing
+        {
+            tcss::types::BoxSizing::BorderBox => width,
+            tcss::types::BoxSizing::ContentBox => width + Fraction::from(horizontal_chrome(style)),
+        };
 
         // First pass: calculate space used by non-fr items and collect fr totals
-        let mut fixed_width_used: i32 = 0;
+        let mut fixed_width_used: Fraction = Fraction::ZERO;
         let mut total_fr: i64 = 0;
         let mut total_margin: i32 = 0;
         let mut prev_margin_right: i32 = 0;
@@ -56,11 +66,33 @@ impl Layout for HorizontalLayout {
                     Unit::Cells => {
                         // Apply box-sizing: content-box adds chrome, border-box uses as-is
                         let css_width = width.value as i32;
-                        fixed_width_used += apply_box_sizing_width(css_width, child_style);
+                        fixed_width_used = fixed_width_used
+                            + Fraction::from(apply_box_sizing_width(css_width, child_style));
                     }
                     Unit::Percent => {
-                        let css_width = ((width.value / 100.0) * available.width as f64) as i32;
-                        fixed_width_used += apply_box_sizing_width(css_width, child_style);
+                        let css_width = percent_to_fraction(width.value, available.width);
+                        fixed_width_used = fixed_width_used
+                            + apply_box_sizing_width_fraction(css_width, child_style);
+                    }
+                    Unit::Width => {
+                        let css_width = percent_to_fraction(width.value, available.width);
+                        fixed_width_used = fixed_width_used
+                            + apply_box_sizing_width_fraction(css_width, child_style);
+                    }
+                    Unit::Height => {
+                        let css_width = percent_to_fraction(width.value, available.height);
+                        fixed_width_used = fixed_width_used
+                            + apply_box_sizing_width_fraction(css_width, child_style);
+                    }
+                    Unit::ViewWidth => {
+                        let css_width = percent_to_fraction(width.value, viewport.width);
+                        fixed_width_used = fixed_width_used
+                            + apply_box_sizing_width_fraction(css_width, child_style);
+                    }
+                    Unit::ViewHeight => {
+                        let css_width = percent_to_fraction(width.value, viewport.height);
+                        fixed_width_used = fixed_width_used
+                            + apply_box_sizing_width_fraction(css_width, child_style);
                     }
                     _ => {
                         // Auto or other - check if widget wants to fill (u16::MAX signals "fill available")
@@ -69,7 +101,8 @@ impl Layout for HorizontalLayout {
                             total_fr += 1000;
                         } else {
                             // Use intrinsic width (already includes chrome)
-                            fixed_width_used += desired_size.width as i32;
+                            fixed_width_used =
+                                fixed_width_used + Fraction::from(desired_size.width as i32);
                         }
                     }
                 }
@@ -80,18 +113,26 @@ impl Layout for HorizontalLayout {
                     total_fr += 1000;
                 } else {
                     // Use intrinsic width (already includes chrome)
-                    fixed_width_used += desired_size.width as i32;
+                    fixed_width_used = fixed_width_used + Fraction::from(desired_size.width as i32);
                 }
             }
         }
 
         // Calculate remaining space for fr units
-        let remaining_for_fr = (available.width - fixed_width_used - total_margin).max(0) as i64;
+        let remaining_for_fr = {
+            let remaining =
+                Fraction::from(available.width) - fixed_width_used - Fraction::from(total_margin);
+            if remaining.floor() < 0 {
+                Fraction::ZERO
+            } else {
+                remaining
+            }
+        };
 
         // Second pass: place children with calculated widths using Fraction for precise remainder handling
         let mut current_x = available.x;
         prev_margin_right = 0;
-        let mut fr_remainder = Fraction::ZERO;
+        let mut width_remainder = Fraction::ZERO;
 
         for (i, child) in children.iter().enumerate() {
             let child_index = child.index;
@@ -107,33 +148,74 @@ impl Layout for HorizontalLayout {
                             // fr units fill available space, so no box-sizing adjustment needed
                             let fr_value = (w.value * 1000.0) as i64;
                             let raw =
-                                Fraction::new(remaining_for_fr * fr_value, total_fr) + fr_remainder;
-                            let result = raw.floor() as i32;
-                            fr_remainder = raw.fract();
-                            result
+                                remaining_for_fr.mul_ratio(fr_value, total_fr) + width_remainder;
+                            let width = raw.floor() as i32;
+                            width_remainder = raw.fract();
+                            width
                         } else {
                             0
                         }
                     }
                     Unit::Cells => {
-                        let css_width = w.value as i32;
-                        apply_box_sizing_width(css_width, child_style)
+                        let css_width = apply_box_sizing_width(w.value as i32, child_style);
+                        let raw = Fraction::from(css_width) + width_remainder;
+                        let width = raw.floor() as i32;
+                        width_remainder = raw.fract();
+                        width
                     }
                     Unit::Percent => {
-                        let css_width = ((w.value / 100.0) * available.width as f64) as i32;
-                        apply_box_sizing_width(css_width, child_style)
+                        let css_width = percent_to_fraction(w.value, available.width);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + width_remainder;
+                        let width = raw.floor() as i32;
+                        width_remainder = raw.fract();
+                        width
+                    }
+                    Unit::Width => {
+                        let css_width = percent_to_fraction(w.value, available.width);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + width_remainder;
+                        let width = raw.floor() as i32;
+                        width_remainder = raw.fract();
+                        width
+                    }
+                    Unit::Height => {
+                        let css_width = percent_to_fraction(w.value, available.height);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + width_remainder;
+                        let width = raw.floor() as i32;
+                        width_remainder = raw.fract();
+                        width
+                    }
+                    Unit::ViewWidth => {
+                        let css_width = percent_to_fraction(w.value, viewport.width);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + width_remainder;
+                        let width = raw.floor() as i32;
+                        width_remainder = raw.fract();
+                        width
+                    }
+                    Unit::ViewHeight => {
+                        let css_width = percent_to_fraction(w.value, viewport.height);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + width_remainder;
+                        let width = raw.floor() as i32;
+                        width_remainder = raw.fract();
+                        width
                     }
                     _ => {
                         // Check if widget wants to fill (u16::MAX signals "fill available")
                         if desired_size.width == u16::MAX && total_fr > 0 {
                             // Treat as 1fr
-                            let raw =
-                                Fraction::new(remaining_for_fr * 1000, total_fr) + fr_remainder;
-                            let result = raw.floor() as i32;
-                            fr_remainder = raw.fract();
-                            result
+                            let raw = remaining_for_fr.mul_ratio(1000, total_fr) + width_remainder;
+                            let width = raw.floor() as i32;
+                            width_remainder = raw.fract();
+                            width
                         } else {
-                            desired_size.width as i32 // Use intrinsic width
+                            let raw = Fraction::from(desired_size.width as i32) + width_remainder;
+                            let width = raw.floor() as i32;
+                            width_remainder = raw.fract();
+                            width
                         }
                     }
                 }
@@ -141,13 +223,16 @@ impl Layout for HorizontalLayout {
                 // No width specified - check if widget wants to fill
                 if desired_size.width == u16::MAX && total_fr > 0 {
                     // Treat as 1fr
-                    let raw = Fraction::new(remaining_for_fr * 1000, total_fr) + fr_remainder;
-                    let result = raw.floor() as i32;
-                    fr_remainder = raw.fract();
-                    result
+                    let raw = remaining_for_fr.mul_ratio(1000, total_fr) + width_remainder;
+                    let width = raw.floor() as i32;
+                    width_remainder = raw.fract();
+                    width
                 } else {
                     // Use intrinsic width (already includes chrome)
-                    desired_size.width as i32
+                    let raw = Fraction::from(desired_size.width as i32) + width_remainder;
+                    let width = raw.floor() as i32;
+                    width_remainder = raw.fract();
+                    width
                 }
             };
 
@@ -158,6 +243,8 @@ impl Layout for HorizontalLayout {
                     Unit::Percent => ((max_w.value / 100.0) * available.width as f64) as i32,
                     Unit::Width => ((max_w.value / 100.0) * available.width as f64) as i32,
                     Unit::Height => ((max_w.value / 100.0) * available.height as f64) as i32,
+                    Unit::ViewWidth => ((max_w.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((max_w.value / 100.0) * viewport.height as f64) as i32,
                     _ => max_w.value as i32,
                 };
                 width.min(max_width_value)
@@ -172,6 +259,8 @@ impl Layout for HorizontalLayout {
                     Unit::Percent => ((min_w.value / 100.0) * available.width as f64) as i32,
                     Unit::Width => ((min_w.value / 100.0) * available.width as f64) as i32,
                     Unit::Height => ((min_w.value / 100.0) * available.height as f64) as i32,
+                    Unit::ViewWidth => ((min_w.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((min_w.value / 100.0) * viewport.height as f64) as i32,
                     _ => min_w.value as i32,
                 };
                 width.max(min_width_value)
@@ -214,6 +303,8 @@ impl Layout for HorizontalLayout {
                     Unit::Percent => ((max_h.value / 100.0) * available.height as f64) as i32,
                     Unit::Width => ((max_h.value / 100.0) * available.width as f64) as i32,
                     Unit::Height => ((max_h.value / 100.0) * available.height as f64) as i32,
+                    Unit::ViewWidth => ((max_h.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((max_h.value / 100.0) * viewport.height as f64) as i32,
                     _ => max_h.value as i32,
                 };
                 height.min(max_height_value)
@@ -228,6 +319,8 @@ impl Layout for HorizontalLayout {
                     Unit::Percent => ((min_h.value / 100.0) * available.height as f64) as i32,
                     Unit::Width => ((min_h.value / 100.0) * available.width as f64) as i32,
                     Unit::Height => ((min_h.value / 100.0) * available.height as f64) as i32,
+                    Unit::ViewWidth => ((min_h.value / 100.0) * viewport.width as f64) as i32,
+                    Unit::ViewHeight => ((min_h.value / 100.0) * viewport.height as f64) as i32,
                     _ => min_h.value as i32,
                 };
                 height.max(min_height_value)

@@ -3,7 +3,7 @@
 //! Avoids floating-point accumulation errors in layout distribution.
 //! Used throughout the layout system for pixel-perfect remainder handling.
 
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 /// A rational number (fraction) for precise arithmetic.
 ///
@@ -76,6 +76,11 @@ impl Fraction {
         let floor = self.floor();
         Fraction::new(self.num - floor * self.den, self.den)
     }
+
+    /// Scale this fraction by multiplying and dividing by integer ratios.
+    pub fn mul_ratio(&self, num: i64, den: i64) -> Fraction {
+        Fraction::new(self.num * num, self.den * den)
+    }
 }
 
 impl From<i32> for Fraction {
@@ -95,6 +100,14 @@ impl Add for Fraction {
 
     fn add(self, rhs: Self) -> Self {
         Fraction::new(self.num * rhs.den + rhs.num * self.den, self.den * rhs.den)
+    }
+}
+
+impl Sub for Fraction {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        Fraction::new(self.num * rhs.den - rhs.num * self.den, self.den * rhs.den)
     }
 }
 
