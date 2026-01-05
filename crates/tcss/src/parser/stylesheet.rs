@@ -336,6 +336,8 @@ pub enum Declaration {
     TextOverflow(TextOverflow),
     /// The `text-wrap` property for wrapping behavior (wrap, nowrap).
     TextWrap(TextWrap),
+    /// The `line-pad` property for horizontal padding inside each line.
+    LinePad(u16),
     /// The `text-opacity` property for text opacity (0.0 to 1.0, or 0% to 100%).
     TextOpacity(f64),
     /// The `text-style` property for text style (bold, italic, etc.).

@@ -510,6 +510,9 @@ fn apply_declaration(style: &mut ComputedStyle, decl: &Declaration, theme: &Them
         Declaration::TextWrap(value) => {
             style.text_wrap = *value;
         }
+        Declaration::LinePad(value) => {
+            style.line_pad = *value;
+        }
         Declaration::TextOpacity(value) => {
             style.text_opacity = *value;
         }

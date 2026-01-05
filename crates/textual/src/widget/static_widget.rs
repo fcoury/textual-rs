@@ -483,15 +483,31 @@ Static {
             .with_link_style(self.style.link.clone())
             .with_hovered_action(self.hovered_link.borrow().clone());
 
-        let lines = if inner_width > 0 {
+        let line_pad = self.style.line_pad as usize;
+        let wrap_width = inner_width.saturating_sub(line_pad.saturating_mul(2)).max(1);
+        let mut lines = if inner_width > 0 {
             content.wrap_with_line_end_overflow(
-                inner_width,
+                wrap_width,
                 self.style.text_overflow,
                 self.style.text_wrap,
             )
         } else {
             vec![]
         };
+        if line_pad > 0 {
+            let pad_style = Some(style.clone());
+            lines = lines
+                .into_iter()
+                .map(|line| {
+                    let left = Strip::blank(line_pad, pad_style.clone());
+                    let right = Strip::blank(line_pad, pad_style.clone());
+                    WrappedLine {
+                        strip: Strip::join([left, line.strip, right]),
+                        line_end: line.line_end,
+                    }
+                })
+                .collect();
+        }
 
         // 4. Apply content alignment
         let mut aligned_lines =
@@ -710,13 +726,17 @@ Static {
                 Unit::Auto => {
                     let text = self.text();
                     let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
-                    content_width + chrome_width
+                    content_width
+                        .saturating_add(style.line_pad.saturating_mul(2))
+                        + chrome_width
                 }
             }
         } else {
             let text = self.text();
             let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
-            content_width + chrome_width
+            content_width
+                .saturating_add(style.line_pad.saturating_mul(2))
+                + chrome_width
         };
 
         let height = if let Some(h) = &style.height {
@@ -785,7 +805,10 @@ Static {
         let chrome_width = border_width + padding_width;
         let chrome_height = border_height + padding_height;
 
-        let content_width = width.saturating_sub(chrome_width).max(1) as usize;
+        let content_width = width
+            .saturating_sub(chrome_width)
+            .saturating_sub(self.style.line_pad.saturating_mul(2))
+            .max(1) as usize;
 
         // Build content and wrap to the available content width
         let content = if self.markup {

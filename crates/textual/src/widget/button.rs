@@ -199,6 +199,7 @@ Button {
     width: auto;
     min-width: 16;
     height: auto;
+    line-pad: 1;
     text-align: center;
     content-align: center middle;
 

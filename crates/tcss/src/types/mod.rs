@@ -103,6 +103,8 @@ pub struct ComputedStyle {
     pub text_style: TextStyle,
     pub text_overflow: TextOverflow,
     pub text_wrap: TextWrap,
+    /// Additional horizontal padding for each rendered line.
+    pub line_pad: u16,
     pub content_align_horizontal: AlignHorizontal,
     pub content_align_vertical: AlignVertical,
 
@@ -264,6 +266,7 @@ impl Default for ComputedStyle {
             text_style: TextStyle::default(),
             text_overflow: TextOverflow::default(),
             text_wrap: TextWrap::default(),
+            line_pad: 0,
             content_align_horizontal: AlignHorizontal::default(),
             content_align_vertical: AlignVertical::default(),
             align_horizontal: AlignHorizontal::default(),
