@@ -1,4 +1,5 @@
 pub mod app_widget;
+pub mod button;
 pub mod label;
 pub mod placeholder;
 pub mod ruler;
