@@ -4,22 +4,14 @@
 //! to dynamically generate widgets from a list, similar to Python Textual's
 //! ability to interleave loops with UI declarations.
 
-use textual::{App, Compose, Horizontal, KeyCode, Static, Vertical, Widget, ui, widget};
+use textual::{App, Compose, Horizontal, Static, Vertical, Widget, ui, widget};
 
 const HATCHES: &[&str] = &["cross", "horizontal", "custom", "left", "right"];
 
 #[derive(Clone)]
 enum Message {}
 
-struct HatchApp {
-    quit: bool,
-}
-
-impl HatchApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct HatchApp;
 
 impl Compose for HatchApp {
     type Message = Message;
@@ -63,19 +55,9 @@ impl Compose for HatchApp {
 
 impl App for HatchApp {
     const CSS: &'static str = include_str!("hatch.tcss");
-
-    fn on_key(&mut self, key: KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = HatchApp::new();
+    let mut app = HatchApp;
     app.run()
 }

@@ -1,18 +1,10 @@
 use tcss::{StyleOverride, types::RgbaColor};
-use textual::{App, Compose, KeyCode, Label, Widget};
+use textual::{App, Compose, Label, Widget};
 
 #[derive(Clone)]
 enum Message {}
 
-struct WrapApp {
-    quit: bool,
-}
-
-impl WrapApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct WrapApp;
 
 impl Compose for WrapApp {
     type Message = Message;
@@ -35,19 +27,9 @@ impl Compose for WrapApp {
 
 impl App for WrapApp {
     const CSS: &'static str = include_str!("tint.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = WrapApp::new();
+    let mut app = WrapApp;
     app.run()
 }

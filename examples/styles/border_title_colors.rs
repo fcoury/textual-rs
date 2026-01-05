@@ -4,20 +4,12 @@
 //! It shows how to use `MountContext::with_widget_by_id` to modify widgets
 //! after the tree is built.
 
-use textual::{App, Compose, KeyCode, Label, MountContext, Widget, ui};
+use textual::{App, Compose, Label, MountContext, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct BorderTitleApp {
-    quit: bool,
-}
-
-impl BorderTitleApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct BorderTitleApp;
 
 impl Compose for BorderTitleApp {
     type Message = Message;
@@ -38,19 +30,9 @@ impl App for BorderTitleApp {
             widget.set_border_subtitle("Textual Rocks");
         });
     }
-
-    fn on_key(&mut self, key: KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = BorderTitleApp::new();
+    let mut app = BorderTitleApp;
     app.run()
 }

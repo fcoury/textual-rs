@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct AllContentAlignApp {
-    quit: bool,
-}
-
-impl AllContentAlignApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct AllContentAlignApp;
 
 impl Compose for AllContentAlignApp {
     type Message = Message;
@@ -33,19 +25,9 @@ impl Compose for AllContentAlignApp {
 
 impl App for AllContentAlignApp {
     const CSS: &'static str = include_str!("content_align_all.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = AllContentAlignApp::new();
+    let mut app = AllContentAlignApp;
     app.run()
 }

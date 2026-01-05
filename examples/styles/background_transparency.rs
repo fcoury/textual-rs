@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Static, Widget, ui};
+use textual::{App, Compose, Static, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct BackgroundTransparencyApp {
-    quit: bool,
-}
-
-impl BackgroundTransparencyApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct BackgroundTransparencyApp;
 
 impl Compose for BackgroundTransparencyApp {
     type Message = Message;
@@ -34,19 +26,9 @@ impl Compose for BackgroundTransparencyApp {
 
 impl App for BackgroundTransparencyApp {
     const CSS: &'static str = include_str!("background_transparency.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = BackgroundTransparencyApp::new();
+    let mut app = BackgroundTransparencyApp;
     app.run()
 }

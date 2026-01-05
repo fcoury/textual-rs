@@ -1,17 +1,9 @@
-use textual::{App, Compose, Horizontal, KeyCode, Placeholder, Ruler, Widget, ui};
+use textual::{App, Compose, Horizontal, Placeholder, Ruler, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct WidthComparisonApp {
-    quit: bool,
-}
-
-impl WidthComparisonApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct WidthComparisonApp;
 
 impl Compose for WidthComparisonApp {
     type Message = Message;
@@ -38,19 +30,9 @@ impl Compose for WidthComparisonApp {
 
 impl App for WidthComparisonApp {
     const CSS: &'static str = include_str!("width_comparison.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = WidthComparisonApp::new();
+    let mut app = WidthComparisonApp;
     app.run()
 }

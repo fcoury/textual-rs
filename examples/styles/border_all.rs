@@ -1,17 +1,9 @@
-use textual::{App, Compose, Grid, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Grid, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct AllBorderApp {
-    quit: bool,
-}
-
-impl AllBorderApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct AllBorderApp;
 
 impl Compose for AllBorderApp {
     type Message = Message;
@@ -42,19 +34,9 @@ impl Compose for AllBorderApp {
 
 impl App for AllBorderApp {
     const CSS: &'static str = include_str!("border_all.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = AllBorderApp::new();
+    let mut app = AllBorderApp;
     app.run()
 }

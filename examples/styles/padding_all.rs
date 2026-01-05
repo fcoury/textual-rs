@@ -1,17 +1,9 @@
-use textual::{App, Compose, Grid, KeyCode, Placeholder, Widget, ui};
+use textual::{App, Compose, Grid, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct PaddingAllApp {
-    quit: bool,
-}
-
-impl PaddingAllApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct PaddingAllApp;
 
 impl Compose for PaddingAllApp {
     type Message = Message;
@@ -34,19 +26,9 @@ impl Compose for PaddingAllApp {
 
 impl App for PaddingAllApp {
     const CSS: &'static str = include_str!("padding_all.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = PaddingAllApp::new();
+    let mut app = PaddingAllApp;
     app.run()
 }

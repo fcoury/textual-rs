@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct OpacityApp {
-    quit: bool,
-}
-
-impl OpacityApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct OpacityApp;
 
 impl Compose for OpacityApp {
     type Message = Message;
@@ -29,19 +21,9 @@ impl Compose for OpacityApp {
 
 impl App for OpacityApp {
     const CSS: &'static str = include_str!("opacity.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = OpacityApp::new();
+    let mut app = OpacityApp;
     app.run()
 }

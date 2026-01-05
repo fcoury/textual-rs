@@ -1,17 +1,9 @@
-use textual::{App, Compose, Container, Grid, KeyCode, Placeholder, Widget, ui};
+use textual::{App, Compose, Container, Grid, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct MarginAllApp {
-    quit: bool,
-}
-
-impl MarginAllApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct MarginAllApp;
 
 impl Compose for MarginAllApp {
     type Message = Message;
@@ -34,19 +26,9 @@ impl Compose for MarginAllApp {
 
 impl App for MarginAllApp {
     const CSS: &'static str = include_str!("margin_all.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = MarginAllApp::new();
+    let mut app = MarginAllApp;
     app.run()
 }

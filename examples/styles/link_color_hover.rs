@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct LinkColorHoverApp {
-    quit: bool,
-}
-
-impl LinkColorHoverApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct LinkColorHoverApp;
 
 impl Compose for LinkColorHoverApp {
     type Message = Message;
@@ -40,23 +32,9 @@ impl Compose for LinkColorHoverApp {
 
 impl App for LinkColorHoverApp {
     const CSS: &'static str = include_str!("link_color_hover.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
-
-    fn request_quit(&mut self) {
-        self.quit = true;
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = LinkColorHoverApp::new();
+    let mut app = LinkColorHoverApp;
     app.run()
 }

@@ -1,17 +1,9 @@
-use textual::{App, Compose, Horizontal, KeyCode, Placeholder, VerticalScroll, Widget, ui};
+use textual::{App, Compose, Horizontal, Placeholder, VerticalScroll, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct VisibilityContainersApp {
-    quit: bool,
-}
-
-impl VisibilityContainersApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct VisibilityContainersApp;
 
 impl Compose for VisibilityContainersApp {
     type Message = Message;
@@ -42,19 +34,9 @@ impl Compose for VisibilityContainersApp {
 
 impl App for VisibilityContainersApp {
     const CSS: &'static str = include_str!("visibility_containers.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = VisibilityContainersApp::new();
+    let mut app = VisibilityContainersApp;
     app.run()
 }

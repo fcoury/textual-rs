@@ -1,17 +1,9 @@
-use textual::{App, Compose, Grid, KeyCode, Placeholder, Widget, ui};
+use textual::{App, Compose, Grid, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct KeylineApp {
-    quit: bool,
-}
-
-impl KeylineApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct KeylineApp;
 
 impl Compose for KeylineApp {
     type Message = Message;
@@ -31,20 +23,10 @@ impl Compose for KeylineApp {
 
 impl App for KeylineApp {
     const CSS: &'static str = include_str!("keyline.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
     textual::init_logger("height_comparison.log");
-    let mut app = KeylineApp::new();
+    let mut app = KeylineApp;
     app.run()
 }

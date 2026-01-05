@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct LinkBackgroundApp {
-    quit: bool,
-}
-
-impl LinkBackgroundApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct LinkBackgroundApp;
 
 impl Compose for LinkBackgroundApp {
     type Message = Message;
@@ -40,23 +32,9 @@ impl Compose for LinkBackgroundApp {
 
 impl App for LinkBackgroundApp {
     const CSS: &'static str = include_str!("link_background.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
-
-    fn request_quit(&mut self) {
-        self.quit = true;
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = LinkBackgroundApp::new();
+    let mut app = LinkBackgroundApp;
     app.run()
 }

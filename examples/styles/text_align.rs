@@ -1,4 +1,4 @@
-use textual::{App, Compose, Grid, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Grid, Label, Widget, ui};
 
 const TEXT: &str = concat!(
     "I must not fear. Fear is the mind-killer. Fear is the little-death that ",
@@ -9,15 +9,7 @@ const TEXT: &str = concat!(
 #[derive(Clone)]
 enum Message {}
 
-struct TextAlign {
-    quit: bool,
-}
-
-impl TextAlign {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct TextAlign;
 
 impl Compose for TextAlign {
     type Message = Message;
@@ -37,19 +29,9 @@ impl Compose for TextAlign {
 
 impl App for TextAlign {
     const CSS: &'static str = include_str!("text_align.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = TextAlign::new();
+    let mut app = TextAlign;
     app.run()
 }

@@ -1,17 +1,9 @@
-use textual::{App, Compose, Horizontal, KeyCode, Placeholder, Widget, ui};
+use textual::{App, Compose, Horizontal, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct MinHeightApp {
-    quit: bool,
-}
-
-impl MinHeightApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct MinHeightApp;
 
 impl Compose for MinHeightApp {
     type Message = Message;
@@ -30,19 +22,9 @@ impl Compose for MinHeightApp {
 
 impl App for MinHeightApp {
     const CSS: &'static str = include_str!("min_height.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = MinHeightApp::new();
+    let mut app = MinHeightApp;
     app.run()
 }

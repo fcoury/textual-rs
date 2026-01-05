@@ -1,17 +1,9 @@
-use textual::{App, Compose, Container, KeyCode, Widget, ui};
+use textual::{App, Compose, Container, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct WidthApp {
-    quit: bool,
-}
-
-impl WidthApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct WidthApp;
 
 impl Compose for WidthApp {
     type Message = Message;
@@ -29,19 +21,9 @@ impl Compose for WidthApp {
 
 impl App for WidthApp {
     const CSS: &'static str = include_str!("width.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = WidthApp::new();
+    let mut app = WidthApp;
     app.run()
 }

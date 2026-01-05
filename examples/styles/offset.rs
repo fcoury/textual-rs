@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct OffsetApp {
-    quit: bool,
-}
-
-impl OffsetApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct OffsetApp;
 
 impl Compose for OffsetApp {
     type Message = Message;
@@ -27,19 +19,9 @@ impl Compose for OffsetApp {
 
 impl App for OffsetApp {
     const CSS: &'static str = include_str!("offset.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = OffsetApp::new();
+    let mut app = OffsetApp;
     app.run()
 }

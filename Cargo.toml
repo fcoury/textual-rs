@@ -322,3 +322,6 @@ path = "examples/styles/width.rs"
 name = "styles-width_comparison"
 path = "examples/styles/width_comparison.rs"
 
+[[example]]
+name = "app-event01"
+path = "examples/app/event01.rs"

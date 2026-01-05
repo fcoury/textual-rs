@@ -31,6 +31,7 @@ pub use crossterm::event::{
 };
 use crossterm::{cursor, execute, terminal};
 use futures::StreamExt;
+use std::cell::Cell;
 use std::collections::{HashSet, VecDeque};
 use tokio::sync::mpsc;
 
@@ -63,6 +64,10 @@ pub use widget::{
     screen::Breakpoint, screen::Screen, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner,
     switch::Switch,
 };
+
+thread_local! {
+    static DEFAULT_QUIT: Cell<bool> = Cell::new(false);
+}
 
 /// Helper for building widget vectors from iterators.
 ///
@@ -151,10 +156,18 @@ where
 
     /// Handle global key events (e.g., 'q' to quit).
     /// Called after widget event handling.
-    fn on_key(&mut self, key: KeyCode);
+    ///
+    /// Default behavior: quit on 'q' or Escape.
+    fn on_key(&mut self, key: KeyCode) {
+        if key == KeyCode::Char('q') || key == KeyCode::Esc {
+            self.request_quit();
+        }
+    }
 
     /// Return true when the application should exit.
-    fn should_quit(&self) -> bool;
+    fn should_quit(&self) -> bool {
+        DEFAULT_QUIT.with(|flag| flag.get())
+    }
 
     /// Handle an action string from a link click (e.g., "app.bell", "app.quit").
     ///
@@ -182,12 +195,20 @@ where
     /// Request the application to quit.
     ///
     /// This is called by the "app.quit" action from link clicks.
-    /// Override this to set a quit flag in your app state.
+    /// Override this to set a custom quit flag in your app state.
     ///
-    /// The default implementation does nothing - you must implement this
-    /// if you want `app.quit` links to work.
+    /// The default implementation sets a thread-local quit flag so
+    /// simple apps don't need to store quit state.
     fn request_quit(&mut self) {
-        // Default: do nothing. Apps must override this.
+        DEFAULT_QUIT.with(|flag| flag.set(true));
+    }
+
+    /// Reset the default quit flag.
+    ///
+    /// The runtime calls this before the main event loop to ensure
+    /// each app run starts with a clean quit state.
+    fn reset_quit(&mut self) {
+        DEFAULT_QUIT.with(|flag| flag.set(false));
     }
 
     /// Trigger the terminal bell sound.
@@ -436,6 +457,9 @@ where
             // Initial style resolution for all widgets
             let mut ancestors = VecDeque::new();
             resolve_styles(tree.root_mut(), &stylesheet, &theme, &mut ancestors);
+
+            // Reset default quit flag for this run.
+            self.reset_quit();
 
             // 3. Create message channel for async communication
             let (tx, mut rx) = mpsc::unbounded_channel::<MessageEnvelope<Self::Message>>();

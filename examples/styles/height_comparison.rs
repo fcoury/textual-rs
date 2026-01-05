@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Placeholder, Ruler, VerticalScroll, Widget, ui};
+use textual::{App, Compose, Placeholder, Ruler, VerticalScroll, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct HeightApp {
-    quit: bool,
-}
-
-impl HeightApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct HeightApp;
 
 impl Compose for HeightApp {
     type Message = Message;
@@ -36,20 +28,10 @@ impl Compose for HeightApp {
 
 impl App for HeightApp {
     const CSS: &'static str = include_str!("height_comparison.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
     textual::init_logger("height_comparison.log");
-    let mut app = HeightApp::new();
+    let mut app = HeightApp;
     app.run()
 }

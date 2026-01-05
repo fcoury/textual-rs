@@ -1,4 +1,4 @@
-use textual::{App, Compose, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Label, Widget, ui};
 
 const TEXT: &str = r#"I must not fear.
 Fear is the mind-killer.
@@ -12,15 +12,7 @@ Where the fear has gone there will be nothing. Only I will remain.
 #[derive(Clone)]
 enum Message {}
 
-struct Scrollbar2App {
-    quit: bool,
-}
-
-impl Scrollbar2App {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct Scrollbar2App;
 
 impl Compose for Scrollbar2App {
     type Message = Message;
@@ -34,19 +26,9 @@ impl Compose for Scrollbar2App {
 
 impl App for Scrollbar2App {
     const CSS: &'static str = include_str!("scrollbars2.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = Scrollbar2App::new();
+    let mut app = Scrollbar2App;
     app.run()
 }

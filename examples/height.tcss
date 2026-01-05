@@ -1,5 +1,0 @@
-Screen > Container {
-    background: green;
-    height: 50%;
-    color: white;
-}

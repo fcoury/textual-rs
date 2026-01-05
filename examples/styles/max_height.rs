@@ -1,17 +1,9 @@
-use textual::{App, Compose, Horizontal, KeyCode, Placeholder, Widget, ui};
+use textual::{App, Compose, Horizontal, Placeholder, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct MaxHeightApp {
-    quit: bool,
-}
-
-impl MaxHeightApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct MaxHeightApp;
 
 impl Compose for MaxHeightApp {
     type Message = Message;
@@ -30,19 +22,9 @@ impl Compose for MaxHeightApp {
 
 impl App for MaxHeightApp {
     const CSS: &'static str = include_str!("max_height.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = MaxHeightApp::new();
+    let mut app = MaxHeightApp;
     app.run()
 }

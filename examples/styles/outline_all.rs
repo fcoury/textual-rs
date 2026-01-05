@@ -1,17 +1,9 @@
-use textual::{App, Compose, Grid, KeyCode, Label, Widget, ui};
+use textual::{App, Compose, Grid, Label, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct OutlineApp {
-    quit: bool,
-}
-
-impl OutlineApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct OutlineApp;
 
 impl Compose for OutlineApp {
     type Message = Message;
@@ -41,19 +33,9 @@ impl Compose for OutlineApp {
 
 impl App for OutlineApp {
     const CSS: &'static str = include_str!("outline_all.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = OutlineApp::new();
+    let mut app = OutlineApp;
     app.run()
 }

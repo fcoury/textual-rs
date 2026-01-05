@@ -1,17 +1,9 @@
-use textual::{App, Compose, KeyCode, Placeholder, VerticalScroll, Widget, ui};
+use textual::{App, Compose, Placeholder, VerticalScroll, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct MaxWidthApp {
-    quit: bool,
-}
-
-impl MaxWidthApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct MaxWidthApp;
 
 impl Compose for MaxWidthApp {
     type Message = Message;
@@ -30,19 +22,9 @@ impl Compose for MaxWidthApp {
 
 impl App for MaxWidthApp {
     const CSS: &'static str = include_str!("max_width.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = MaxWidthApp::new();
+    let mut app = MaxWidthApp;
     app.run()
 }

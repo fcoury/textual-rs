@@ -1,17 +1,9 @@
-use textual::{App, Compose, Grid, KeyCode, Static, Widget, ui};
+use textual::{App, Compose, Grid, Static, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
 
-struct GridApp {
-    quit: bool,
-}
-
-impl GridApp {
-    fn new() -> Self {
-        Self { quit: false }
-    }
-}
+struct GridApp;
 
 impl Compose for GridApp {
     type Message = Message;
@@ -33,19 +25,9 @@ impl Compose for GridApp {
 
 impl App for GridApp {
     const CSS: &'static str = include_str!("grid.tcss");
-
-    fn on_key(&mut self, key: textual::KeyCode) {
-        if key == KeyCode::Char('q') || key == KeyCode::Esc {
-            self.quit = true;
-        }
-    }
-
-    fn should_quit(&self) -> bool {
-        self.quit
-    }
 }
 
 fn main() -> textual::Result<()> {
-    let mut app = GridApp::new();
+    let mut app = GridApp;
     app.run()
 }

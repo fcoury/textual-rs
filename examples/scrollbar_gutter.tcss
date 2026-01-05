@@ -1,9 +1,0 @@
-Screen {
-    scrollbar-gutter: stable;
-}
-
-#text-box {
-    color: floralwhite;
-    background: darkmagenta;
-}
-
