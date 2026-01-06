@@ -79,7 +79,7 @@ pub fn render_row(
 
 /// Renders a label within a row, with fill characters based on alignment.
 /// Python Textual adds a space before and after the label text for readability.
-fn render_label_in_row(
+pub(crate) fn render_label_in_row(
     label: &Strip,
     fill: &Segment,
     width: usize,

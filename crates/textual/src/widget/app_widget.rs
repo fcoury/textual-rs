@@ -50,8 +50,13 @@ impl<M> AppWidget<M> {
 
 impl<M> Widget<M> for AppWidget<M> {
     fn default_css(&self) -> &'static str {
-        // App doesn't need special default styling - it's purely structural
-        ""
+        // Match Python Textual's App DEFAULT_CSS (flattened selectors).
+        r#"
+App {
+    background: $background;
+    color: $foreground;
+}
+"#
     }
 
     fn render(&self, canvas: &mut Canvas, region: Region) {

@@ -12,8 +12,8 @@
 
 use std::collections::HashMap;
 
+use crate::grapheme::{display_width, grapheme_indices};
 use tcss::types::RgbaColor;
-use unicode_width::UnicodeWidthStr;
 
 /// Rendering style for a segment.
 ///
@@ -130,7 +130,7 @@ impl Segment {
     /// Creates a new segment with the given text and no style.
     pub fn new<S: Into<String>>(text: S) -> Self {
         let text = text.into();
-        let cell_length = text.width();
+        let cell_length = display_width(&text);
         Self {
             text,
             cell_length,
@@ -142,7 +142,7 @@ impl Segment {
     /// Creates a new segment with the given text and style.
     pub fn styled<S: Into<String>>(text: S, style: Style) -> Self {
         let text = text.into();
-        let cell_length = text.width();
+        let cell_length = display_width(&text);
         Self {
             text,
             cell_length,
@@ -264,13 +264,13 @@ impl Segment {
         let mut cell_pos = 0;
         let mut byte_pos = 0;
 
-        for (idx, ch) in self.text.char_indices() {
+        for (idx, grapheme) in grapheme_indices(&self.text) {
             if cell_pos >= cut {
                 byte_pos = idx;
                 break;
             }
-            cell_pos += unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
-            byte_pos = idx + ch.len_utf8();
+            cell_pos += display_width(grapheme);
+            byte_pos = idx + grapheme.len();
         }
 
         let (left_text, right_text) = self.text.split_at(byte_pos);

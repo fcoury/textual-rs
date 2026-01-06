@@ -122,6 +122,14 @@ impl<M> Container<M> {
         self
     }
 
+    /// Replace all children with a new list.
+    pub fn set_children(&mut self, children: Vec<Box<dyn Widget<M>>>) {
+        self.children = children;
+        self.cached_layout = RefCell::new(None);
+        self.scroll = RefCell::new(ScrollState::default());
+        self.dirty = true;
+    }
+
     /// Set the border title (displayed in the top border).
     ///
     /// The title supports markup for styling (e.g., `[b]Bold Title[/]`).
@@ -639,17 +647,13 @@ impl<M> Container<M> {
         let final_width = if any_child_wants_fill_width {
             u16::MAX
         } else {
-            content_w
-                .saturating_add(border_h)
-                .saturating_add(padding_h)
+            content_w.saturating_add(border_h).saturating_add(padding_h)
         };
 
         let final_height = if any_child_wants_fill_height {
             u16::MAX
         } else {
-            content_h
-                .saturating_add(border_v)
-                .saturating_add(padding_v)
+            content_h.saturating_add(border_v).saturating_add(padding_v)
         };
 
         Size::new(final_width, final_height)
@@ -778,7 +782,10 @@ Container {
         };
 
         // 3. Render each line (background fill + borders with titles)
-        if !is_hidden {
+        // Skip background fill for transparent containers without borders to preserve
+        // what's already rendered (important for overlay widgets like CommandPalette)
+        let has_visible_chrome = cache.has_border() || self.style.effective_background().is_some();
+        if !is_hidden && has_visible_chrome {
             for y in 0..height {
                 let strip = cache.render_line(
                     y,
@@ -1336,9 +1343,22 @@ Container {
     }
 
     fn get_meta(&self) -> WidgetMeta {
+        // Textual has concrete container widget types `Vertical` and `Horizontal` which
+        // primarily differ by their default `layout`.
+        //
+        // For CSS selector parity (so we can keep Python's DEFAULT_CSS byte-identical in
+        // the Rust port), advertise the corresponding type-name when a Container is
+        // configured with a vertical or horizontal layout.
+        let mut type_names = vec!["Container", "Widget", "DOMNode"];
+        match self.style.layout {
+            LayoutDirection::Vertical => type_names.insert(0, "Vertical"),
+            LayoutDirection::Horizontal => type_names.insert(0, "Horizontal"),
+            _ => {}
+        }
+
         WidgetMeta {
             type_name: "Container",
-            type_names: vec!["Container", "Widget", "DOMNode"],
+            type_names,
             id: self.id.clone(),
             classes: self.classes.clone(),
             states: WidgetStates::empty(),

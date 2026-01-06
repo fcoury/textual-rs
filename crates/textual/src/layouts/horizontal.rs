@@ -36,11 +36,14 @@ impl Layout for HorizontalLayout {
             tcss::types::BoxSizing::ContentBox => width + Fraction::from(horizontal_chrome(style)),
         };
 
-        // First pass: calculate space used by non-fr items and collect fr totals
-        let mut fixed_width_used: Fraction = Fraction::ZERO;
+        // First pass: resolve fixed widths and collect fr values.
+        let mut fixed_widths: Vec<Option<i32>> = vec![None; children.len()];
+        let mut fr_values: Vec<Option<i64>> = vec![None; children.len()];
         let mut total_fr: i64 = 0;
         let mut total_margin: i32 = 0;
         let mut prev_margin_right: i32 = 0;
+        let mut fixed_remainder = Fraction::ZERO;
+        let mut fixed_width_sum: i32 = 0;
 
         for (i, child) in children.iter().enumerate() {
             let child_style = &child.style;
@@ -57,184 +60,132 @@ impl Layout for HorizontalLayout {
             total_margin += effective_left_margin + margin_right;
             prev_margin_right = margin_right;
 
-            if let Some(width) = &child_style.width {
+            let resolved_fixed = if let Some(width) = &child_style.width {
                 match width.unit {
                     Unit::Fraction => {
-                        // Scale fr values to integers (multiply by 1000 for precision)
-                        total_fr += (width.value * 1000.0) as i64;
+                        let fr_value = (width.value * 1000.0) as i64;
+                        fr_values[i] = Some(fr_value);
+                        total_fr += fr_value;
+                        None
                     }
                     Unit::Cells => {
-                        // Apply box-sizing: content-box adds chrome, border-box uses as-is
-                        let css_width = width.value as i32;
-                        fixed_width_used = fixed_width_used
-                            + Fraction::from(apply_box_sizing_width(css_width, child_style));
+                        let css_width = apply_box_sizing_width(width.value as i32, child_style);
+                        let raw = Fraction::from(css_width) + fixed_remainder;
+                        let width = raw.floor() as i32;
+                        fixed_remainder = raw.fract();
+                        Some(width)
                     }
                     Unit::Percent => {
                         let css_width = percent_to_fraction(width.value, available.width);
-                        fixed_width_used = fixed_width_used
-                            + apply_box_sizing_width_fraction(css_width, child_style);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + fixed_remainder;
+                        let width = raw.floor() as i32;
+                        fixed_remainder = raw.fract();
+                        Some(width)
                     }
                     Unit::Width => {
                         let css_width = percent_to_fraction(width.value, available.width);
-                        fixed_width_used = fixed_width_used
-                            + apply_box_sizing_width_fraction(css_width, child_style);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + fixed_remainder;
+                        let width = raw.floor() as i32;
+                        fixed_remainder = raw.fract();
+                        Some(width)
                     }
                     Unit::Height => {
                         let css_width = percent_to_fraction(width.value, available.height);
-                        fixed_width_used = fixed_width_used
-                            + apply_box_sizing_width_fraction(css_width, child_style);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + fixed_remainder;
+                        let width = raw.floor() as i32;
+                        fixed_remainder = raw.fract();
+                        Some(width)
                     }
                     Unit::ViewWidth => {
                         let css_width = percent_to_fraction(width.value, viewport.width);
-                        fixed_width_used = fixed_width_used
-                            + apply_box_sizing_width_fraction(css_width, child_style);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + fixed_remainder;
+                        let width = raw.floor() as i32;
+                        fixed_remainder = raw.fract();
+                        Some(width)
                     }
                     Unit::ViewHeight => {
                         let css_width = percent_to_fraction(width.value, viewport.height);
-                        fixed_width_used = fixed_width_used
-                            + apply_box_sizing_width_fraction(css_width, child_style);
+                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
+                        let raw = css_width + fixed_remainder;
+                        let width = raw.floor() as i32;
+                        fixed_remainder = raw.fract();
+                        Some(width)
                     }
                     _ => {
                         // Auto or other - check if widget wants to fill (u16::MAX signals "fill available")
                         if desired_size.width == u16::MAX {
-                            // Treat as 1fr (1000 in our scaled units)
-                            total_fr += 1000;
+                            let fr_value = 1000;
+                            fr_values[i] = Some(fr_value);
+                            total_fr += fr_value;
+                            None
                         } else {
-                            // Use intrinsic width (already includes chrome)
-                            fixed_width_used =
-                                fixed_width_used + Fraction::from(desired_size.width as i32);
+                            let raw = Fraction::from(desired_size.width as i32) + fixed_remainder;
+                            let width = raw.floor() as i32;
+                            fixed_remainder = raw.fract();
+                            Some(width)
                         }
                     }
                 }
             } else {
                 // No width specified - check if widget wants to fill (u16::MAX signals "fill available")
                 if desired_size.width == u16::MAX {
-                    // Treat as 1fr (1000 in our scaled units)
-                    total_fr += 1000;
+                    let fr_value = 1000;
+                    fr_values[i] = Some(fr_value);
+                    total_fr += fr_value;
+                    None
                 } else {
-                    // Use intrinsic width (already includes chrome)
-                    fixed_width_used = fixed_width_used + Fraction::from(desired_size.width as i32);
+                    let raw = Fraction::from(desired_size.width as i32) + fixed_remainder;
+                    let width = raw.floor() as i32;
+                    fixed_remainder = raw.fract();
+                    Some(width)
                 }
+            };
+
+            if let Some(width) = resolved_fixed {
+                fixed_widths[i] = Some(width);
+                fixed_width_sum += width;
             }
         }
 
-        // Calculate remaining space for fr units
-        let remaining_for_fr = {
-            let remaining =
-                Fraction::from(available.width) - fixed_width_used - Fraction::from(total_margin);
-            if remaining.floor() < 0 {
-                Fraction::ZERO
-            } else {
-                remaining
-            }
-        };
+        let remaining_for_fr = (available.width - fixed_width_sum - total_margin).max(0);
 
-        // Second pass: place children with calculated widths using Fraction for precise remainder handling
+        let mut fr_widths: Vec<i32> = vec![0; children.len()];
+        if total_fr > 0 && remaining_for_fr > 0 {
+            let mut used = 0;
+            let mut fr_indices = Vec::new();
+            for (i, fr_value) in fr_values.iter().enumerate() {
+                if let Some(value) = fr_value {
+                    let raw = Fraction::from(remaining_for_fr).mul_ratio(*value, total_fr);
+                    let width = raw.floor() as i32;
+                    fr_widths[i] = width;
+                    used += width;
+                    fr_indices.push(i);
+                }
+            }
+
+            let mut leftover = remaining_for_fr - used;
+            for idx in fr_indices {
+                if leftover <= 0 {
+                    break;
+                }
+                fr_widths[idx] += 1;
+                leftover -= 1;
+            }
+        }
+
+        // Second pass: place children with resolved widths
         let mut current_x = available.x;
         prev_margin_right = 0;
-        let mut width_remainder = Fraction::ZERO;
 
         for (i, child) in children.iter().enumerate() {
             let child_index = child.index;
             let child_style = &child.style;
-            let desired_size = child.desired_size;
-            // Resolve width - use Fraction for fr units to match Python Textual behavior
-            // Apply box-sizing: content-box adds chrome, border-box uses CSS value as-is
-            let width = if let Some(w) = &child_style.width {
-                match w.unit {
-                    Unit::Fraction => {
-                        if total_fr > 0 {
-                            // Use Fraction arithmetic: extra pixels go to later widgets
-                            // fr units fill available space, so no box-sizing adjustment needed
-                            let fr_value = (w.value * 1000.0) as i64;
-                            let raw =
-                                remaining_for_fr.mul_ratio(fr_value, total_fr) + width_remainder;
-                            let width = raw.floor() as i32;
-                            width_remainder = raw.fract();
-                            width
-                        } else {
-                            0
-                        }
-                    }
-                    Unit::Cells => {
-                        let css_width = apply_box_sizing_width(w.value as i32, child_style);
-                        let raw = Fraction::from(css_width) + width_remainder;
-                        let width = raw.floor() as i32;
-                        width_remainder = raw.fract();
-                        width
-                    }
-                    Unit::Percent => {
-                        let css_width = percent_to_fraction(w.value, available.width);
-                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
-                        let raw = css_width + width_remainder;
-                        let width = raw.floor() as i32;
-                        width_remainder = raw.fract();
-                        width
-                    }
-                    Unit::Width => {
-                        let css_width = percent_to_fraction(w.value, available.width);
-                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
-                        let raw = css_width + width_remainder;
-                        let width = raw.floor() as i32;
-                        width_remainder = raw.fract();
-                        width
-                    }
-                    Unit::Height => {
-                        let css_width = percent_to_fraction(w.value, available.height);
-                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
-                        let raw = css_width + width_remainder;
-                        let width = raw.floor() as i32;
-                        width_remainder = raw.fract();
-                        width
-                    }
-                    Unit::ViewWidth => {
-                        let css_width = percent_to_fraction(w.value, viewport.width);
-                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
-                        let raw = css_width + width_remainder;
-                        let width = raw.floor() as i32;
-                        width_remainder = raw.fract();
-                        width
-                    }
-                    Unit::ViewHeight => {
-                        let css_width = percent_to_fraction(w.value, viewport.height);
-                        let css_width = apply_box_sizing_width_fraction(css_width, child_style);
-                        let raw = css_width + width_remainder;
-                        let width = raw.floor() as i32;
-                        width_remainder = raw.fract();
-                        width
-                    }
-                    _ => {
-                        // Check if widget wants to fill (u16::MAX signals "fill available")
-                        if desired_size.width == u16::MAX && total_fr > 0 {
-                            // Treat as 1fr
-                            let raw = remaining_for_fr.mul_ratio(1000, total_fr) + width_remainder;
-                            let width = raw.floor() as i32;
-                            width_remainder = raw.fract();
-                            width
-                        } else {
-                            let raw = Fraction::from(desired_size.width as i32) + width_remainder;
-                            let width = raw.floor() as i32;
-                            width_remainder = raw.fract();
-                            width
-                        }
-                    }
-                }
-            } else {
-                // No width specified - check if widget wants to fill
-                if desired_size.width == u16::MAX && total_fr > 0 {
-                    // Treat as 1fr
-                    let raw = remaining_for_fr.mul_ratio(1000, total_fr) + width_remainder;
-                    let width = raw.floor() as i32;
-                    width_remainder = raw.fract();
-                    width
-                } else {
-                    // Use intrinsic width (already includes chrome)
-                    let raw = Fraction::from(desired_size.width as i32) + width_remainder;
-                    let width = raw.floor() as i32;
-                    width_remainder = raw.fract();
-                    width
-                }
-            };
+            // Resolve width from precomputed fixed/fr allocations.
+            let width = fixed_widths[i].unwrap_or(fr_widths[i]);
 
             // Apply max-width constraint
             let width = if let Some(max_w) = &child_style.max_width {

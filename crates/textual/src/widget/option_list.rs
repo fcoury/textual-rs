@@ -2,12 +2,13 @@
 
 use std::marker::PhantomData;
 
-use tcss::types::Visibility;
+use tcss::types::{Layout, Visibility};
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region};
+use crate::containers::container::Container;
 use crate::widget::static_widget::Static;
-use crate::{KeyCode, MouseEvent, Size, Widget};
+use crate::{KeyCode, MouseEvent, MouseEventKind, Size, Widget};
 
 fn escape_markup(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
@@ -23,32 +24,81 @@ fn escape_markup(input: &str) -> String {
     out
 }
 
-/// A simple list widget that highlights the selected item.
+/// An option entry with optional disabled state.
+#[derive(Debug, Clone)]
+pub struct OptionItem {
+    text: String,
+    disabled: bool,
+}
+
+impl OptionItem {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            disabled: false,
+        }
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.disabled
+    }
+}
+
+impl From<String> for OptionItem {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<(String, bool)> for OptionItem {
+    fn from(value: (String, bool)) -> Self {
+        let (text, disabled) = value;
+        Self::new(text).disabled(disabled)
+    }
+}
+
+/// A list widget that highlights the selected item.
 pub struct OptionList<M> {
-    inner: Static<M>,
+    inner: Container<M>,
     items: Vec<String>,
+    disabled: Vec<bool>,
+    line_counts: Vec<usize>,
     selected: usize,
     focused: bool,
     dirty: bool,
     allow_markup: bool,
     last_width: Option<u16>,
+    pending_selection: Option<usize>,
     _phantom: PhantomData<M>,
 }
 
 impl<M: 'static> OptionList<M> {
     pub fn new(items: Vec<String>) -> Self {
-        let mut inner = Static::new("");
-        inner = inner.with_markup(true);
+        let inner = Container::new(Vec::new()).with_layout(Layout::Vertical);
         let mut list = Self {
             inner,
             items,
+            disabled: Vec::new(),
+            line_counts: Vec::new(),
             selected: 0,
             focused: false,
             dirty: true,
             allow_markup: false,
             last_width: None,
+            pending_selection: None,
             _phantom: PhantomData,
         };
+        list.disabled = vec![false; list.items.len()];
+        list.normalize_selected();
         list.refresh_display();
         list
     }
@@ -63,15 +113,17 @@ impl<M: 'static> OptionList<M> {
         self
     }
 
-    pub fn with_name(mut self, name: impl Into<String>) -> Self {
-        self.inner = self.inner.with_name(name);
+    pub fn with_name(self, _name: impl Into<String>) -> Self {
         self
     }
 
     pub fn with_items(mut self, items: Vec<String>) -> Self {
-        self.items = items;
-        self.selected = 0;
-        self.refresh_display();
+        self.set_items(items);
+        self
+    }
+
+    pub fn with_items_with_state(mut self, items: Vec<OptionItem>) -> Self {
+        self.set_items_with_state(items);
         self
     }
 
@@ -84,11 +136,15 @@ impl<M: 'static> OptionList<M> {
 
     pub fn set_items(&mut self, items: Vec<String>) {
         self.items = items;
-        if self.items.is_empty() {
-            self.selected = 0;
-        } else {
-            self.selected = self.selected.min(self.items.len() - 1);
-        }
+        self.disabled = vec![false; self.items.len()];
+        self.normalize_selected();
+        self.refresh_display();
+    }
+
+    pub fn set_items_with_state(&mut self, items: Vec<OptionItem>) {
+        self.items = items.iter().map(|item| item.text.clone()).collect();
+        self.disabled = items.iter().map(|item| item.disabled).collect();
+        self.normalize_selected();
         self.refresh_display();
     }
 
@@ -106,110 +162,133 @@ impl<M: 'static> OptionList<M> {
             self.refresh_display();
             return;
         }
-        let clamped = selected.min(self.items.len() - 1);
-        if self.selected != clamped {
-            self.selected = clamped;
-            self.refresh_display();
-        }
+        self.selected = selected.min(self.items.len() - 1);
+        self.normalize_selected();
+        self.refresh_display();
     }
 
     pub fn selected(&self) -> Option<&str> {
         self.items.get(self.selected).map(|s| s.as_str())
     }
 
+    pub fn selected_index(&self) -> usize {
+        self.selected
+    }
+
     pub fn items(&self) -> &[String] {
         &self.items
     }
 
+    pub fn take_pending_selection(&mut self) -> Option<usize> {
+        self.pending_selection.take()
+    }
+
+    fn disabled_at(&self, index: usize) -> bool {
+        self.disabled.get(index).copied().unwrap_or(false)
+    }
+
+    fn normalize_selected(&mut self) {
+        if self.items.is_empty() {
+            self.selected = 0;
+            return;
+        }
+        if self.selected >= self.items.len() {
+            self.selected = self.items.len() - 1;
+        }
+        if self.disabled_at(self.selected) {
+            if let Some(index) = self.next_enabled_from(self.selected, 1) {
+                self.selected = index;
+                return;
+            }
+            if let Some(index) = self.next_enabled_from(self.selected, -1) {
+                self.selected = index;
+                return;
+            }
+        }
+    }
+
+    fn next_enabled_from(&self, start: usize, delta: i32) -> Option<usize> {
+        let len = self.items.len() as i32;
+        let mut index = start as i32;
+        loop {
+            index += delta;
+            if index < 0 || index >= len {
+                return None;
+            }
+            let idx = index as usize;
+            if !self.disabled_at(idx) {
+                return Some(idx);
+            }
+        }
+    }
+
     fn refresh_display(&mut self) {
-        let mut lines = Vec::with_capacity(self.items.len().max(1));
-        let highlight_style = self.highlight_style_markup();
+        self.line_counts = self
+            .items
+            .iter()
+            .map(|item| item.split('\n').count().max(1))
+            .collect();
+
+        let mut children: Vec<Box<dyn Widget<M>>> = Vec::with_capacity(self.items.len().max(1));
         for (index, item) in self.items.iter().enumerate() {
             let content = if self.allow_markup {
                 item.clone()
             } else {
                 escape_markup(item)
             };
-            if index == self.selected {
-                // Apply highlight style - let the renderer handle background fill
-                if let Some(style) = &highlight_style {
-                    lines.push(format!("[{}]{}[/]", style, content));
-                } else {
-                    lines.push(format!("[reverse]{}[/]", content));
-                }
-            } else {
-                lines.push(content);
+            let mut option = Static::new(content).with_markup(true);
+            option = option.with_classes("option-list--option");
+            if self.disabled_at(index) {
+                option.set_disabled(true);
+                option.add_class("option-list--option-disabled");
             }
+            if index == self.selected && !self.disabled_at(index) {
+                option.add_class("option-list--option-highlighted");
+            }
+            children.push(Box::new(option));
         }
-        if lines.is_empty() {
-            lines.push(String::new());
+
+        if children.is_empty() {
+            let empty = Static::new("")
+                .with_markup(true)
+                .with_classes("option-list--option");
+            children.push(Box::new(empty));
         }
-        let content = lines.join("\n");
-        self.inner.update(content);
+
+        self.inner.set_children(children);
         self.dirty = false;
     }
 
-    fn highlight_style_markup(&self) -> Option<String> {
-        let style = self.inner.get_style();
-        let link = &style.link;
-
-        let has_link_style = link.color.is_some()
-            || link.background.is_some()
-            || !link.style.is_none()
-            || link.color_hover.is_some()
-            || link.background_hover.is_some()
-            || !link.style_hover.is_none();
-        if !has_link_style {
-            return None;
+    fn move_selection(&mut self, delta: i32) {
+        if self.items.is_empty() {
+            return;
         }
-
-        let mut parts: Vec<String> = Vec::new();
-
-        if link.style.bold {
-            parts.push("bold".to_string());
-        }
-        if link.style.dim {
-            parts.push("dim".to_string());
-        }
-        if link.style.italic {
-            parts.push("italic".to_string());
-        }
-        if link.style.underline {
-            parts.push("underline".to_string());
-        }
-        if link.style.strike {
-            parts.push("strike".to_string());
-        }
-        if link.style.reverse {
-            parts.push("reverse".to_string());
-        }
-        if link.style.blink {
-            parts.push("blink".to_string());
-        }
-
-        if let Some(fg) = link.color.clone().or_else(|| style.color.clone()) {
-            parts.push(color_to_markup(&fg));
-        }
-
-        if let Some(mut bg) = link.background.clone() {
-            if bg.a < 1.0 {
-                if let Some(base) = style.effective_background() {
-                    bg = bg.blend_over(&base);
-                }
+        let len = self.items.len() as i32;
+        let mut index = self.selected as i32;
+        loop {
+            index += delta;
+            if index < 0 || index >= len {
+                break;
             }
-            parts.push(format!("on {}", color_to_markup(&bg)));
-        }
-
-        if parts.is_empty() {
-            None
-        } else {
-            Some(parts.join(" "))
+            let idx = index as usize;
+            if !self.disabled_at(idx) {
+                self.selected = idx;
+                self.refresh_display();
+                break;
+            }
         }
     }
-}
 
-fn color_to_markup(color: &tcss::types::RgbaColor) -> String {
-    format!("#{:02x}{:02x}{:02x}", color.r, color.g, color.b)
+    fn index_for_row(&self, row: usize) -> Option<usize> {
+        let mut remaining = row;
+        for (index, count) in self.line_counts.iter().enumerate() {
+            if remaining < *count {
+                return Some(index);
+            }
+            remaining = remaining.saturating_sub(*count);
+        }
+        None
+    }
 }
 
 impl<M: 'static> Widget<M> for OptionList<M> {
@@ -217,6 +296,9 @@ impl<M: 'static> Widget<M> for OptionList<M> {
         r#"
 OptionList {
     height: auto;
+}
+
+OptionList > .option-list--option {
     text-wrap: nowrap;
 }
 "#
@@ -243,16 +325,10 @@ OptionList {
         }
         match key {
             KeyCode::Up => {
-                if self.selected > 0 {
-                    self.selected -= 1;
-                    self.refresh_display();
-                }
+                self.move_selection(-1);
             }
             KeyCode::Down => {
-                if !self.items.is_empty() && self.selected + 1 < self.items.len() {
-                    self.selected += 1;
-                    self.refresh_display();
-                }
+                self.move_selection(1);
             }
             _ => {}
         }
@@ -260,13 +336,40 @@ OptionList {
     }
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
+        if self.is_disabled() || !self.is_visible() {
+            return None;
+        }
+
+        let mx = event.column as i32;
+        let my = event.row as i32;
+
+        if !region.contains_point(mx, my) {
+            return None;
+        }
+
+        match event.kind {
+            MouseEventKind::Up(crossterm::event::MouseButton::Left) => {
+                let local_y = (my - region.y) as usize;
+                if let Some(index) = self.index_for_row(local_y) {
+                    if !self.disabled_at(index) {
+                        if self.selected != index {
+                            self.selected = index;
+                            self.refresh_display();
+                        }
+                        self.pending_selection = Some(index);
+                    }
+                }
+            }
+            _ => {}
+        }
+
         self.inner.on_mouse(event, region)
     }
 
     fn get_meta(&self) -> WidgetMeta {
         let mut meta = self.inner.get_meta();
         meta.type_name = "OptionList";
-        meta.type_names = vec!["OptionList", "Static", "Widget", "DOMNode"];
+        meta.type_names = vec!["OptionList", "Container", "Widget", "DOMNode"];
         meta.states = self.get_state();
         meta
     }

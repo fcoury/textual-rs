@@ -25,11 +25,11 @@
 
 use std::collections::HashMap;
 
+use crate::grapheme::{display_width, graphemes};
 use crate::segment::{Segment, Style};
 use crate::strip::Strip;
 use tcss::types::link::LinkStyle;
 use tcss::types::{RgbaColor, TextOverflow, TextWrap};
-use unicode_width::UnicodeWidthStr;
 
 /// An internal span for styled content.
 #[derive(Clone, Debug)]
@@ -184,11 +184,7 @@ impl Content {
 
     /// Returns the width of the longest line in cells.
     pub fn cell_length(&self) -> usize {
-        self.text
-            .lines()
-            .map(|line| line.width())
-            .max()
-            .unwrap_or(0)
+        self.text.lines().map(display_width).max().unwrap_or(0)
     }
 
     /// Returns the number of lines.
@@ -594,7 +590,7 @@ impl Content {
                 continue;
             }
 
-            let line_width = line.width();
+            let line_width = display_width(line);
             if line_width <= width {
                 // Line fits, render with spans
                 let strip = self.render_line_with_spans(line, line_start, line_end, spans);
@@ -632,7 +628,7 @@ impl Content {
                 continue;
             }
 
-            let line_width = line.width();
+            let line_width = display_width(line);
             if line_width <= width {
                 let strip = self.render_line_with_spans(line, line_start, line_end, spans);
                 result.push(WrappedLine::new(strip, true));
@@ -683,7 +679,7 @@ impl Content {
 
         while i < words.len() {
             let word = words[i];
-            let word_width = word.width();
+            let word_width = display_width(word);
 
             if current_width == 0 {
                 // Start of line
@@ -752,7 +748,7 @@ impl Content {
         let mut current_width = 0;
 
         for word in line.split_whitespace() {
-            let word_width = word.width();
+            let word_width = display_width(word);
 
             if current_width == 0 {
                 // Start of line
@@ -805,12 +801,12 @@ impl Content {
         let mut current = String::new();
         let mut current_width = 0;
 
-        for ch in word.chars() {
-            let ch_width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+        for grapheme in graphemes(word) {
+            let grapheme_width = display_width(grapheme);
 
-            if current_width + ch_width <= width {
-                current.push(ch);
-                current_width += ch_width;
+            if current_width + grapheme_width <= width {
+                current.push_str(grapheme);
+                current_width += grapheme_width;
             } else {
                 if !current.is_empty() {
                     let segment = match &self.style {
@@ -819,8 +815,8 @@ impl Content {
                     };
                     result.push(Strip::from_segment(segment));
                 }
-                current = ch.to_string();
-                current_width = ch_width;
+                current = grapheme.to_string();
+                current_width = grapheme_width;
             }
         }
 

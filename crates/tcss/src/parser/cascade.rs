@@ -32,6 +32,24 @@ use crate::{
     types::{Border, ComputedStyle, RgbaColor, Theme},
 };
 
+#[derive(Clone, Copy, Debug)]
+struct SelectorContext {
+    is_dark: bool,
+    is_ansi: bool,
+    is_nocolor: bool,
+}
+
+impl SelectorContext {
+    fn from_theme(theme: &Theme) -> Self {
+        let name = theme.name.as_str();
+        Self {
+            is_dark: theme.is_dark,
+            is_ansi: name.contains("ansi"),
+            is_nocolor: name.contains("nocolor") || name.contains("no-color"),
+        }
+    }
+}
+
 bitflags! {
     /// Bitflags representing widget pseudo-class states.
     ///
@@ -94,7 +112,7 @@ struct MatchedRule<'a> {
 
 impl WidgetMeta {
     /// Checks if this widget matches a simple selector.
-    pub fn matches_selector(&self, selector: &Selector) -> bool {
+    fn matches_selector(&self, selector: &Selector, ctx: &SelectorContext) -> bool {
         match selector {
             Selector::Type(name) => {
                 if self.type_names.is_empty() {
@@ -111,6 +129,10 @@ impl WidgetMeta {
                 "hover" => self.states.contains(WidgetStates::HOVER),
                 "active" => self.states.contains(WidgetStates::ACTIVE),
                 "disabled" => self.states.contains(WidgetStates::DISABLED),
+                "dark" => ctx.is_dark,
+                "light" => !ctx.is_dark,
+                "ansi" => ctx.is_ansi,
+                "nocolor" => ctx.is_nocolor,
                 _ => false,
             },
             Selector::Parent => false, // Will be handled by the nesting flattener
@@ -124,7 +146,12 @@ impl WidgetMeta {
 
     /// Checks if this widget matches a complex selector given its ancestors.
     /// Ancestors should be ordered from immediate parent to root.
-    pub fn matches_complex(&self, complex: &ComplexSelector, ancestors: &[WidgetMeta]) -> bool {
+    fn matches_complex(
+        &self,
+        complex: &ComplexSelector,
+        ancestors: &[WidgetMeta],
+        ctx: &SelectorContext,
+    ) -> bool {
         if complex.parts.is_empty() {
             return false;
         }
@@ -137,7 +164,7 @@ impl WidgetMeta {
             .compound
             .selectors
             .iter()
-            .all(|s| self.matches_selector(s))
+            .all(|s| self.matches_selector(s, ctx))
         {
             return false;
         }
@@ -159,7 +186,7 @@ impl WidgetMeta {
                 .compound
                 .selectors
                 .iter()
-                .all(|s| ancestor.matches_selector(s));
+                .all(|s| ancestor.matches_selector(s, ctx));
 
             match part.combinator {
                 Combinator::Child => {
@@ -196,7 +223,7 @@ impl WidgetMeta {
                     .compound
                     .selectors
                     .iter()
-                    .all(|s| ancestors[ancestor_idx].matches_selector(s))
+                    .all(|s| ancestors[ancestor_idx].matches_selector(s, ctx))
     }
 }
 
@@ -208,11 +235,12 @@ pub fn compute_style(
     theme: &Theme,
 ) -> ComputedStyle {
     let mut matched_rules = Vec::new();
+    let ctx = SelectorContext::from_theme(theme);
 
     // 1. Find all matching rules
     for (idx, rule) in stylesheet.rules.iter().enumerate() {
         for complex in &rule.selectors.selectors {
-            if widget.matches_complex(complex, ancestors) {
+            if widget.matches_complex(complex, ancestors, &ctx) {
                 matched_rules.push(MatchedRule {
                     specificity: complex.specificity(),
                     source_order: idx,

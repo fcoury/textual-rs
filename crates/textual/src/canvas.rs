@@ -5,6 +5,7 @@ use crossterm::{
 use std::io::{BufWriter, Write};
 use tcss::types::RgbaColor;
 
+use crate::grapheme::{display_width, graphemes};
 use crate::layouts::Viewport;
 use crate::strip::Strip;
 
@@ -107,9 +108,11 @@ impl Region {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Cell {
-    pub symbol: char,
+    pub symbol: String,
+    pub width: u8,
+    pub continuation: bool,
     pub fg: Option<Color>,
     pub bg: Option<Color>,
     pub attrs: TextAttributes,
@@ -130,7 +133,9 @@ pub struct Canvas {
 impl Canvas {
     pub fn new(width: u16, height: u16) -> Self {
         let blank_cell = Cell {
-            symbol: ' ',
+            symbol: " ".to_string(),
+            width: 1,
+            continuation: false,
             fg: None,
             bg: None,
             attrs: TextAttributes::default(),
@@ -138,7 +143,7 @@ impl Canvas {
         let cell_count = (width * height) as usize;
         Self {
             size: Size { width, height },
-            cells: vec![blank_cell; cell_count],
+            cells: vec![blank_cell.clone(); cell_count],
             prev_cells: vec![blank_cell; cell_count],
             first_flush: true,
             clip_stack: Vec::new(),
@@ -205,28 +210,12 @@ impl Canvas {
         bg: Option<RgbaColor>,
         attrs: TextAttributes,
     ) {
+        let mut buf = [0u8; 4];
+        let grapheme = c.encode_utf8(&mut buf);
+        let width = display_width(grapheme);
         let clip = self.current_clip();
-
-        // Clip bounds check
-        if x < clip.x || x >= clip.x + clip.width {
-            return;
-        }
-        if y < clip.y || y >= clip.y + clip.height {
-            return;
-        }
-
-        // Screen bounds check
-        if x < 0 || x >= self.size.width as i32 || y < 0 || y >= self.size.height as i32 {
-            return;
-        }
-
-        let index = (y as usize) * (self.size.width as usize) + (x as usize);
-        self.cells[index] = Cell {
-            symbol: c,
-            fg: fg.map(to_crossterm_color),
-            bg: bg.map(to_crossterm_color),
-            attrs,
-        };
+        let fg = fg.map(to_crossterm_color);
+        self.put_grapheme(x, y, grapheme, width, fg, bg.as_ref(), attrs, &clip);
     }
 
     /// Writes a string to the canvas at (x, y).
@@ -250,25 +239,100 @@ impl Canvas {
             return;
         }
 
+        let fg = fg.map(to_crossterm_color);
+        let bg = bg.as_ref();
         let mut current_x = x;
-        for c in s.chars() {
-            // Stop if past right edge of clip
+        for grapheme in graphemes(s) {
             if current_x >= clip.x + clip.width {
                 break;
             }
-            // Only draw if within clip region and screen
-            if current_x >= clip.x && current_x >= 0 && current_x < self.size.width as i32 {
-                let index = (y as usize) * (self.size.width as usize) + (current_x as usize);
-                // Preserve existing background if new bg is None
-                let new_bg = bg.clone().map(to_crossterm_color).or(self.cells[index].bg);
-                self.cells[index] = Cell {
-                    symbol: c,
-                    fg: fg.clone().map(to_crossterm_color),
-                    bg: new_bg,
-                    attrs,
-                };
+            let width = display_width(grapheme);
+            self.put_grapheme(current_x, y, grapheme, width, fg, bg, attrs, &clip);
+            current_x += width as i32;
+        }
+    }
+
+    fn put_grapheme(
+        &mut self,
+        x: i32,
+        y: i32,
+        grapheme: &str,
+        width: usize,
+        fg: Option<Color>,
+        bg: Option<&RgbaColor>,
+        attrs: TextAttributes,
+        clip: &Region,
+    ) {
+        // Clip bounds check
+        if y < clip.y || y >= clip.y + clip.height {
+            return;
+        }
+        if y < 0 || y >= self.size.height as i32 {
+            return;
+        }
+
+        if x < clip.x || x >= clip.x + clip.width {
+            return;
+        }
+        if x < 0 || x >= self.size.width as i32 {
+            return;
+        }
+
+        let end_x = x + width as i32;
+        if end_x > clip.x + clip.width {
+            return;
+        }
+        if end_x > self.size.width as i32 {
+            return;
+        }
+
+        let preserve_text = matches!(bg, Some(bg_color) if bg_color.a < 1.0 && !bg_color.is_transparent())
+            && grapheme == " "
+            && width == 1
+            && fg.is_none()
+            && attrs == TextAttributes::default();
+
+        let index = (y as usize) * (self.size.width as usize) + (x as usize);
+        let new_bg = resolve_background(bg, self.cells[index].bg);
+        if preserve_text {
+            if let Some(bg) = new_bg {
+                self.cells[index].bg = Some(bg);
             }
-            current_x += 1;
+        } else {
+            self.cells[index] = Cell {
+                symbol: grapheme.to_string(),
+                width: width as u8,
+                continuation: false,
+                fg,
+                bg: new_bg,
+                attrs,
+            };
+        }
+
+        for offset in 1..width {
+            let cx = x + offset as i32;
+            if cx < clip.x || cx >= clip.x + clip.width {
+                continue;
+            }
+            if cx < 0 || cx >= self.size.width as i32 {
+                continue;
+            }
+            let cidx = (y as usize) * (self.size.width as usize) + (cx as usize);
+            let new_bg = resolve_background(bg, self.cells[cidx].bg);
+            if preserve_text {
+                if let Some(bg) = new_bg {
+                    self.cells[cidx].bg = Some(bg);
+                }
+                continue;
+            }
+            self.cells[cidx] = Cell {
+                symbol: " ".to_string(),
+                width: 0,
+                continuation: true,
+                fg,
+                bg: new_bg,
+                attrs,
+            };
         }
     }
 
@@ -340,19 +404,39 @@ impl Canvas {
         execute!(out, SetBackgroundColor(Color::Reset))?;
         execute!(out, SetAttribute(Attribute::Reset))?;
 
-        let mut last_fg = Some(Color::Reset);
-        let mut last_bg = Some(Color::Reset);
+        let mut last_fg: Option<Color> = None;
+        let mut last_bg: Option<Color> = None;
         let mut last_attrs = TextAttributes::default();
+        let mut cursor_x: i32 = 0;
+        let mut cursor_y: i32 = 0;
 
-        let rows: Vec<_> = self.cells.chunks(self.size.width as usize).collect();
-        let num_rows = rows.len();
+        let width = self.size.width as usize;
 
-        for (row_idx, row) in rows.into_iter().enumerate() {
-            for cell in row {
-                self.emit_cell(out, cell, &mut last_fg, &mut last_bg, &mut last_attrs)?;
+        for (i, cell) in self.cells.iter().enumerate() {
+            if cell.continuation {
+                continue;
             }
-            if row_idx < num_rows - 1 {
-                write!(out, "\r\n")?;
+
+            let x = (i % width) as u16;
+            let y = (i / width) as u16;
+
+            if cursor_x != x as i32 || cursor_y != y as i32 {
+                execute!(out, cursor::MoveTo(x, y))?;
+                execute!(out, SetForegroundColor(Color::Reset))?;
+                execute!(out, SetBackgroundColor(Color::Reset))?;
+                execute!(out, SetAttribute(Attribute::Reset))?;
+                last_fg = None;
+                last_bg = None;
+                last_attrs = TextAttributes::default();
+            }
+
+            self.emit_cell(out, cell, &mut last_fg, &mut last_bg, &mut last_attrs)?;
+
+            cursor_x = x as i32 + cell.width as i32;
+            cursor_y = y as i32;
+            if cursor_x >= width as i32 {
+                cursor_x = 0;
+                cursor_y += 1;
             }
         }
         Ok(())
@@ -380,6 +464,9 @@ impl Canvas {
             if cell == prev {
                 continue;
             }
+            if cell.continuation {
+                continue;
+            }
 
             let x = (i % width) as u16;
             let y = (i / width) as u16;
@@ -399,8 +486,8 @@ impl Canvas {
 
             self.emit_cell(out, cell, &mut last_fg, &mut last_bg, &mut last_attrs)?;
 
-            // Update cursor position (advances by 1 after writing a char)
-            cursor_x = x as i32 + 1;
+            // Update cursor position (advances by display width)
+            cursor_x = x as i32 + cell.width as i32;
             cursor_y = y as i32;
 
             // Handle line wrap
@@ -467,7 +554,9 @@ impl Canvas {
 
     pub fn clear(&mut self) {
         self.cells.fill(Cell {
-            symbol: ' ',
+            symbol: " ".to_string(),
+            width: 1,
+            continuation: false,
             fg: None,
             bg: None,
             attrs: TextAttributes::default(),
@@ -489,7 +578,11 @@ impl Canvas {
             return '\0';
         }
         let index = (y as usize) * (self.size.width as usize) + (x as usize);
-        self.cells[index].symbol
+        let cell = &self.cells[index];
+        if cell.continuation {
+            return ' ';
+        }
+        cell.symbol.chars().next().unwrap_or('\0')
     }
 
     /// Get all characters in a row as a string for testing.
@@ -499,7 +592,15 @@ impl Canvas {
         }
         let start = (y as usize) * (self.size.width as usize);
         let end = start + (self.size.width as usize);
-        self.cells[start..end].iter().map(|c| c.symbol).collect()
+        let mut row = String::new();
+        for cell in &self.cells[start..end] {
+            if cell.continuation {
+                row.push(' ');
+            } else {
+                row.push_str(&cell.symbol);
+            }
+        }
+        row
     }
 
     /// Check if a cell has a background color set (for testing scrollbar presence).
@@ -587,7 +688,11 @@ impl Canvas {
                     last_bg = cell.bg;
                 }
 
-                result.push(cell.symbol);
+                if cell.continuation {
+                    result.push(' ');
+                } else {
+                    result.push_str(&cell.symbol);
+                }
             }
 
             // Reset at end of line and trim trailing spaces
@@ -628,16 +733,12 @@ impl Canvas {
 
 fn to_crossterm_color(c: RgbaColor) -> Color {
     // Terminals don't support true alpha transparency, so we pre-composite
-    // semi-transparent colors against black (terminal default background).
+    // semi-transparent foreground colors against black (terminal default background).
     // Formula: result = base + (color - base) * alpha, where base = black (0,0,0)
     // Simplified: result = color * alpha
     let alpha = c.a;
     if alpha >= 1.0 {
-        Color::Rgb {
-            r: c.r,
-            g: c.g,
-            b: c.b,
-        }
+        to_crossterm_rgb(c)
     } else {
         Color::Rgb {
             r: (c.r as f32 * alpha).round() as u8,
@@ -645,6 +746,32 @@ fn to_crossterm_color(c: RgbaColor) -> Color {
             b: (c.b as f32 * alpha).round() as u8,
         }
     }
+}
+
+fn to_crossterm_rgb(c: RgbaColor) -> Color {
+    Color::Rgb {
+        r: c.r,
+        g: c.g,
+        b: c.b,
+    }
+}
+
+fn resolve_background(bg: Option<&RgbaColor>, existing: Option<Color>) -> Option<Color> {
+    let bg = match bg {
+        Some(bg) if !bg.is_transparent() => bg,
+        _ => return existing,
+    };
+
+    let base = match existing {
+        Some(Color::Rgb { r, g, b }) => RgbaColor::rgb(r, g, b),
+        _ => RgbaColor::black(),
+    };
+    let blended = if bg.a < 1.0 {
+        bg.blend_over(&base)
+    } else {
+        bg.clone()
+    };
+    Some(to_crossterm_rgb(blended))
 }
 
 #[cfg(test)]
@@ -927,7 +1054,7 @@ mod tests {
         canvas.put_char(10, 5, 'X', None, None, TextAttributes::default());
 
         let cell = canvas.get_cell(10, 5).unwrap();
-        assert_eq!(cell.symbol, 'X');
+        assert_eq!(cell.symbol, "X");
     }
 
     #[test]
@@ -936,7 +1063,7 @@ mod tests {
         canvas.put_char(0, 0, 'A', None, None, TextAttributes::default());
 
         let cell = canvas.get_cell(0, 0).unwrap();
-        assert_eq!(cell.symbol, 'A');
+        assert_eq!(cell.symbol, "A");
     }
 
     #[test]
@@ -945,7 +1072,7 @@ mod tests {
         canvas.put_char(79, 23, 'Z', None, None, TextAttributes::default());
 
         let cell = canvas.get_cell(79, 23).unwrap();
-        assert_eq!(cell.symbol, 'Z');
+        assert_eq!(cell.symbol, "Z");
     }
 
     #[test]
@@ -983,19 +1110,19 @@ mod tests {
 
         // Inside clip - should draw
         canvas.put_char(15, 15, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(15, 15).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_char(15, 15), 'A');
 
         // Outside clip left - should NOT draw
         canvas.put_char(5, 15, 'B', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(5, 15).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(5, 15), ' ');
 
         // Outside clip right - should NOT draw
         canvas.put_char(35, 15, 'C', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(35, 15).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(35, 15), ' ');
 
         // Outside clip above - should NOT draw
         canvas.put_char(15, 5, 'D', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(15, 5).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(15, 5), ' ');
 
         // Outside clip below - should NOT draw
         canvas.put_char(15, 25, 'E', None, None, TextAttributes::default());
@@ -1014,15 +1141,15 @@ mod tests {
 
         // Inside intersection (25-49, 10-19)
         canvas.put_char(30, 15, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(30, 15).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_char(30, 15), 'A');
 
         // Inside first clip but outside intersection
         canvas.put_char(10, 5, 'B', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 5).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(10, 5), ' ');
 
         // Outside both
         canvas.put_char(60, 15, 'C', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(60, 15).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(60, 15), ' ');
     }
 
     #[test]
@@ -1037,14 +1164,14 @@ mod tests {
 
         // Can only draw in small region
         canvas.put_char(5, 5, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(5, 5).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(5, 5), ' ');
 
         // Pop back to first clip
         canvas.pop_clip();
 
         // Now can draw in larger region
         canvas.put_char(5, 5, 'B', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(5, 5).unwrap().symbol, 'B');
+        assert_eq!(canvas.get_char(5, 5), 'B');
     }
 
     #[test]
@@ -1056,10 +1183,10 @@ mod tests {
 
         // Should be able to draw anywhere
         canvas.put_char(0, 0, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(0, 0).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_char(0, 0), 'A');
 
         canvas.put_char(79, 23, 'Z', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(79, 23).unwrap().symbol, 'Z');
+        assert_eq!(canvas.get_char(79, 23), 'Z');
     }
 
     #[test]
@@ -1073,7 +1200,7 @@ mod tests {
 
         // Clip stack should be empty, full screen available
         canvas.put_char(0, 0, 'A', None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(0, 0).unwrap().symbol, 'A');
+        assert_eq!(canvas.get_char(0, 0), 'A');
     }
 
     #[test]
@@ -1081,11 +1208,25 @@ mod tests {
         let mut canvas = Canvas::new(80, 24);
         canvas.put_str(5, 10, "Hello", None, None, TextAttributes::default());
 
-        assert_eq!(canvas.get_cell(5, 10).unwrap().symbol, 'H');
-        assert_eq!(canvas.get_cell(6, 10).unwrap().symbol, 'e');
-        assert_eq!(canvas.get_cell(7, 10).unwrap().symbol, 'l');
-        assert_eq!(canvas.get_cell(8, 10).unwrap().symbol, 'l');
-        assert_eq!(canvas.get_cell(9, 10).unwrap().symbol, 'o');
+        assert_eq!(canvas.get_char(5, 10), 'H');
+        assert_eq!(canvas.get_char(6, 10), 'e');
+        assert_eq!(canvas.get_char(7, 10), 'l');
+        assert_eq!(canvas.get_char(8, 10), 'l');
+        assert_eq!(canvas.get_char(9, 10), 'o');
+    }
+
+    #[test]
+    fn canvas_put_str_wide_grapheme_marks_continuation() {
+        let mut canvas = Canvas::new(10, 1);
+        canvas.put_str(0, 0, "🔍", None, None, TextAttributes::default());
+
+        let cell0 = canvas.get_cell(0, 0).unwrap();
+        let cell1 = canvas.get_cell(1, 0).unwrap();
+
+        assert_eq!(cell0.symbol, "🔍");
+        assert_eq!(cell0.width, 2);
+        assert!(!cell0.continuation);
+        assert!(cell1.continuation);
     }
 
     #[test]
@@ -1097,12 +1238,12 @@ mod tests {
         canvas.put_str(2, 10, "Hello", None, None, TextAttributes::default());
 
         // First 3 chars (at x=2,3,4) should be clipped
-        assert_eq!(canvas.get_cell(2, 10).unwrap().symbol, ' ');
-        assert_eq!(canvas.get_cell(3, 10).unwrap().symbol, ' ');
-        assert_eq!(canvas.get_cell(4, 10).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(2, 10), ' ');
+        assert_eq!(canvas.get_char(3, 10), ' ');
+        assert_eq!(canvas.get_char(4, 10), ' ');
         // Last 2 chars (at x=5,6) should be drawn
-        assert_eq!(canvas.get_cell(5, 10).unwrap().symbol, 'l');
-        assert_eq!(canvas.get_cell(6, 10).unwrap().symbol, 'o');
+        assert_eq!(canvas.get_char(5, 10), 'l');
+        assert_eq!(canvas.get_char(6, 10), 'o');
     }
 
     #[test]
@@ -1113,12 +1254,12 @@ mod tests {
         canvas.put_str(5, 10, "Hello", None, None, TextAttributes::default());
 
         // First 3 chars should be drawn
-        assert_eq!(canvas.get_cell(5, 10).unwrap().symbol, 'H');
-        assert_eq!(canvas.get_cell(6, 10).unwrap().symbol, 'e');
-        assert_eq!(canvas.get_cell(7, 10).unwrap().symbol, 'l');
+        assert_eq!(canvas.get_char(5, 10), 'H');
+        assert_eq!(canvas.get_char(6, 10), 'e');
+        assert_eq!(canvas.get_char(7, 10), 'l');
         // Last 2 chars should be clipped
-        assert_eq!(canvas.get_cell(8, 10).unwrap().symbol, ' ');
-        assert_eq!(canvas.get_cell(9, 10).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(8, 10), ' ');
+        assert_eq!(canvas.get_char(9, 10), ' ');
     }
 
     #[test]
@@ -1128,14 +1269,14 @@ mod tests {
 
         // String above clip
         canvas.put_str(10, 3, "Above", None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 3).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(10, 3), ' ');
 
         // String below clip
         canvas.put_str(10, 16, "Below", None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 16).unwrap().symbol, ' ');
+        assert_eq!(canvas.get_char(10, 16), ' ');
 
         // String inside clip
         canvas.put_str(10, 10, "Inside", None, None, TextAttributes::default());
-        assert_eq!(canvas.get_cell(10, 10).unwrap().symbol, 'I');
+        assert_eq!(canvas.get_char(10, 10), 'I');
     }
 }

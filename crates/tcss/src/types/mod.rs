@@ -296,36 +296,32 @@ impl Default for ComputedStyle {
 }
 
 impl ComputedStyle {
-    /// Get the effective background color with opacity, alpha compositing, and background-tint applied.
+    /// Get the effective background color with opacity and background-tint applied.
     /// Falls back to inherited background from parent if this widget has no background.
     ///
     /// This method applies opacity SQUARED to match Python Textual's behavior where
     /// `_apply_opacity` post-processes ALL segments (blending colors toward base_background).
     /// Two sequential blends at factor `f` equals one blend at `f²`.
+    ///
+    /// NOTE: Fully transparent backgrounds (a == 0) return None to preserve whatever was
+    /// already rendered. Semi-transparent backgrounds preserve their alpha so the renderer
+    /// can blend with what is already on screen (important for overlays).
     pub fn effective_background(&self) -> Option<RgbaColor> {
-        // First compute the base background (with alpha compositing and tint)
-        let base_bg = match (&self.background, &self.inherited_background) {
-            (Some(bg), Some(inherited)) if bg.a < 1.0 => {
-                // Composite semi-transparent background over inherited
-                let composited = bg.blend_over(inherited);
-                // Then apply tint if present
-                match &self.background_tint {
-                    Some(tint) => Some(composited.tint(tint)),
-                    None => Some(composited),
-                }
+        // Fully transparent backgrounds return None to preserve what's underneath.
+        // This allows overlay widgets to not overwrite existing content.
+        if let Some(bg) = &self.background {
+            if bg.is_transparent() {
+                return None;
             }
-            (Some(bg), _) => {
-                // Opaque background or no inherited - just apply tint
-                match &self.background_tint {
-                    Some(tint) => Some(bg.tint(tint)),
-                    None => Some(bg.clone()),
-                }
-            }
-            (None, Some(inherited)) => {
-                // No background specified, inherit from parent
-                Some(inherited.clone())
-            }
-            (None, None) => None,
+        }
+
+        // First compute the base background (preserve alpha, apply background-tint)
+        let base_bg = match &self.background {
+            Some(bg) => match &self.background_tint {
+                Some(tint) => Some(bg.tint(tint)),
+                None => Some(bg.clone()),
+            },
+            None => self.inherited_background.clone(),
         };
 
         // Apply opacity SQUARED by blending toward inherited_background

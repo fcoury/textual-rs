@@ -26,6 +26,7 @@ use tcss::types::{RgbaColor, Visibility};
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region, TextAttributes};
+use crate::grapheme::{display_width, graphemes};
 use crate::widget::Widget;
 use crate::{KeyCode, MouseEvent, MouseEventKind, Size};
 
@@ -187,6 +188,7 @@ impl Placeholder {
     /// Word-wrap text to fit within a given width.
     /// Handles newlines in the input and wraps at word boundaries.
     fn word_wrap(text: &str, max_width: usize) -> Vec<String> {
+        let max_width = max_width.max(1);
         let mut lines = Vec::new();
 
         for paragraph in text.split('\n') {
@@ -196,38 +198,42 @@ impl Placeholder {
             }
 
             let mut current_line = String::new();
+            let mut current_width = 0usize;
 
             for word in paragraph.split_whitespace() {
+                let word_width = display_width(word);
+
                 if current_line.is_empty() {
-                    // First word on line
-                    if word.len() > max_width {
-                        // Word is longer than max_width, break it up
-                        let mut remaining = word;
-                        while remaining.len() > max_width {
-                            lines.push(remaining[..max_width].to_string());
-                            remaining = &remaining[max_width..];
-                        }
-                        current_line = remaining.to_string();
+                    if word_width <= max_width {
+                        current_line.push_str(word);
+                        current_width = word_width;
                     } else {
-                        current_line = word.to_string();
+                        let mut pieces = Self::break_word(word, max_width);
+                        if let Some(last) = pieces.pop() {
+                            lines.extend(pieces);
+                            current_width = display_width(&last);
+                            current_line = last;
+                        }
                     }
-                } else if current_line.len() + 1 + word.len() <= max_width {
-                    // Word fits on current line with a space
+                } else if current_width + 1 + word_width <= max_width {
                     current_line.push(' ');
                     current_line.push_str(word);
+                    current_width += 1 + word_width;
                 } else {
-                    // Word doesn't fit, start a new line
                     lines.push(current_line);
-                    if word.len() > max_width {
-                        // Word is longer than max_width, break it up
-                        let mut remaining = word;
-                        while remaining.len() > max_width {
-                            lines.push(remaining[..max_width].to_string());
-                            remaining = &remaining[max_width..];
-                        }
-                        current_line = remaining.to_string();
+                    current_line = String::new();
+                    current_width = 0;
+
+                    if word_width <= max_width {
+                        current_line.push_str(word);
+                        current_width = word_width;
                     } else {
-                        current_line = word.to_string();
+                        let mut pieces = Self::break_word(word, max_width);
+                        if let Some(last) = pieces.pop() {
+                            lines.extend(pieces);
+                            current_width = display_width(&last);
+                            current_line = last;
+                        }
                     }
                 }
             }
@@ -235,6 +241,30 @@ impl Placeholder {
             if !current_line.is_empty() {
                 lines.push(current_line);
             }
+        }
+
+        lines
+    }
+
+    fn break_word(word: &str, max_width: usize) -> Vec<String> {
+        let mut lines = Vec::new();
+        let mut current = String::new();
+        let mut current_width = 0usize;
+
+        for grapheme in graphemes(word) {
+            let grapheme_width = display_width(grapheme);
+            if current_width + grapheme_width <= max_width || current.is_empty() {
+                current.push_str(grapheme);
+                current_width += grapheme_width;
+            } else {
+                lines.push(current);
+                current = grapheme.to_string();
+                current_width = grapheme_width;
+            }
+        }
+
+        if !current.is_empty() {
+            lines.push(current);
         }
 
         lines
@@ -361,8 +391,11 @@ Placeholder {
 
                     // Find the width of the text block (longest line among RENDERED lines only)
                     let rendered_lines: Vec<_> = lines.iter().take(content_height).collect();
-                    let max_line_len =
-                        rendered_lines.iter().map(|l| l.len()).max().unwrap_or(0) as i32;
+                    let max_line_len = rendered_lines
+                        .iter()
+                        .map(|line| display_width(line))
+                        .max()
+                        .unwrap_or(0) as i32;
 
                     // Calculate horizontal centering for the ENTIRE BLOCK
                     let gap = content_width as i32 - max_line_len;
@@ -388,7 +421,7 @@ Placeholder {
                 }
                 PlaceholderVariant::Size => {
                     // Size: center the label, bold text
-                    let label_len = content.len() as i32;
+                    let label_len = display_width(content) as i32;
                     let x = content_x + (content_width - label_len).max(0) / 2;
                     let y = content_y + (content_height - 1) / 2;
 
@@ -413,7 +446,11 @@ Placeholder {
                     let num_lines = lines.len() as i32;
 
                     // Find the width of the text block (longest line)
-                    let max_line_len = lines.iter().map(|l| l.len()).max().unwrap_or(0) as i32;
+                    let max_line_len = lines
+                        .iter()
+                        .map(|line| display_width(line))
+                        .max()
+                        .unwrap_or(0) as i32;
 
                     // Calculate vertical centering
                     // Use (height - num_lines) / 2 to center the block
@@ -453,7 +490,7 @@ Placeholder {
             .unwrap_or_default();
         let content_width = content
             .lines()
-            .map(|line| line.chars().count() as u16)
+            .map(|line| display_width(line) as u16)
             .max()
             .unwrap_or(0);
         let content_height = content.lines().count().max(1) as u16;

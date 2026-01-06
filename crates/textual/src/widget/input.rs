@@ -8,6 +8,7 @@ use tcss::types::Visibility;
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region};
+use crate::grapheme::{grapheme_byte_index, grapheme_byte_range, grapheme_count, graphemes};
 use crate::widget::static_widget::Static;
 use crate::{KeyCode, MouseEvent, Size, Widget};
 
@@ -80,12 +81,16 @@ impl<M> Input<M> {
 
     pub fn set_value(&mut self, value: impl Into<String>) {
         self.value = value.into();
-        self.cursor = self.cursor.min(self.value.chars().count());
+        self.cursor = self.cursor.min(grapheme_count(&self.value));
         self.refresh_display();
     }
 
     pub fn value(&self) -> &str {
         &self.value
+    }
+
+    pub fn cursor(&self) -> usize {
+        self.cursor
     }
 
     pub fn set_placeholder(&mut self, placeholder: impl Into<String>) {
@@ -99,7 +104,7 @@ impl<M> Input<M> {
     }
 
     pub fn set_cursor(&mut self, cursor: usize) {
-        self.cursor = cursor.min(self.value.chars().count());
+        self.cursor = cursor.min(grapheme_count(&self.value));
         self.refresh_display();
     }
 
@@ -123,12 +128,12 @@ impl<M> Input<M> {
                 if placeholder.is_empty() {
                     return format!("[{cursor_style}] [/]");
                 }
-                let mut chars = placeholder.chars();
-                let first = chars.next().unwrap_or(' ');
-                let rest: String = chars.collect();
+                let mut placeholder_graphemes = graphemes(placeholder);
+                let first = placeholder_graphemes.next().unwrap_or(" ");
+                let rest: String = placeholder_graphemes.collect();
                 return format!(
                     "[{cursor_style}]{}[/][{placeholder_style}]{}[/]",
-                    escape_markup(&first.to_string()),
+                    escape_markup(first),
                     escape_markup(&rest)
                 );
             }
@@ -143,30 +148,29 @@ impl<M> Input<M> {
             return escaped;
         }
 
-        let chars: Vec<char> = self.value.chars().collect();
-        let cursor = self.cursor.min(chars.len());
+        let value_graphemes: Vec<&str> = graphemes(&self.value).collect();
+        let cursor = self.cursor.min(value_graphemes.len());
 
-        if cursor >= chars.len() {
+        if cursor >= value_graphemes.len() {
             format!("{escaped}[{cursor_style}] [/]")
         } else {
-            let prefix: String = chars[..cursor].iter().collect();
-            let cursor_char = chars[cursor];
-            let suffix: String = chars[cursor + 1..].iter().collect();
+            let prefix: String = value_graphemes[..cursor].concat();
+            let cursor_grapheme = value_graphemes[cursor];
+            let suffix: String = value_graphemes[cursor + 1..].concat();
             format!(
                 "{}[{cursor_style}]{}[/]{}",
                 escape_markup(&prefix),
-                escape_markup(&cursor_char.to_string()),
+                escape_markup(cursor_grapheme),
                 escape_markup(&suffix)
             )
         }
     }
 
     fn insert_char(&mut self, ch: char) {
-        let mut chars: Vec<char> = self.value.chars().collect();
-        let cursor = self.cursor.min(chars.len());
-        chars.insert(cursor, ch);
+        let cursor = self.cursor.min(grapheme_count(&self.value));
+        let byte_index = grapheme_byte_index(&self.value, cursor);
+        self.value.insert(byte_index, ch);
         self.cursor = cursor + 1;
-        self.value = chars.iter().collect();
         self.refresh_display();
     }
 
@@ -174,25 +178,20 @@ impl<M> Input<M> {
         if self.cursor == 0 {
             return;
         }
-        let mut chars: Vec<char> = self.value.chars().collect();
-        let cursor = self.cursor.min(chars.len());
-        if cursor == 0 {
-            return;
+        let cursor = self.cursor.min(grapheme_count(&self.value));
+        let remove_index = cursor.saturating_sub(1);
+        if let Some((start, end)) = grapheme_byte_range(&self.value, remove_index) {
+            self.value.replace_range(start..end, "");
+            self.cursor = remove_index;
         }
-        chars.remove(cursor - 1);
-        self.cursor = cursor - 1;
-        self.value = chars.iter().collect();
         self.refresh_display();
     }
 
     fn delete(&mut self) {
-        let mut chars: Vec<char> = self.value.chars().collect();
-        let cursor = self.cursor.min(chars.len());
-        if cursor >= chars.len() {
-            return;
+        let cursor = self.cursor.min(grapheme_count(&self.value));
+        if let Some((start, end)) = grapheme_byte_range(&self.value, cursor) {
+            self.value.replace_range(start..end, "");
         }
-        chars.remove(cursor);
-        self.value = chars.iter().collect();
         self.refresh_display();
     }
 }
@@ -252,7 +251,7 @@ Input {
                 }
             }
             KeyCode::Right => {
-                let max = self.value.chars().count();
+                let max = grapheme_count(&self.value);
                 if self.cursor < max {
                     self.cursor += 1;
                     self.refresh_display();
@@ -263,7 +262,7 @@ Input {
                 self.refresh_display();
             }
             KeyCode::End => {
-                self.cursor = self.value.chars().count();
+                self.cursor = grapheme_count(&self.value);
                 self.refresh_display();
             }
             _ => {}

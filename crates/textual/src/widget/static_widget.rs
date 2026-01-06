@@ -12,10 +12,10 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 
+use crate::grapheme::display_width;
 use crossterm::event::MouseEventKind;
 use tcss::types::{AlignHorizontal, AlignVertical, Visibility};
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
-use unicode_width::UnicodeWidthStr;
 
 use crate::content::{Content, WrappedLine};
 use crate::render_cache::RenderCache;
@@ -515,9 +515,31 @@ Static {
                 .collect();
         }
 
+        let has_title = cache.has_border()
+            && self
+                .border_title
+                .as_ref()
+                .is_some_and(|title| !title.is_empty());
+        let has_subtitle = cache.has_border()
+            && self
+                .border_subtitle
+                .as_ref()
+                .is_some_and(|subtitle| !subtitle.is_empty());
+        let reserve_top = if cache.border_top() == 0 && has_title {
+            1
+        } else {
+            0
+        };
+        let reserve_bottom = if cache.border_bottom() == 0 && has_subtitle {
+            1
+        } else {
+            0
+        };
+        let content_height = inner_height.saturating_sub(reserve_top + reserve_bottom);
+
         // 4. Apply content alignment
         let mut aligned_lines =
-            self.align_content(&lines, inner_width, inner_height, style.clone());
+            self.align_content(&lines, inner_width, content_height, style.clone());
         if self.style.text_opacity < 1.0 {
             let fallback_bg = style.bg.as_ref();
             aligned_lines = aligned_lines
@@ -534,8 +556,9 @@ Static {
         // 5. Calculate content region boundaries (accounting for borders and padding)
         let border_top = cache.border_top();
         let border_bottom = cache.border_bottom();
-        let content_start = border_top + cache.padding_top();
-        let content_end = height.saturating_sub(border_bottom + cache.padding_bottom());
+        let content_start = border_top + cache.padding_top() + reserve_top;
+        let content_end =
+            height.saturating_sub(border_bottom + cache.padding_bottom() + reserve_bottom);
 
         // 6. Parse border titles as markup (only if we have a border)
         // Title/subtitle color inheritance:
@@ -732,13 +755,13 @@ Static {
                 // Auto: fall back to content width + chrome
                 Unit::Auto => {
                     let text = self.text();
-                    let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
+                    let content_width = text.lines().map(display_width).max().unwrap_or(0) as u16;
                     content_width.saturating_add(style.line_pad.saturating_mul(2)) + chrome_width
                 }
             }
         } else {
             let text = self.text();
-            let content_width = text.lines().map(|l| l.width()).max().unwrap_or(0) as u16;
+            let content_width = text.lines().map(display_width).max().unwrap_or(0) as u16;
             content_width.saturating_add(style.line_pad.saturating_mul(2)) + chrome_width
         };
 

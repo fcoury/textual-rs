@@ -255,23 +255,31 @@ impl SvgRenderer {
             // Track runs of same style
             let mut run_start = 0;
             let mut run_text = String::new();
+            let mut run_cells = 0usize;
             let mut run_fg: Option<Color> = None;
             let mut run_attrs = TextAttributes::default();
 
             for x in 0..=width as i32 {
-                let (current_fg, current_attrs, current_char) = if x < width as i32 {
-                    let index = (y as usize) * (width as usize) + (x as usize);
-                    let cell = canvas.cell_at(index);
-                    (cell.fg, cell.attrs, cell.symbol)
-                } else {
-                    (None, TextAttributes::default(), '\0') // End of line sentinel
-                };
+                let (current_fg, current_attrs, current_symbol, current_continuation, cell_width) =
+                    if x < width as i32 {
+                        let index = (y as usize) * (width as usize) + (x as usize);
+                        let cell = canvas.cell_at(index);
+                        (
+                            cell.fg,
+                            cell.attrs,
+                            cell.symbol.as_str(),
+                            cell.continuation,
+                            cell.width as usize,
+                        )
+                    } else {
+                        (None, TextAttributes::default(), "", false, 0) // End of line sentinel
+                    };
 
                 // Check if we need to flush the current run
                 let style_changed = current_fg != run_fg || current_attrs != run_attrs;
                 if style_changed && !run_text.is_empty() {
                     let x_pos = (run_start as f32) * self.config.char_width;
-                    let text_length = (run_text.chars().count() as f32) * self.config.char_width;
+                    let text_length = (run_cells as f32) * self.config.char_width;
                     let class_name = run_fg
                         .and_then(|fg| styles.fg_styles.get(&fg))
                         .map(|s| s.as_str())
@@ -307,6 +315,7 @@ impl SvgRenderer {
                     .unwrap();
 
                     run_text.clear();
+                    run_cells = 0;
                 }
 
                 if style_changed {
@@ -315,8 +324,9 @@ impl SvgRenderer {
                     run_attrs = current_attrs;
                 }
 
-                if x < width as i32 && current_char != '\0' {
-                    run_text.push(current_char);
+                if x < width as i32 && !current_continuation {
+                    run_text.push_str(current_symbol);
+                    run_cells += cell_width;
                 }
             }
         }

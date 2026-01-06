@@ -3,12 +3,12 @@
 //! This module provides the `RenderCache` struct which orchestrates rendering
 //! a widget line-by-line, handling borders and content placement.
 
-use tcss::types::ComputedStyle;
 use tcss::types::border::BorderKind;
+use tcss::types::{AlignHorizontal, ComputedStyle};
 
 use crate::border_box::{BoxSegments, get_box};
 use crate::border_chars::{get_border_chars, get_border_locations};
-use crate::border_render::render_row;
+use crate::border_render::{render_label_in_row, render_row};
 use crate::segment::Segment;
 use crate::segment::Style;
 use crate::strip::Strip;
@@ -380,8 +380,30 @@ impl RenderCache {
             } else if y >= content_row_offset
                 && y < height - if self.has_bottom_border { 1 } else { 0 }
             {
+                let content_end = height - if self.has_bottom_border { 1 } else { 0 };
+                let is_first_content_row = y == content_row_offset;
+                let is_last_content_row = y + 1 == content_end;
+
                 // Content row - check if we have side borders
                 if self.has_left_border || self.has_right_border {
+                    // For vertical keyline borders (no top/bottom), render titles in the first/last content rows
+                    if !self.has_top_border && is_first_content_row && title.is_some() {
+                        return self.render_labeled_middle_row(
+                            &box_segs[1],
+                            width,
+                            title.unwrap(),
+                            self.style.border_title_align,
+                        );
+                    }
+                    if !self.has_bottom_border && is_last_content_row && subtitle.is_some() {
+                        return self.render_labeled_middle_row(
+                            &box_segs[1],
+                            width,
+                            subtitle.unwrap(),
+                            self.style.border_subtitle_align,
+                        );
+                    }
+
                     // Has at least one side border
                     self.render_partial_middle_row(&box_segs[1], content_line, width)
                 } else {
@@ -572,6 +594,35 @@ impl RenderCache {
         }
 
         // Right border if present
+        if self.has_right_border {
+            segments.push(right.clone());
+        }
+
+        Strip::from_segments(segments)
+    }
+
+    /// Renders a middle row with side borders and a border label (used for vkey titles/subtitles).
+    fn render_labeled_middle_row(
+        &self,
+        box_segments: &crate::border_box::BoxSegments,
+        width: usize,
+        label: &Strip,
+        align: AlignHorizontal,
+    ) -> Strip {
+        let (left, fill, right) = box_segments;
+
+        let left_border_width = if self.has_left_border { 1 } else { 0 };
+        let right_border_width = if self.has_right_border { 1 } else { 0 };
+        let inner_width = width.saturating_sub(left_border_width + right_border_width);
+
+        let mut segments = Vec::new();
+        if self.has_left_border {
+            segments.push(left.clone());
+        }
+
+        let middle = render_label_in_row(label, fill, inner_width, align);
+        segments.extend(middle.segments().iter().cloned());
+
         if self.has_right_border {
             segments.push(right.clone());
         }
@@ -1003,8 +1054,16 @@ mod tests {
         assert_eq!(cache.border_right(), 0, "hkey should not have right border");
 
         // Test horizontal/vertical chrome helpers
-        assert_eq!(cache.border_horizontal(), 0, "hkey horizontal chrome should be 0");
-        assert_eq!(cache.border_vertical(), 2, "hkey vertical chrome should be 2");
+        assert_eq!(
+            cache.border_horizontal(),
+            0,
+            "hkey horizontal chrome should be 0"
+        );
+        assert_eq!(
+            cache.border_vertical(),
+            2,
+            "hkey vertical chrome should be 2"
+        );
 
         // Inner size should only subtract top/bottom, not left/right
         // 10x5 with hkey: width stays 10, height becomes 5-2=3
@@ -1024,11 +1083,23 @@ mod tests {
 
         // vkey should NOT have top and bottom borders
         assert_eq!(cache.border_top(), 0, "vkey should not have top border");
-        assert_eq!(cache.border_bottom(), 0, "vkey should not have bottom border");
+        assert_eq!(
+            cache.border_bottom(),
+            0,
+            "vkey should not have bottom border"
+        );
 
         // Test horizontal/vertical chrome helpers
-        assert_eq!(cache.border_horizontal(), 2, "vkey horizontal chrome should be 2");
-        assert_eq!(cache.border_vertical(), 0, "vkey vertical chrome should be 0");
+        assert_eq!(
+            cache.border_horizontal(),
+            2,
+            "vkey horizontal chrome should be 2"
+        );
+        assert_eq!(
+            cache.border_vertical(),
+            0,
+            "vkey vertical chrome should be 0"
+        );
 
         // Inner size should only subtract left/right, not top/bottom
         // 10x5 with vkey: width becomes 10-2=8, height stays 5

@@ -63,10 +63,54 @@ use nom::{
     sequence::{delimited, preceded, tuple},
 };
 
+/// Strips CSS comments (/* ... */ and // ... \n) from input.
+///
+/// This is done as a pre-processing step before parsing to avoid
+/// complicating the parser with comment handling at every production.
+fn strip_comments(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '/' {
+            match chars.peek() {
+                Some('*') => {
+                    // Block comment /* ... */
+                    chars.next(); // consume '*'
+                    while let Some(c2) = chars.next() {
+                        if c2 == '*' && chars.peek() == Some(&'/') {
+                            chars.next(); // consume '/'
+                            result.push(' '); // preserve spacing
+                            break;
+                        }
+                    }
+                }
+                Some('/') => {
+                    // Line comment // ... \n
+                    chars.next(); // consume '/'
+                    while let Some(c2) = chars.next() {
+                        if c2 == '\n' {
+                            result.push('\n');
+                            break;
+                        }
+                    }
+                }
+                _ => result.push(c),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 /// Parses a full TCSS stylesheet, including variable resolution.
 pub fn parse_stylesheet(source: &str) -> Result<StyleSheet, TcssError> {
-    let vars = extract_variables(source);
-    let resolved_source = resolve_variables(source, &vars)?;
+    // Strip comments first (before variable extraction)
+    let source_no_comments = strip_comments(source);
+
+    let vars = extract_variables(&source_no_comments);
+    let resolved_source = resolve_variables(&source_no_comments, &vars)?;
 
     let (remaining, raw_rules) =
         many0(parse_rule)(&resolved_source).map_err(|e| TcssError::InvalidSyntax(e.to_string()))?;

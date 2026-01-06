@@ -1,4 +1,4 @@
-use textual::{App, Container, Widget, ui};
+use textual::{App, Static, Widget, ui};
 
 #[derive(Clone)]
 enum Message {}
@@ -11,12 +11,8 @@ impl App for HeightApp {
     const CSS: &'static str = include_str!("height.tcss");
 
     fn compose(&self) -> Vec<Box<dyn Widget<Self::Message>>> {
-        // NOTE: this example doesn't match the one from textual python exactly. On python it uses
-        // a Widget instead of a Container. However, in our current Rust version, Widget is a trait
-        // and therefore can't be used as a concrete type. However, the purpose of the example is to
-        // show height behavior, which is the same for both Widget and Container.
         ui! {
-            Container {}
+            Static("Widget")
         }
     }
 }

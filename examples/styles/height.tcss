@@ -1,4 +1,4 @@
-Screen > Container {
+Screen > Widget {
     background: green;
     height: 50%;
     color: white;

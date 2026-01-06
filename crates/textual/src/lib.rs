@@ -3,11 +3,14 @@ pub mod border_chars;
 pub mod border_render;
 pub mod box_drawing;
 pub mod canvas;
+pub mod command;
 pub mod containers;
 pub mod content;
 pub mod context;
 pub mod error;
 pub mod fraction;
+pub mod fuzzy;
+mod grapheme;
 pub mod keyline_canvas;
 pub mod layouts;
 mod log_init;
@@ -37,6 +40,10 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
+pub use command::{
+    CommandHit, CommandPaletteEvent, CommandPaletteHighlight, DiscoveryHit, Hit, Provider,
+    SimpleCommand, SimpleProvider, SystemCommand, SystemCommandsProvider,
+};
 pub use containers::{
     Center, Middle, container::Container, grid::Grid, horizontal::Horizontal,
     horizontal_scroll::HorizontalScroll, item_grid::ItemGrid, scrollable::ScrollableContainer,
@@ -45,6 +52,7 @@ pub use containers::{
 pub use context::{AppContext, EventContext, IntervalHandle, MountContext};
 pub use error::Result;
 pub use fraction::Fraction;
+pub use fuzzy::Matcher;
 pub use log_init::init_logger;
 pub use message::MessageEnvelope;
 pub use scroll::{ScrollMessage, ScrollState};
@@ -141,6 +149,130 @@ fn build_combined_css<M: 'static>(root: &mut dyn Widget<M>, app_css: &str) -> St
     combined
 }
 
+fn matches_binding(key_event: &KeyEvent, binding: &str) -> bool {
+    binding
+        .split(',')
+        .map(|part| part.trim())
+        .filter(|part| !part.is_empty())
+        .any(|part| match_binding_part(key_event, part))
+}
+
+fn match_binding_part(key_event: &KeyEvent, binding: &str) -> bool {
+    let mut required_mods = KeyModifiers::empty();
+    let mut key_token: Option<String> = None;
+
+    for token in binding
+        .split('+')
+        .map(|t| t.trim())
+        .filter(|t| !t.is_empty())
+    {
+        match token.to_lowercase().as_str() {
+            "ctrl" | "control" => required_mods |= KeyModifiers::CONTROL,
+            "shift" => required_mods |= KeyModifiers::SHIFT,
+            "alt" => required_mods |= KeyModifiers::ALT,
+            "meta" | "super" => required_mods |= KeyModifiers::ALT,
+            other => key_token = Some(other.to_string()),
+        }
+    }
+
+    let Some(key_token) = key_token else {
+        return false;
+    };
+    let expected_key = parse_key_token(&key_token);
+    let Some(expected_key) = expected_key else {
+        return false;
+    };
+
+    if !key_event.modifiers.contains(required_mods) {
+        return false;
+    }
+
+    let extra_mods = key_event.modifiers - required_mods;
+    let extra_mods = extra_mods - KeyModifiers::SHIFT;
+    if !extra_mods.is_empty() {
+        return false;
+    }
+
+    key_matches(&expected_key, &key_event.code)
+}
+
+fn parse_key_token(token: &str) -> Option<KeyCode> {
+    match token {
+        "enter" => Some(KeyCode::Enter),
+        "escape" | "esc" => Some(KeyCode::Esc),
+        "tab" => Some(KeyCode::Tab),
+        "backtab" => Some(KeyCode::BackTab),
+        "space" => Some(KeyCode::Char(' ')),
+        "up" => Some(KeyCode::Up),
+        "down" => Some(KeyCode::Down),
+        "left" => Some(KeyCode::Left),
+        "right" => Some(KeyCode::Right),
+        "home" => Some(KeyCode::Home),
+        "end" => Some(KeyCode::End),
+        "pageup" => Some(KeyCode::PageUp),
+        "pagedown" => Some(KeyCode::PageDown),
+        "backslash" => Some(KeyCode::Char('\\')),
+        _ => {
+            let mut chars = token.chars();
+            let ch = chars.next()?;
+            if chars.next().is_none() {
+                Some(KeyCode::Char(ch))
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn key_matches(expected: &KeyCode, actual: &KeyCode) -> bool {
+    match (expected, actual) {
+        (KeyCode::Char(expected), KeyCode::Char(actual)) => {
+            expected.to_ascii_lowercase() == actual.to_ascii_lowercase()
+        }
+        _ => expected == actual,
+    }
+}
+
+fn drain_command_palette<M, A>(
+    app: &mut A,
+    tree: &mut WidgetTree<M>,
+    tx: &mpsc::UnboundedSender<MessageEnvelope<M>>,
+) -> bool
+where
+    A: App<Message = M> + ?Sized,
+    M: Send + 'static,
+{
+    let mut needs_render = false;
+
+    if let Some(changed) = tree
+        .query_one_as::<CommandPalette<M>, _, _>("CommandPalette", |palette| {
+            palette.drain_updates()
+        })
+    {
+        needs_render |= changed;
+    }
+
+    if let Some(changed) =
+        tree.query_one_as::<CommandPalette<M>, _, _>("CommandPalette", |palette| palette.tick())
+    {
+        needs_render |= changed;
+    }
+
+    let events = tree
+        .query_one_as::<CommandPalette<M>, _, _>("CommandPalette", |palette| palette.take_events())
+        .unwrap_or_default();
+
+    if !events.is_empty() {
+        let event_ctx = AppContext::new(tx.clone());
+        let mut ctx = EventContext::new(event_ctx, tree);
+        for event in events {
+            app.on_command_palette_event(event, &mut ctx);
+        }
+    }
+
+    needs_render
+}
+
 /// The main application trait. Implement this to create a TUI application.
 ///
 /// The `Message` associated type (from `Compose`) defines the events your UI can produce.
@@ -151,6 +283,10 @@ pub trait App {
     const CSS: &'static str = "";
     /// Enable the system command palette overlay.
     const ENABLE_COMMAND_PALETTE: bool = true;
+    /// The key that launches the command palette (if enabled).
+    const COMMAND_PALETTE_BINDING: &'static str = "ctrl+p";
+    /// Optional display override for the command palette binding (unused for now).
+    const COMMAND_PALETTE_DISPLAY: Option<&'static str> = None;
 
     /// Returns a vector of widgets that make up this composition.
     ///
@@ -179,6 +315,14 @@ pub trait App {
     ) {
     }
 
+    /// Handle command palette lifecycle events.
+    fn on_command_palette_event(
+        &mut self,
+        _event: CommandPaletteEvent,
+        _ctx: &mut EventContext<Self::Message>,
+    ) {
+    }
+
     /// Handle global key events (e.g., 'q' to quit).
     /// Called after widget event handling.
     ///
@@ -196,7 +340,7 @@ pub trait App {
         DEFAULT_QUIT.with(|flag| flag.get())
     }
 
-    /// Provide commands for the command palette.
+    /// Provide commands for the command palette (legacy helper).
     ///
     /// Each command is `(name, action, help)`.
     fn command_palette_commands(&self) -> Vec<(String, String, Option<String>)> {
@@ -204,7 +348,9 @@ pub trait App {
             (
                 "Keys".to_string(),
                 "app.keys".to_string(),
-                Some("Show help for the focused widget and a summary of available keys".to_string()),
+                Some(
+                    "Show help for the focused widget and a summary of available keys".to_string(),
+                ),
             ),
             (
                 "Maximize".to_string(),
@@ -227,6 +373,23 @@ pub trait App {
                 Some("Change the current theme".to_string()),
             ),
         ]
+    }
+
+    /// Provide system commands for the command palette.
+    fn get_system_commands(&self) -> Vec<SystemCommand> {
+        self.command_palette_commands()
+            .into_iter()
+            .map(SystemCommand::from)
+            .collect()
+    }
+
+    /// Provide command palette providers for this app.
+    ///
+    /// Override to add custom providers. Include system commands if desired.
+    fn command_providers(&self) -> Vec<Box<dyn Provider>> {
+        vec![Box::new(SystemCommandsProvider::new(
+            self.get_system_commands(),
+        ))]
     }
 
     /// Delay before showing a tooltip after hover.
@@ -309,15 +472,21 @@ pub trait App {
             "app.bell" | "bell" => {
                 self.bell();
             }
+            "app.command_palette.submit" | "command_palette.submit" => {
+                let _ = ctx.query_one_as::<CommandPalette<Self::Message>, _, _>(
+                    "CommandPalette",
+                    |palette| palette.submit(),
+                );
+            }
             "app.command_palette" | "command_palette" => {
                 if Self::ENABLE_COMMAND_PALETTE {
                     let focus_index = ctx.current_focus_index();
-                    let commands = self.command_palette_commands();
+                    let providers = self.command_providers();
                     let opened = ctx
                         .query_one_as::<CommandPalette<Self::Message>, _, _>(
                             "CommandPalette",
                             |palette| {
-                                palette.set_commands(commands);
+                                palette.set_providers(providers);
                                 palette.open_with_focus(focus_index);
                             },
                         )
@@ -576,6 +745,7 @@ pub trait App {
             let mut tooltip_visible = false;
             let mut last_mouse_pos: Option<(i32, i32)> = None;
             let mut tooltip_tick = tokio::time::interval(Duration::from_millis(50));
+            let mut palette_tick = tokio::time::interval(Duration::from_millis(50));
 
             while !self.should_quit() {
                 // Rebuild widget tree if app state changed
@@ -685,18 +855,25 @@ pub trait App {
                         }
                     }
 
+                    _ = palette_tick.tick() => {
+                        if drain_command_palette(self, &mut tree, &tx) {
+                            needs_render = true;
+                        }
+                        needs_recompose = self.needs_recompose();
+                    }
+
                     // Terminal events from crossterm
                     maybe_event = event_stream.next() => {
                         match maybe_event {
                             Some(Ok(Event::Key(key_event))) => {
-                                let handled_by_system = key_event.modifiers.contains(KeyModifiers::CONTROL)
-                                    && matches!(key_event.code, KeyCode::Char('p') | KeyCode::Char('P'))
-                                    && Self::ENABLE_COMMAND_PALETTE;
+                                let handled_by_system = Self::ENABLE_COMMAND_PALETTE
+                                    && matches_binding(&key_event, Self::COMMAND_PALETTE_BINDING);
 
                                 if handled_by_system {
                                     let event_ctx = AppContext::new(tx.clone());
                                     let mut ctx = EventContext::new(event_ctx, &mut tree);
                                     self.dispatch_action("app.command_palette", &mut ctx);
+                                    let _ = drain_command_palette(self, &mut tree, &tx);
                                     needs_recompose = self.needs_recompose();
                                     needs_render = true;
                                     continue;
@@ -766,6 +943,7 @@ pub trait App {
                                 {
                                     let _ = tree.set_focus_index(restored);
                                 }
+                                let _ = drain_command_palette(self, &mut tree, &tx);
                                 // Check if app wants tree rebuild (Elm-style)
                                 needs_recompose = self.needs_recompose();
                                 needs_render = needs_render || focus_changed;
@@ -825,6 +1003,7 @@ pub trait App {
                                 {
                                     let _ = tree.set_focus_index(restored);
                                 }
+                                let _ = drain_command_palette(self, &mut tree, &tx);
 
                                 // Tooltip handling: update pending tooltip on mouse move.
                                 if matches!(mouse_event.kind, crossterm::event::MouseEventKind::Moved) {
@@ -906,6 +1085,9 @@ pub trait App {
                         let event_ctx = AppContext::new(tx.clone());
                         let mut ctx = EventContext::new(event_ctx, &mut tree);
                         self.handle_message(envelope, &mut ctx);
+                        if drain_command_palette(self, &mut tree, &tx) {
+                            needs_render = true;
+                        }
                         // Check if app wants tree rebuild (Elm-style)
                         needs_recompose = self.needs_recompose();
                     }
