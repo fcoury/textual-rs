@@ -501,8 +501,12 @@ impl<M: 'static> Widget<M> for CommandList<M> {
         border-right: none;
         height: auto;
         max-height: 70vh;
-        background: transparent;
+        background: $surface;
         padding: 0;
+    }
+
+    CommandList:dark {
+        background: $panel-darken-1;
     }
 
     CommandList:focus {
