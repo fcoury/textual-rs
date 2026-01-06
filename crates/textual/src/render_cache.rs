@@ -50,20 +50,29 @@ impl RenderCache {
     /// Creates a new render cache from a computed style.
     pub fn new(style: &ComputedStyle) -> Self {
         // Check which edges have visible borders
-        let has_top_border =
-            !matches!(style.border.top.kind, BorderKind::None | BorderKind::Hidden);
-        let has_right_border = !matches!(
-            style.border.right.kind,
-            BorderKind::None | BorderKind::Hidden
-        );
-        let has_bottom_border = !matches!(
-            style.border.bottom.kind,
-            BorderKind::None | BorderKind::Hidden
-        );
-        let has_left_border = !matches!(
-            style.border.left.kind,
-            BorderKind::None | BorderKind::Hidden
-        );
+        // Key-line borders are directional:
+        // - hkey: only top/bottom count as borders (horizontal key-line)
+        // - vkey: only left/right count as borders (vertical key-line)
+        let has_top_border = {
+            let kind = style.border.top.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Vkey) // vkey doesn't have top border
+        };
+        let has_bottom_border = {
+            let kind = style.border.bottom.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Vkey) // vkey doesn't have bottom border
+        };
+        let has_left_border = {
+            let kind = style.border.left.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Hkey) // hkey doesn't have left border
+        };
+        let has_right_border = {
+            let kind = style.border.right.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Hkey) // hkey doesn't have right border
+        };
         let has_border = has_top_border || has_right_border || has_bottom_border || has_left_border;
 
         // Use top border kind as the primary style (for box character selection)
@@ -135,22 +144,27 @@ impl RenderCache {
         let padding_left = style.padding.left.value as usize;
 
         // Check which edges have visible outlines
-        let has_top_outline = !matches!(
-            style.outline.top.kind,
-            BorderKind::None | BorderKind::Hidden
-        );
-        let has_right_outline = !matches!(
-            style.outline.right.kind,
-            BorderKind::None | BorderKind::Hidden
-        );
-        let has_bottom_outline = !matches!(
-            style.outline.bottom.kind,
-            BorderKind::None | BorderKind::Hidden
-        );
-        let has_left_outline = !matches!(
-            style.outline.left.kind,
-            BorderKind::None | BorderKind::Hidden
-        );
+        // Apply the same directional logic as borders for hkey/vkey
+        let has_top_outline = {
+            let kind = style.outline.top.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Vkey)
+        };
+        let has_bottom_outline = {
+            let kind = style.outline.bottom.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Vkey)
+        };
+        let has_left_outline = {
+            let kind = style.outline.left.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Hkey)
+        };
+        let has_right_outline = {
+            let kind = style.outline.right.kind;
+            !matches!(kind, BorderKind::None | BorderKind::Hidden)
+                && !matches!(kind, BorderKind::Hkey)
+        };
         let has_outline =
             has_top_outline || has_right_outline || has_bottom_outline || has_left_outline;
 
@@ -209,6 +223,36 @@ impl RenderCache {
     /// Returns true if this widget has a visible border.
     pub fn has_border(&self) -> bool {
         self.has_border
+    }
+
+    /// Returns the top border thickness in cells (0 or 1).
+    pub fn border_top(&self) -> usize {
+        if self.has_top_border { 1 } else { 0 }
+    }
+
+    /// Returns the right border thickness in cells (0 or 1).
+    pub fn border_right(&self) -> usize {
+        if self.has_right_border { 1 } else { 0 }
+    }
+
+    /// Returns the bottom border thickness in cells (0 or 1).
+    pub fn border_bottom(&self) -> usize {
+        if self.has_bottom_border { 1 } else { 0 }
+    }
+
+    /// Returns the left border thickness in cells (0 or 1).
+    pub fn border_left(&self) -> usize {
+        if self.has_left_border { 1 } else { 0 }
+    }
+
+    /// Returns the horizontal border chrome (left + right) in cells.
+    pub fn border_horizontal(&self) -> usize {
+        self.border_left() + self.border_right()
+    }
+
+    /// Returns the vertical border chrome (top + bottom) in cells.
+    pub fn border_vertical(&self) -> usize {
+        self.border_top() + self.border_bottom()
     }
 
     /// Returns the inner content region dimensions.
@@ -921,5 +965,73 @@ mod tests {
         // 2 spaces (padding_left) + "Hi" + 4 spaces (content padding) + 2 spaces (padding_right)
         assert_eq!(line.text(), "  Hi      ");
         assert_eq!(line.cell_length(), 10);
+    }
+
+    // Directional border tests (hkey/vkey)
+
+    fn style_with_hkey_border() -> ComputedStyle {
+        let mut style = ComputedStyle::default();
+        style.border = Border::all(BorderEdge {
+            kind: BorderKind::Hkey,
+            color: Some(RgbaColor::white()),
+        });
+        style
+    }
+
+    fn style_with_vkey_border() -> ComputedStyle {
+        let mut style = ComputedStyle::default();
+        style.border = Border::all(BorderEdge {
+            kind: BorderKind::Vkey,
+            color: Some(RgbaColor::white()),
+        });
+        style
+    }
+
+    #[test]
+    fn hkey_border_has_no_left_right() {
+        // hkey is a horizontal key-line border: only top/bottom count
+        let style = style_with_hkey_border();
+        let cache = RenderCache::new(&style);
+
+        // hkey should have top and bottom borders
+        assert!(cache.has_border(), "hkey should count as having a border");
+        assert_eq!(cache.border_top(), 1, "hkey should have top border");
+        assert_eq!(cache.border_bottom(), 1, "hkey should have bottom border");
+
+        // hkey should NOT have left and right borders
+        assert_eq!(cache.border_left(), 0, "hkey should not have left border");
+        assert_eq!(cache.border_right(), 0, "hkey should not have right border");
+
+        // Test horizontal/vertical chrome helpers
+        assert_eq!(cache.border_horizontal(), 0, "hkey horizontal chrome should be 0");
+        assert_eq!(cache.border_vertical(), 2, "hkey vertical chrome should be 2");
+
+        // Inner size should only subtract top/bottom, not left/right
+        // 10x5 with hkey: width stays 10, height becomes 5-2=3
+        assert_eq!(cache.inner_size(10, 5), (10, 3));
+    }
+
+    #[test]
+    fn vkey_border_has_no_top_bottom() {
+        // vkey is a vertical key-line border: only left/right count
+        let style = style_with_vkey_border();
+        let cache = RenderCache::new(&style);
+
+        // vkey should have left and right borders
+        assert!(cache.has_border(), "vkey should count as having a border");
+        assert_eq!(cache.border_left(), 1, "vkey should have left border");
+        assert_eq!(cache.border_right(), 1, "vkey should have right border");
+
+        // vkey should NOT have top and bottom borders
+        assert_eq!(cache.border_top(), 0, "vkey should not have top border");
+        assert_eq!(cache.border_bottom(), 0, "vkey should not have bottom border");
+
+        // Test horizontal/vertical chrome helpers
+        assert_eq!(cache.border_horizontal(), 2, "vkey horizontal chrome should be 2");
+        assert_eq!(cache.border_vertical(), 0, "vkey vertical chrome should be 0");
+
+        // Inner size should only subtract left/right, not top/bottom
+        // 10x5 with vkey: width becomes 10-2=8, height stays 5
+        assert_eq!(cache.inner_size(10, 5), (8, 5));
     }
 }

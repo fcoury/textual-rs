@@ -30,10 +30,12 @@ pub struct OptionList<M> {
     selected: usize,
     focused: bool,
     dirty: bool,
+    allow_markup: bool,
+    last_width: Option<u16>,
     _phantom: PhantomData<M>,
 }
 
-impl<M> OptionList<M> {
+impl<M: 'static> OptionList<M> {
     pub fn new(items: Vec<String>) -> Self {
         let mut inner = Static::new("");
         inner = inner.with_markup(true);
@@ -43,6 +45,8 @@ impl<M> OptionList<M> {
             selected: 0,
             focused: false,
             dirty: true,
+            allow_markup: false,
+            last_width: None,
             _phantom: PhantomData,
         };
         list.refresh_display();
@@ -71,6 +75,13 @@ impl<M> OptionList<M> {
         self
     }
 
+    /// Allow items to include markup tags (default: false).
+    pub fn with_markup(mut self, allow: bool) -> Self {
+        self.allow_markup = allow;
+        self.refresh_display();
+        self
+    }
+
     pub fn set_items(&mut self, items: Vec<String>) {
         self.items = items;
         if self.items.is_empty() {
@@ -79,6 +90,14 @@ impl<M> OptionList<M> {
             self.selected = self.selected.min(self.items.len() - 1);
         }
         self.refresh_display();
+    }
+
+    /// Toggle whether item strings contain markup.
+    pub fn set_markup(&mut self, allow: bool) {
+        if self.allow_markup != allow {
+            self.allow_markup = allow;
+            self.refresh_display();
+        }
     }
 
     pub fn set_selected(&mut self, selected: usize) {
@@ -104,12 +123,22 @@ impl<M> OptionList<M> {
 
     fn refresh_display(&mut self) {
         let mut lines = Vec::with_capacity(self.items.len().max(1));
+        let highlight_style = self.highlight_style_markup();
         for (index, item) in self.items.iter().enumerate() {
-            let escaped = escape_markup(item);
-            if index == self.selected {
-                lines.push(format!("[reverse]{}[/]", escaped));
+            let content = if self.allow_markup {
+                item.clone()
             } else {
-                lines.push(escaped);
+                escape_markup(item)
+            };
+            if index == self.selected {
+                // Apply highlight style - let the renderer handle background fill
+                if let Some(style) = &highlight_style {
+                    lines.push(format!("[{}]{}[/]", style, content));
+                } else {
+                    lines.push(format!("[reverse]{}[/]", content));
+                }
+            } else {
+                lines.push(content);
             }
         }
         if lines.is_empty() {
@@ -119,6 +148,68 @@ impl<M> OptionList<M> {
         self.inner.update(content);
         self.dirty = false;
     }
+
+    fn highlight_style_markup(&self) -> Option<String> {
+        let style = self.inner.get_style();
+        let link = &style.link;
+
+        let has_link_style = link.color.is_some()
+            || link.background.is_some()
+            || !link.style.is_none()
+            || link.color_hover.is_some()
+            || link.background_hover.is_some()
+            || !link.style_hover.is_none();
+        if !has_link_style {
+            return None;
+        }
+
+        let mut parts: Vec<String> = Vec::new();
+
+        if link.style.bold {
+            parts.push("bold".to_string());
+        }
+        if link.style.dim {
+            parts.push("dim".to_string());
+        }
+        if link.style.italic {
+            parts.push("italic".to_string());
+        }
+        if link.style.underline {
+            parts.push("underline".to_string());
+        }
+        if link.style.strike {
+            parts.push("strike".to_string());
+        }
+        if link.style.reverse {
+            parts.push("reverse".to_string());
+        }
+        if link.style.blink {
+            parts.push("blink".to_string());
+        }
+
+        if let Some(fg) = link.color.clone().or_else(|| style.color.clone()) {
+            parts.push(color_to_markup(&fg));
+        }
+
+        if let Some(mut bg) = link.background.clone() {
+            if bg.a < 1.0 {
+                if let Some(base) = style.effective_background() {
+                    bg = bg.blend_over(&base);
+                }
+            }
+            parts.push(format!("on {}", color_to_markup(&bg)));
+        }
+
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(" "))
+        }
+    }
+}
+
+fn color_to_markup(color: &tcss::types::RgbaColor) -> String {
+    format!("#{:02x}{:02x}{:02x}", color.r, color.g, color.b)
 }
 
 impl<M: 'static> Widget<M> for OptionList<M> {
@@ -126,7 +217,7 @@ impl<M: 'static> Widget<M> for OptionList<M> {
         r#"
 OptionList {
     height: auto;
-    text-wrap: none;
+    text-wrap: nowrap;
 }
 "#
     }
@@ -193,6 +284,7 @@ OptionList {
 
     fn set_style(&mut self, style: ComputedStyle) {
         self.inner.set_style(style);
+        self.refresh_display();
     }
 
     fn get_style(&self) -> ComputedStyle {
@@ -279,6 +371,10 @@ OptionList {
     }
 
     fn on_resize(&mut self, size: Size) {
+        if self.last_width != Some(size.width) {
+            self.last_width = Some(size.width);
+            self.refresh_display();
+        }
         self.inner.on_resize(size);
     }
 

@@ -97,6 +97,8 @@ pub struct Static<M> {
     last_render_region: RefCell<Option<Region>>,
     /// Pending action to be executed (set on click, consumed by app).
     pending_action: RefCell<Option<String>>,
+    /// Optional tooltip text for this widget.
+    tooltip: Option<String>,
     _phantom: PhantomData<M>,
 }
 
@@ -120,6 +122,7 @@ impl<M> Default for Static<M> {
             hovered_link: RefCell::new(None),
             last_render_region: RefCell::new(None),
             pending_action: RefCell::new(None),
+            tooltip: None,
             _phantom: PhantomData,
         }
     }
@@ -389,7 +392,8 @@ impl<M> Static<M> {
     /// Extract link regions from rendered content for hit testing.
     fn extract_link_regions(&self, lines: &[Strip], cache: &RenderCache) {
         let mut regions = Vec::new();
-        let border_offset = if cache.has_border() { 1 } else { 0 };
+        let border_left = cache.border_left();
+        let border_top = cache.border_top();
         let padding_left = cache.padding_left();
         let padding_top = cache.padding_top();
 
@@ -403,9 +407,9 @@ impl<M> Static<M> {
                     regions.push(LinkRegion {
                         action: action.to_string(),
                         // Account for border and padding offsets
-                        row: row_idx + border_offset + padding_top,
-                        start_col: col + border_offset + padding_left,
-                        end_col: col + seg_width + border_offset + padding_left,
+                        row: row_idx + border_top + padding_top,
+                        start_col: col + border_left + padding_left,
+                        end_col: col + seg_width + border_left + padding_left,
                     });
                 }
                 col += seg_width;
@@ -528,9 +532,10 @@ Static {
         self.extract_link_regions(&aligned_lines, &cache);
 
         // 5. Calculate content region boundaries (accounting for borders and padding)
-        let border_offset = if cache.has_border() { 1 } else { 0 };
-        let content_start = border_offset + cache.padding_top();
-        let content_end = height.saturating_sub(border_offset + cache.padding_bottom());
+        let border_top = cache.border_top();
+        let border_bottom = cache.border_bottom();
+        let content_start = border_top + cache.padding_top();
+        let content_end = height.saturating_sub(border_bottom + cache.padding_bottom());
 
         // 6. Parse border titles as markup (only if we have a border)
         // Title/subtitle color inheritance:
@@ -634,7 +639,7 @@ Static {
             let content_line = if y >= content_start && y < content_end {
                 let content_y = y - content_start;
                 aligned_lines.get(content_y)
-            } else if y >= border_offset && y < height - border_offset {
+            } else if y >= border_top && y < height - border_bottom {
                 // This is a padding row (inside borders but outside content area)
                 None
             } else {
@@ -654,7 +659,7 @@ Static {
             // 8. Apply hatch pattern to inner content area (inside borders, includes padding)
             let strip = if let Some(hatch) = &self.style.hatch {
                 // Apply hatch to rows inside the border (content + padding area)
-                if y >= border_offset && y < height - border_offset {
+                if y >= border_top && y < height - border_bottom {
                     strip.apply_hatch(hatch.pattern.char(), &hatch.color, hatch.opacity)
                 } else {
                     strip
@@ -1006,5 +1011,14 @@ Static {
 
     fn take_pending_action(&self) -> Option<String> {
         self.pending_action.borrow_mut().take()
+    }
+
+    fn tooltip(&self) -> Option<String> {
+        self.tooltip.clone()
+    }
+
+    fn set_tooltip(&mut self, tooltip: Option<String>) {
+        self.tooltip = tooltip;
+        self.dirty = true;
     }
 }

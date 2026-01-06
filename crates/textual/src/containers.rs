@@ -66,13 +66,14 @@ fn inner_region_from_cache(
     inner_width: i32,
     inner_height: i32,
 ) -> Region {
-    let border_offset = if cache.has_border() { 1 } else { 0 };
+    let border_left = cache.border_left() as i32;
+    let border_top = cache.border_top() as i32;
     let padding_left = cache.padding_left() as i32;
     let padding_top = cache.padding_top() as i32;
 
     Region::new(
-        region.x + border_offset + padding_left,
-        region.y + border_offset + padding_top,
+        region.x + border_left + padding_left,
+        region.y + border_top + padding_top,
         inner_width,
         inner_height,
     )

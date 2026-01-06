@@ -110,10 +110,32 @@ impl<M> Input<M> {
     }
 
     fn build_display(&self) -> String {
-        if self.value.is_empty() && !self.focused {
+        // Cursor style: light background with dark text (inverted from default)
+        let cursor_style = "#121212 on #e0e0e0";
+        // Placeholder style: muted gray text
+        let placeholder_style = "#6d7479";
+
+        if self.value.is_empty() {
             if let Some(placeholder) = &self.placeholder {
-                return format!("[dim]{}[/]", escape_markup(placeholder));
+                if !self.focused {
+                    return format!("[{placeholder_style}]{}[/]", escape_markup(placeholder));
+                }
+                if placeholder.is_empty() {
+                    return format!("[{cursor_style}] [/]");
+                }
+                let mut chars = placeholder.chars();
+                let first = chars.next().unwrap_or(' ');
+                let rest: String = chars.collect();
+                return format!(
+                    "[{cursor_style}]{}[/][{placeholder_style}]{}[/]",
+                    escape_markup(&first.to_string()),
+                    escape_markup(&rest)
+                );
             }
+            if !self.focused {
+                return String::new();
+            }
+            return format!("[{cursor_style}] [/]");
         }
 
         let escaped = escape_markup(&self.value);
@@ -125,13 +147,13 @@ impl<M> Input<M> {
         let cursor = self.cursor.min(chars.len());
 
         if cursor >= chars.len() {
-            format!("{escaped}[reverse] [/]")
+            format!("{escaped}[{cursor_style}] [/]")
         } else {
             let prefix: String = chars[..cursor].iter().collect();
             let cursor_char = chars[cursor];
             let suffix: String = chars[cursor + 1..].iter().collect();
             format!(
-                "{}[reverse]{}[/]{}",
+                "{}[{cursor_style}]{}[/]{}",
                 escape_markup(&prefix),
                 escape_markup(&cursor_char.to_string()),
                 escape_markup(&suffix)
@@ -172,6 +194,12 @@ impl<M> Input<M> {
         chars.remove(cursor);
         self.value = chars.iter().collect();
         self.refresh_display();
+    }
+}
+
+impl<M> Default for Input<M> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

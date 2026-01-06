@@ -463,7 +463,7 @@ impl Content {
             link_text_style.underline
         } else {
             // Normal links default to underline
-            base_style.underline || link_text_style.underline || true
+            true
         };
 
         Style {

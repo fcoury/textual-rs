@@ -160,6 +160,28 @@ impl<M> Container<M> {
         self.border_subtitle.as_deref()
     }
 
+    /// Return true if any child occupies the given point within this container region.
+    pub fn hit_test_children(&self, region: Region, column: i32, row: i32) -> bool {
+        if !region.contains_point(column, row) {
+            return false;
+        }
+        let viewport = layouts::Viewport::from(region);
+        let placements = self.compute_child_placements(region, viewport);
+        let offset_y = self.scroll.borrow().offset_y;
+        for placement in placements {
+            let scrolled_region = Region {
+                x: placement.region.x,
+                y: placement.region.y - offset_y,
+                width: placement.region.width,
+                height: placement.region.height,
+            };
+            if scrolled_region.contains_point(column, row) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Get the effective layout direction (override takes precedence over CSS).
     fn effective_layout(&self) -> LayoutDirection {
         self.layout_override.unwrap_or(self.style.layout)
@@ -474,12 +496,15 @@ impl<M> Container<M> {
     fn calculate_intrinsic_size(&self) -> Size {
         if self.children.is_empty() {
             // Empty container: minimal size (account for border)
-            let border_size = if self.style.border.is_none() { 0 } else { 2 };
+            // Use per-axis border chrome to handle directional borders (hkey/vkey) correctly
+            let cache = RenderCache::new(&self.style);
+            let border_h = cache.border_horizontal() as u16;
+            let border_v = cache.border_vertical() as u16;
             let padding_h =
                 self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
             let padding_v =
                 self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
-            return Size::new(border_size + padding_h, border_size + padding_v);
+            return Size::new(border_h + padding_h, border_v + padding_v);
         }
 
         // Collect children sizes with margin collapsing support
@@ -601,7 +626,10 @@ impl<M> Container<M> {
         };
 
         // Add border and padding
-        let border_size = if self.style.border.is_none() { 0 } else { 2 };
+        // Use per-axis border chrome to handle directional borders (hkey/vkey) correctly
+        let cache = RenderCache::new(&self.style);
+        let border_h = cache.border_horizontal() as u16;
+        let border_v = cache.border_vertical() as u16;
         let padding_h =
             self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
         let padding_v =
@@ -612,7 +640,7 @@ impl<M> Container<M> {
             u16::MAX
         } else {
             content_w
-                .saturating_add(border_size)
+                .saturating_add(border_h)
                 .saturating_add(padding_h)
         };
 
@@ -620,7 +648,7 @@ impl<M> Container<M> {
             u16::MAX
         } else {
             content_h
-                .saturating_add(border_size)
+                .saturating_add(border_v)
                 .saturating_add(padding_v)
         };
 
@@ -765,13 +793,14 @@ Container {
         }
 
         // 4. Calculate inner region for children
-        let border_offset = if cache.has_border() { 1 } else { 0 };
+        let border_left = cache.border_left() as i32;
+        let border_top = cache.border_top() as i32;
         let padding_left = cache.padding_left() as i32;
         let padding_top = cache.padding_top() as i32;
 
         let inner_region = Region::new(
-            region.x + border_offset + padding_left,
-            region.y + border_offset + padding_top,
+            region.x + border_left + padding_left,
+            region.y + border_top + padding_top,
             inner_width as i32,
             inner_height as i32,
         );
@@ -1144,11 +1173,13 @@ Container {
         let total_height = current_y.floor() as u16;
 
         // Add container chrome (border + padding)
-        let border_size = if self.style.border.is_none() { 0 } else { 2 };
+        // Use per-axis border chrome to handle directional borders (hkey/vkey) correctly
+        let cache = RenderCache::new(&self.style);
+        let border_v = cache.border_vertical() as u16;
         let padding_v =
             self.style.padding.top.value as u16 + self.style.padding.bottom.value as u16;
         let result = total_height
-            .saturating_add(border_size)
+            .saturating_add(border_v)
             .saturating_add(padding_v);
 
         result
@@ -1227,11 +1258,13 @@ Container {
             let total_width = current_x.floor() as u16;
 
             // Add container chrome (border + padding)
-            let border_size = if self.style.border.is_none() { 0 } else { 2 };
+            // Use per-axis border chrome to handle directional borders (hkey/vkey) correctly
+            let cache = RenderCache::new(&self.style);
+            let border_h = cache.border_horizontal() as u16;
             let padding_h =
                 self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
             total_width
-                .saturating_add(border_size)
+                .saturating_add(border_h)
                 .saturating_add(padding_h)
         } else {
             // For vertical layout, find the maximum child width (with min-width applied)
@@ -1291,11 +1324,13 @@ Container {
             let total_width = max_width.floor() as u16;
 
             // Add container chrome (border + padding)
-            let border_size = if self.style.border.is_none() { 0 } else { 2 };
+            // Use per-axis border chrome to handle directional borders (hkey/vkey) correctly
+            let cache = RenderCache::new(&self.style);
+            let border_h = cache.border_horizontal() as u16;
             let padding_h =
                 self.style.padding.left.value as u16 + self.style.padding.right.value as u16;
             total_width
-                .saturating_add(border_size)
+                .saturating_add(border_h)
                 .saturating_add(padding_h)
         }
     }
@@ -1434,6 +1469,9 @@ Container {
             };
 
             if scrolled_placement.contains_point(mx, my) {
+                if matches!(event.kind, MouseEventKind::Moved) {
+                    self.children[placement.child_index].set_hover(true);
+                }
                 if let Some(msg) =
                     self.children[placement.child_index].on_mouse(event, scrolled_placement)
                 {
@@ -1496,6 +1534,9 @@ Container {
             };
 
             if scrolled_placement.contains_point(mx, my) {
+                if matches!(event.kind, MouseEventKind::Moved) {
+                    self.children[placement.child_index].set_hover(true);
+                }
                 if let Some(result) = self.children[placement.child_index]
                     .on_mouse_with_sender(event, scrolled_placement)
                 {

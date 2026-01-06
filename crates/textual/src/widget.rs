@@ -13,6 +13,7 @@ pub mod scrollbar;
 pub mod scrollbar_corner;
 pub mod static_widget;
 pub mod switch;
+pub mod tooltip;
 
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
@@ -198,6 +199,14 @@ pub trait Widget<M> {
     ///
     /// Inline styles have the highest priority and are applied after the CSS cascade.
     fn set_inline_style(&mut self, _style: StyleOverride) {}
+
+    /// Tooltip text for this widget, if any.
+    fn tooltip(&self) -> Option<String> {
+        None
+    }
+
+    /// Set tooltip text for this widget (default no-op).
+    fn set_tooltip(&mut self, _tooltip: Option<String>) {}
 
     /// Get the current inline style override, if any.
     fn inline_style(&self) -> Option<&StyleOverride> {

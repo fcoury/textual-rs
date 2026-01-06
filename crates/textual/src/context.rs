@@ -426,6 +426,16 @@ impl<'a, M: 'static> EventContext<'a, M> {
         self.tree.focus_by_id(id)
     }
 
+    /// Return the current focus index tracked by the widget tree.
+    pub fn current_focus_index(&self) -> usize {
+        self.tree.current_focus_index()
+    }
+
+    /// Set focus by focus index.
+    pub fn set_focus_index(&mut self, index: usize) -> bool {
+        self.tree.set_focus_index(index)
+    }
+
     /// Get the underlying AppContext for timer/interval operations.
     pub fn app_context(&self) -> &AppContext<M> {
         &self.app_ctx

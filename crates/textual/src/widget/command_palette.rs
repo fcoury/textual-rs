@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 
-use tcss::types::Visibility;
+use tcss::types::{Layout, Visibility};
 use tcss::{ComputedStyle, StyleOverride, WidgetMeta, WidgetStates};
 
 use crate::canvas::{Canvas, Region};
@@ -11,7 +11,8 @@ use crate::containers::container::Container;
 use crate::widget::input::Input;
 use crate::widget::loading_indicator::LoadingIndicator;
 use crate::widget::option_list::OptionList;
-use crate::{KeyCode, MouseEvent, Size, Widget};
+use crate::widget::static_widget::Static;
+use crate::{KeyCode, MouseEvent, MouseEventKind, Size, Widget};
 
 #[derive(Debug, Clone)]
 struct Command {
@@ -20,14 +21,40 @@ struct Command {
     help: Option<String>,
 }
 
-impl Command {
-    fn new(name: &str, action: &str, help: Option<&str>) -> Self {
-        Self {
-            name: name.to_string(),
-            action: action.to_string(),
-            help: help.map(|h| h.to_string()),
+fn escape_markup(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '[' | ']' | '\\' => {
+                out.push('\\');
+                out.push(ch);
+            }
+            _ => out.push(ch),
         }
     }
+    out
+}
+
+fn highlight_match(name: &str, query_lower: &str) -> String {
+    if query_lower.is_empty() {
+        return escape_markup(name);
+    }
+    let name_lower = name.to_lowercase();
+    if let Some(start) = name_lower.find(query_lower) {
+        let end = start + query_lower.len();
+        if start <= name.len() && end <= name.len() {
+            let prefix = &name[..start];
+            let matched = &name[start..end];
+            let suffix = &name[end..];
+            return format!(
+                "{}[bold underline]{}[/]{}",
+                escape_markup(prefix),
+                escape_markup(matched),
+                escape_markup(suffix)
+            );
+        }
+    }
+    escape_markup(name)
 }
 
 /// Command palette overlay widget.
@@ -40,22 +67,36 @@ pub struct CommandPalette<M: 'static> {
     filtered: Vec<usize>,
     selected: usize,
     pending_action: RefCell<Option<String>>,
+    panel_index: usize,
+    input_row_index: usize,
     input_index: usize,
+    results_index: usize,
     list_index: usize,
     loading_index: usize,
+    restore_focus: Option<usize>,
     _phantom: PhantomData<M>,
 }
 
 impl<M: 'static> CommandPalette<M> {
     pub fn new() -> Self {
+        let search_icon = Static::new("🔎").with_id("--search-icon");
         let input = Input::new()
             .with_placeholder("Search for commands…")
-            .with_id("--input");
-        let list = OptionList::new(Vec::new()).with_id("--results");
+            .with_id("--input-field");
+        let list = OptionList::new(Vec::new()).with_markup(true);
         let loading = LoadingIndicator::new().with_id("--loading");
 
-        let children: Vec<Box<dyn Widget<M>>> =
-            vec![Box::new(input), Box::new(list), Box::new(loading)];
+        let input_row = Container::new(vec![Box::new(search_icon), Box::new(input)])
+            .with_id("--input")
+            .with_layout(Layout::Horizontal);
+        let results = Container::new(vec![Box::new(list), Box::new(loading)])
+            .with_id("--results")
+            .with_layout(Layout::Vertical);
+        let panel = Container::new(vec![Box::new(input_row), Box::new(results)])
+            .with_id("--container")
+            .with_layout(Layout::Vertical);
+
+        let children: Vec<Box<dyn Widget<M>>> = vec![Box::new(panel)];
 
         let inner = Container::new(children)
             .with_id("--command-palette")
@@ -70,12 +111,15 @@ impl<M: 'static> CommandPalette<M> {
             filtered: Vec::new(),
             selected: 0,
             pending_action: RefCell::new(None),
-            input_index: 0,
-            list_index: 1,
-            loading_index: 2,
+            panel_index: 0,
+            input_row_index: 0,
+            input_index: 1,
+            results_index: 1,
+            list_index: 0,
+            loading_index: 1,
+            restore_focus: None,
             _phantom: PhantomData,
         };
-        palette.install_default_commands();
         palette.refresh_results();
         palette
     }
@@ -85,6 +129,13 @@ impl<M: 'static> CommandPalette<M> {
             self.visible = true;
             self.inner.mark_dirty();
         }
+    }
+
+    pub fn open_with_focus(&mut self, focus_index: usize) {
+        if !self.visible {
+            self.restore_focus = Some(focus_index);
+        }
+        self.open();
     }
 
     pub fn close(&mut self) {
@@ -109,11 +160,12 @@ impl<M: 'static> CommandPalette<M> {
         self.refresh_results();
     }
 
-    fn install_default_commands(&mut self) {
-        self.commands = vec![
-            Command::new("Quit", "app.quit", Some("Quit the application")),
-            Command::new("Bell", "app.bell", Some("Ring the bell")),
-        ];
+    pub fn take_restore_focus(&mut self) -> Option<usize> {
+        if self.visible {
+            None
+        } else {
+            self.restore_focus.take()
+        }
     }
 
     fn refresh_results(&mut self) {
@@ -135,14 +187,30 @@ impl<M: 'static> CommandPalette<M> {
         }
         self.update_list_widget();
         self.update_input_widget();
+        if let Some(loading) = self.loading_mut() {
+            loading.set_visible(false);
+        }
     }
 
     fn update_list_widget(&mut self) {
         let selected = self.selected;
+        let query_lower = self.query.to_lowercase();
+        // Description color for non-highlighted items (matches $text-muted)
+        let desc_color = "#a1a5a8";
+
         let items: Vec<String> = self
             .filtered
             .iter()
-            .map(|index| self.commands[*index].name.clone())
+            .map(|index| {
+                let command = &self.commands[*index];
+                let name = highlight_match(&command.name, &query_lower);
+                let mut lines = Vec::new();
+                lines.push(format!("  [bold]{name}[/]"));
+                if let Some(help) = &command.help {
+                    lines.push(format!("  [{desc_color}]{}[/]", escape_markup(help)));
+                }
+                lines.join("\n")
+            })
             .collect();
         if let Some(list) = self.list_mut() {
             list.set_items(items);
@@ -153,29 +221,57 @@ impl<M: 'static> CommandPalette<M> {
     fn update_input_widget(&mut self) {
         let query = self.query.clone();
         if let Some(input) = self.input_mut() {
+            let cursor = query.chars().count();
             input.set_value(query);
+            input.set_cursor(cursor);
         }
     }
 
     fn input_mut(&mut self) -> Option<&mut Input<M>> {
-        self.inner
-            .get_child_mut(self.input_index)
+        let index = self.input_index;
+        self.input_row_mut()
+            .and_then(|row| row.get_child_mut(index))
             .and_then(|child| child.as_any_mut())
             .and_then(|child| child.downcast_mut::<Input<M>>())
     }
 
     fn list_mut(&mut self) -> Option<&mut OptionList<M>> {
-        self.inner
-            .get_child_mut(self.list_index)
+        let index = self.list_index;
+        self.results_mut()
+            .and_then(|results| results.get_child_mut(index))
             .and_then(|child| child.as_any_mut())
             .and_then(|child| child.downcast_mut::<OptionList<M>>())
     }
 
     fn loading_mut(&mut self) -> Option<&mut LoadingIndicator<M>> {
-        self.inner
-            .get_child_mut(self.loading_index)
+        let index = self.loading_index;
+        self.results_mut()
+            .and_then(|results| results.get_child_mut(index))
             .and_then(|child| child.as_any_mut())
             .and_then(|child| child.downcast_mut::<LoadingIndicator<M>>())
+    }
+
+    fn panel_mut(&mut self) -> Option<&mut Container<M>> {
+        self.inner
+            .get_child_mut(self.panel_index)
+            .and_then(|child| child.as_any_mut())
+            .and_then(|child| child.downcast_mut::<Container<M>>())
+    }
+
+    fn input_row_mut(&mut self) -> Option<&mut Container<M>> {
+        let index = self.input_row_index;
+        self.panel_mut()
+            .and_then(|panel| panel.get_child_mut(index))
+            .and_then(|child| child.as_any_mut())
+            .and_then(|child| child.downcast_mut::<Container<M>>())
+    }
+
+    fn results_mut(&mut self) -> Option<&mut Container<M>> {
+        let index = self.results_index;
+        self.panel_mut()
+            .and_then(|panel| panel.get_child_mut(index))
+            .and_then(|child| child.as_any_mut())
+            .and_then(|child| child.downcast_mut::<Container<M>>())
     }
 
     fn move_selection(&mut self, delta: i32) {
@@ -201,17 +297,47 @@ impl<M: 'static> CommandPalette<M> {
     }
 }
 
+impl<M: 'static> Default for CommandPalette<M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<M: 'static> Widget<M> for CommandPalette<M> {
     fn default_css(&self) -> &'static str {
         r#"
 CommandPalette {
-    layout: vertical;
-    overflow-y: auto;
-    background: $background 60%;
-    align-horizontal: center;
     color: $foreground;
+    background: transparent;
+    align-horizontal: center;
+    align-vertical: top;
     width: 100%;
-    height: 100%;
+    height: auto;
+}
+
+CommandPalette #--container {
+    margin-top: 4;
+    height: auto;
+    background: $panel-darken-1;
+}
+
+CommandPalette #--search-icon {
+    color: #000;
+    margin-left: 1;
+    margin-top: 1;
+    width: 2;
+}
+
+CommandPalette #--input {
+    height: auto;
+    border: hkey black 50%;
+}
+
+CommandPalette #--results {
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border-bottom: hkey black;
 }
 
 CommandPalette Input {
@@ -219,11 +345,28 @@ CommandPalette Input {
     width: 1fr;
     padding-left: 0;
     background: transparent;
-    background-tint: 0%;
+    background-tint: transparent 0%;
 }
 
 CommandPalette OptionList {
     height: auto;
+    max-height: 70vh;
+    background: transparent;
+    border: none;
+    padding: 0;
+    line-pad: 0;
+    color: $foreground;
+    link-color: $block-cursor-blurred-foreground;
+    link-background: $block-cursor-blurred-background;
+    link-style: $block-cursor-blurred-text-style;
+}
+
+CommandPalette LoadingIndicator {
+    visibility: hidden;
+}
+
+CommandPalette LoadingIndicator.--visible {
+    visibility: visible;
 }
 "#
     }
@@ -321,6 +464,13 @@ CommandPalette OptionList {
         if !self.visible {
             return None;
         }
+        let mx = event.column as i32;
+        let my = event.row as i32;
+        let hit_child = self.inner.hit_test_children(region, mx, my);
+        if matches!(event.kind, MouseEventKind::Down(_)) && !hit_child {
+            self.close();
+            return None;
+        }
         self.inner.on_mouse(event, region)
     }
 
@@ -330,6 +480,13 @@ CommandPalette OptionList {
         region: Region,
     ) -> Option<(M, crate::widget::SenderInfo)> {
         if !self.visible {
+            return None;
+        }
+        let mx = event.column as i32;
+        let my = event.row as i32;
+        let hit_child = self.inner.hit_test_children(region, mx, my);
+        if matches!(event.kind, MouseEventKind::Down(_)) && !hit_child {
+            self.close();
             return None;
         }
         self.inner.on_mouse_with_sender(event, region)
@@ -346,6 +503,9 @@ CommandPalette OptionList {
     fn set_focus(&mut self, is_focused: bool) {
         if self.focused != is_focused {
             self.focused = is_focused;
+            if let Some(input) = self.input_mut() {
+                input.set_focus(is_focused);
+            }
             self.inner.mark_dirty();
         }
     }

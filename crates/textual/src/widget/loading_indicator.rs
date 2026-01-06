@@ -63,6 +63,12 @@ impl<M> LoadingIndicator<M> {
     }
 }
 
+impl<M> Default for LoadingIndicator<M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<M: 'static> Widget<M> for LoadingIndicator<M> {
     fn default_css(&self) -> &'static str {
         r#"

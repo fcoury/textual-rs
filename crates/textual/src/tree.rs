@@ -7,6 +7,7 @@
 use crate::KeyCode;
 use crate::message::MessageEnvelope;
 use crate::widget::{SenderInfo, Widget};
+use tcss::WidgetStates;
 
 /// A path from the root to a specific widget in the tree.
 ///
@@ -464,12 +465,9 @@ pub fn collect_pending_actions_mut<M>(widget: &mut dyn Widget<M>) -> Vec<String>
     }
 
     // Recursively check all children
-    let child_count = widget.child_count();
-    for i in 0..child_count {
-        if let Some(child) = widget.get_child_mut(i) {
-            actions.extend(collect_pending_actions_mut(child));
-        }
-    }
+    widget.for_each_child(&mut |child| {
+        actions.extend(collect_pending_actions_mut(child));
+    });
 
     actions
 }
@@ -483,12 +481,27 @@ pub fn clear_all_hover<M>(widget: &mut dyn Widget<M>) {
     widget.clear_hover();
 
     // Recursively clear all children
-    let child_count = widget.child_count();
-    for i in 0..child_count {
-        if let Some(child) = widget.get_child_mut(i) {
-            clear_all_hover(child);
+    widget.for_each_child(&mut |child| {
+        clear_all_hover(child);
+    });
+}
+
+/// Find the tooltip text for the currently hovered widget (if any).
+pub fn find_hovered_tooltip_mut<M>(widget: &mut dyn Widget<M>) -> Option<String> {
+    if widget.get_state().contains(WidgetStates::HOVER) {
+        if let Some(text) = widget.tooltip() {
+            return Some(text);
         }
     }
+
+    let mut found = None;
+    widget.for_each_child(&mut |child| {
+        if found.is_none() {
+            found = find_hovered_tooltip_mut(child);
+        }
+    });
+
+    found
 }
 
 /// Navigate to a widget at the given path and call handle_message on it.

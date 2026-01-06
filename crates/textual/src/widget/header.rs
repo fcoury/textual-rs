@@ -352,6 +352,7 @@ struct HeaderIcon<M> {
     hovered: bool,
     active: bool,
     pending_action: RefCell<Option<String>>,
+    tooltip: Option<String>,
 }
 
 impl<M> HeaderIcon<M> {
@@ -363,6 +364,7 @@ impl<M> HeaderIcon<M> {
             hovered: false,
             active: false,
             pending_action: RefCell::new(None),
+            tooltip: Some("Open the command palette".to_string()),
         }
     }
 
@@ -507,6 +509,14 @@ HeaderIcon:hover {
 
     fn take_pending_action(&self) -> Option<String> {
         self.pending_action.borrow_mut().take()
+    }
+
+    fn tooltip(&self) -> Option<String> {
+        self.tooltip.clone()
+    }
+
+    fn set_tooltip(&mut self, tooltip: Option<String>) {
+        self.tooltip = tooltip;
     }
 
     fn set_hover(&mut self, is_hovered: bool) -> bool {
@@ -763,7 +773,8 @@ Header.-tall {
     fn get_meta(&self) -> WidgetMeta {
         let mut meta = self.inner.get_meta();
         meta.type_name = "Header";
-        meta.type_names = vec!["Header", "Container", "Widget", "DOMNode"];
+        // Header shouldn't inherit Container default CSS rules.
+        meta.type_names = vec!["Header", "Widget", "DOMNode"];
         meta
     }
 

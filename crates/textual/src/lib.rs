@@ -33,6 +33,7 @@ use crossterm::{cursor, execute, terminal};
 use futures::StreamExt;
 use std::cell::Cell;
 use std::collections::{HashSet, VecDeque};
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
 pub use canvas::{Canvas, Region, Size};
@@ -49,7 +50,7 @@ pub use message::MessageEnvelope;
 pub use scroll::{ScrollMessage, ScrollState};
 pub use scrollbar::{ScrollBarRender, ScrollbarGlyphs};
 pub use tcss::TcssError;
-pub use tree::{DOMQuery, clear_all_hover, collect_pending_actions_mut};
+pub use tree::{DOMQuery, clear_all_hover, collect_pending_actions_mut, find_hovered_tooltip_mut};
 pub use visual::VisualType;
 pub use widget::command_palette::CommandPalette;
 pub use widget::header::Header;
@@ -58,6 +59,7 @@ pub use widget::label::{Label, LabelVariant};
 pub use widget::loading_indicator::LoadingIndicator;
 pub use widget::option_list::OptionList;
 pub use widget::static_widget::Static;
+pub use widget::tooltip::Tooltip;
 
 // Re-export the log crate so users can use textual::log::info!, etc.
 pub use log;
@@ -67,7 +69,7 @@ pub use widget::{
     Compose, Widget, button::Button, placeholder::Placeholder, placeholder::PlaceholderVariant,
     placeholder::reset_placeholder_counter, ruler::Ruler, ruler::RulerOrientation,
     screen::Breakpoint, screen::Screen, scrollbar::ScrollBar, scrollbar_corner::ScrollBarCorner,
-    switch::Switch,
+    switch::Switch, tooltip::Tooltip as TooltipWidget,
 };
 
 thread_local! {
@@ -200,16 +202,36 @@ pub trait App {
     fn command_palette_commands(&self) -> Vec<(String, String, Option<String>)> {
         vec![
             (
-                "Quit".to_string(),
-                "app.quit".to_string(),
-                Some("Quit the application".to_string()),
+                "Keys".to_string(),
+                "app.keys".to_string(),
+                Some("Show help for the focused widget and a summary of available keys".to_string()),
             ),
             (
-                "Bell".to_string(),
-                "app.bell".to_string(),
-                Some("Ring the bell".to_string()),
+                "Maximize".to_string(),
+                "app.maximize".to_string(),
+                Some("Maximize the focused widget".to_string()),
+            ),
+            (
+                "Quit".to_string(),
+                "app.quit".to_string(),
+                Some("Quit the application as soon as possible".to_string()),
+            ),
+            (
+                "Screenshot".to_string(),
+                "app.screenshot".to_string(),
+                Some("Save an SVG 'screenshot' of the current screen".to_string()),
+            ),
+            (
+                "Theme".to_string(),
+                "app.theme".to_string(),
+                Some("Change the current theme".to_string()),
             ),
         ]
+    }
+
+    /// Delay before showing a tooltip after hover.
+    fn tooltip_delay(&self) -> Duration {
+        Duration::from_millis(500)
     }
 
     /// Handle an action string from a link click (e.g., "app.bell", "app.quit").
@@ -289,11 +311,14 @@ pub trait App {
             }
             "app.command_palette" | "command_palette" => {
                 if Self::ENABLE_COMMAND_PALETTE {
+                    let focus_index = ctx.current_focus_index();
+                    let commands = self.command_palette_commands();
                     let opened = ctx
                         .query_one_as::<CommandPalette<Self::Message>, _, _>(
                             "CommandPalette",
                             |palette| {
-                                palette.open();
+                                palette.set_commands(commands);
+                                palette.open_with_focus(focus_index);
                             },
                         )
                         .is_some();
@@ -498,6 +523,7 @@ pub trait App {
                 .with_horizontal_breakpoints(self.horizontal_breakpoints())
                 .with_vertical_breakpoints(self.vertical_breakpoints());
             let mut root_children: Vec<Box<dyn Widget<Self::Message>>> = vec![Box::new(screen)];
+            root_children.push(Box::new(Tooltip::new()));
             if Self::ENABLE_COMMAND_PALETTE {
                 root_children.push(Box::new(CommandPalette::new()));
             }
@@ -544,6 +570,12 @@ pub trait App {
             let mut needs_render = true;
             // Flag to trigger tree rebuild after state changes
             let mut needs_recompose = false;
+            // Tooltip state
+            let mut tooltip_deadline: Option<Instant> = None;
+            let mut tooltip_text: Option<String> = None;
+            let mut tooltip_visible = false;
+            let mut last_mouse_pos: Option<(i32, i32)> = None;
+            let mut tooltip_tick = tokio::time::interval(Duration::from_millis(50));
 
             while !self.should_quit() {
                 // Rebuild widget tree if app state changed
@@ -554,6 +586,7 @@ pub trait App {
                         .with_vertical_breakpoints(self.vertical_breakpoints());
                     let mut root_children: Vec<Box<dyn Widget<Self::Message>>> =
                         vec![Box::new(screen)];
+                    root_children.push(Box::new(Tooltip::new()));
                     if Self::ENABLE_COMMAND_PALETTE {
                         root_children.push(Box::new(CommandPalette::new()));
                     }
@@ -621,6 +654,36 @@ pub trait App {
                 // NOTE: Don't use `biased` here - it would starve the message channel
                 // if the event stream keeps returning ready (mouse events, etc.)
                 tokio::select! {
+                    _ = tooltip_tick.tick() => {
+                        if let Some(deadline) = tooltip_deadline {
+                            if Instant::now() >= deadline {
+                                if let (Some(text), Some((mx, my))) =
+                                    (tooltip_text.clone(), last_mouse_pos)
+                                {
+                                    if let Some(()) =
+                                        tree.query_one_as::<Tooltip<Self::Message>, _, _>(
+                                            "Tooltip",
+                                            |tooltip| {
+                                                tooltip.show(text);
+                                                let tooltip_width =
+                                                    tooltip.desired_size().width as i32;
+                                                let mut x = mx - (tooltip_width / 2);
+                                                if x < 0 {
+                                                    x = 0;
+                                                }
+                                                let y = (my + 1).max(0);
+                                                tooltip.set_position(x, y);
+                                            },
+                                        )
+                                    {
+                                        tooltip_visible = true;
+                                        tooltip_deadline = None;
+                                        needs_render = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     // Terminal events from crossterm
                     maybe_event = event_stream.next() => {
@@ -694,6 +757,15 @@ pub trait App {
                                         self.dispatch_action(&action, &mut ctx);
                                     }
                                 }
+                                if let Some(restored) = tree
+                                    .query_one_as::<CommandPalette<Self::Message>, _, _>(
+                                        "CommandPalette",
+                                        |palette| palette.take_restore_focus(),
+                                    )
+                                    .flatten()
+                                {
+                                    let _ = tree.set_focus_index(restored);
+                                }
                                 // Check if app wants tree rebuild (Elm-style)
                                 needs_recompose = self.needs_recompose();
                                 needs_render = needs_render || focus_changed;
@@ -742,6 +814,79 @@ pub trait App {
                                     let mut ctx = EventContext::new(event_ctx, &mut tree);
                                     for action in actions {
                                         self.dispatch_action(&action, &mut ctx);
+                                    }
+                                }
+                                if let Some(restored) = tree
+                                    .query_one_as::<CommandPalette<Self::Message>, _, _>(
+                                        "CommandPalette",
+                                        |palette| palette.take_restore_focus(),
+                                    )
+                                    .flatten()
+                                {
+                                    let _ = tree.set_focus_index(restored);
+                                }
+
+                                // Tooltip handling: update pending tooltip on mouse move.
+                                if matches!(mouse_event.kind, crossterm::event::MouseEventKind::Moved) {
+                                    let current_pos =
+                                        (mouse_event.column as i32, mouse_event.row as i32);
+                                    let pos_changed = last_mouse_pos != Some(current_pos);
+                                    last_mouse_pos = Some(current_pos);
+                                    let hovered_tooltip =
+                                        find_hovered_tooltip_mut(tree.root_mut());
+
+                                    match hovered_tooltip {
+                                        Some(text) => {
+                                            let tooltip_changed =
+                                                tooltip_text.as_ref() != Some(&text);
+
+                                            if tooltip_visible && (pos_changed || tooltip_changed) {
+                                                if let Some(()) = tree
+                                                    .query_one_as::<Tooltip<Self::Message>, _, _>(
+                                                        "Tooltip",
+                                                        |tooltip| tooltip.hide(),
+                                                    )
+                                                {
+                                                    tooltip_visible = false;
+                                                }
+                                            }
+
+                                            if tooltip_changed {
+                                                tooltip_text = Some(text);
+                                            }
+
+                                            if pos_changed || tooltip_changed || tooltip_deadline.is_none() {
+                                                // Reset the timer only when the mouse actually moves or
+                                                // the hovered tooltip changes, so repeated move events
+                                                // at the same position don't starve the timer.
+                                                tooltip_deadline =
+                                                    Some(Instant::now() + self.tooltip_delay());
+                                            }
+                                        }
+                                        None => {
+                                            tooltip_text = None;
+                                            tooltip_deadline = None;
+                                            if tooltip_visible {
+                                                if let Some(()) = tree
+                                                    .query_one_as::<Tooltip<Self::Message>, _, _>(
+                                                        "Tooltip",
+                                                        |tooltip| tooltip.hide(),
+                                                    )
+                                                {
+                                                    tooltip_visible = false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else if tooltip_visible {
+                                    // Non-move mouse events hide the tooltip.
+                                    if let Some(()) = tree
+                                        .query_one_as::<Tooltip<Self::Message>, _, _>(
+                                            "Tooltip",
+                                            |tooltip| tooltip.hide(),
+                                        )
+                                    {
+                                        tooltip_visible = false;
                                     }
                                 }
 

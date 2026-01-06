@@ -4,6 +4,28 @@
 
 texrs is a Rust implementation of Python Textual - a TUI framework for building terminal applications.
 
+## ⚠️ CRITICAL: tmux Session Safety
+
+**NEVER use commands that could kill all tmux sessions.** The user has multiple projects running in tmux sessions.
+
+### SAFEST APPROACH: Do NOT use tmux directly for testing
+- Ask the user to manually run and verify TUI output
+- Use the `tmux-tui-testing-skill` if available
+- Write unit/snapshot tests instead of interactive tmux testing
+
+### If tmux MUST be used (with extreme caution):
+
+1. **NEVER use `tmux kill-server`** - This kills ALL sessions
+2. **NEVER use `pkill tmux` or `killall tmux`**
+3. **NEVER use `tmux resize-window`** - It can affect the user's current window!
+4. **ALWAYS use unique session names** with `$$` (PID) suffix: `SESSION="test-$$"`
+5. **ALWAYS verify session exists before operating on it**:
+   ```bash
+   tmux has-session -t "$SESSION" 2>/dev/null && tmux kill-session -t "$SESSION"
+   ```
+
+6. **If a session fails to create, do NOT attempt to kill it**
+
 ## Testing TUI Output with tmux
 
 Use the `tmux-tui-testing-skill` to capture ANSI-colored terminal output for comparison testing.
