@@ -1,6 +1,5 @@
 ---
 source: crates/textual/tests/examples_snapshot.rs
-assertion_line: 1986
 expression: "canvas.to_svg(Some(\"Visibility Containers Example\"))"
 ---
 <svg class="rich-terminal" viewBox="0 0 976 585.6" xmlns="http://www.w3.org/2000/svg">
@@ -30,7 +29,12 @@ expression: "canvas.to_svg(Some(\"Visibility Containers Example\"))"
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
-    .terminal-r1 { fill: #000000 }
+    .terminal-r1 { fill: #191218 }
+    .terminal-r2 { fill: #1c1416 }
+    .terminal-r3 { fill: #1e1717 }
+    .terminal-r4 { fill: #151f19 }
+    .terminal-r5 { fill: #131e1d }
+    .terminal-r6 { fill: #111d1e }
     </style>
     <defs>
     <clipPath id="terminal-clip">
@@ -112,34 +116,34 @@ expression: "canvas.to_svg(Some(\"Visibility Containers Example\"))"
     <g transform="translate(0, 0)" clip-path="url(#terminal-clip)">
     <rect fill="#ffffff" x="0" y="0" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="24.4" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#c388bb" x="24.4" y="24.4" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#d499aa" x="329.4" y="24.4" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#e5b2b2" x="634.39996" y="24.4" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#c388bb" x="24.4" y="24.4" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#d499aa" x="341.6" y="24.4" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#e5b2b2" x="646.6" y="24.4" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="951.6" y="24.4" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="48.8" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#c388bb" x="24.4" y="48.8" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#d499aa" x="329.4" y="48.8" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#e5b2b2" x="634.39996" y="48.8" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#c388bb" x="24.4" y="48.8" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#d499aa" x="341.6" y="48.8" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#e5b2b2" x="646.6" y="48.8" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="951.6" y="48.8" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="73.2" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#c388bb" x="24.4" y="73.2" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#d499aa" x="329.4" y="73.2" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#e5b2b2" x="634.39996" y="73.2" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#c388bb" x="24.4" y="73.2" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#d499aa" x="341.6" y="73.2" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#e5b2b2" x="646.6" y="73.2" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="951.6" y="73.2" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="97.6" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#c388bb" x="24.4" y="97.6" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#d499aa" x="329.4" y="97.6" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#e5b2b2" x="634.39996" y="97.6" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#c388bb" x="24.4" y="97.6" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#d499aa" x="341.6" y="97.6" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#e5b2b2" x="646.6" y="97.6" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="951.6" y="97.6" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="122" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#c388bb" x="24.4" y="122" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#d499aa" x="329.4" y="122" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#e5b2b2" x="634.39996" y="122" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#c388bb" x="24.4" y="122" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#d499aa" x="341.6" y="122" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#e5b2b2" x="646.6" y="122" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="951.6" y="122" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="146.4" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#c388bb" x="24.4" y="146.4" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#d499aa" x="329.4" y="146.4" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#e5b2b2" x="634.39996" y="146.4" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#c388bb" x="24.4" y="146.4" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#d499aa" x="341.6" y="146.4" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#e5b2b2" x="646.6" y="146.4" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="951.6" y="146.4" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#ffffff" x="0" y="170.8" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="195.2" width="976" height="24.4" shape-rendering="crispEdges"/>
@@ -152,49 +156,49 @@ expression: "canvas.to_svg(Some(\"Visibility Containers Example\"))"
     <rect fill="#121212" x="0" y="366" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="390.4" width="976" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="414.8" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#a1eec3" x="24.4" y="414.8" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#90e5dd" x="329.4" y="414.8" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#7fdde5" x="634.39996" y="414.8" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#a1eec3" x="24.4" y="414.8" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#90e5dd" x="341.6" y="414.8" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#7fdde5" x="646.6" y="414.8" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="951.6" y="414.8" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="439.19998" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#a1eec3" x="24.4" y="439.19998" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#90e5dd" x="329.4" y="439.19998" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#7fdde5" x="634.39996" y="439.19998" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#a1eec3" x="24.4" y="439.19998" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#90e5dd" x="341.6" y="439.19998" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#7fdde5" x="646.6" y="439.19998" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="951.6" y="439.19998" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="463.6" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#a1eec3" x="24.4" y="463.6" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#90e5dd" x="329.4" y="463.6" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#7fdde5" x="634.39996" y="463.6" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#a1eec3" x="24.4" y="463.6" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#90e5dd" x="341.6" y="463.6" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#7fdde5" x="646.6" y="463.6" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="951.6" y="463.6" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="488" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#a1eec3" x="24.4" y="488" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#90e5dd" x="329.4" y="488" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#7fdde5" x="634.39996" y="488" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#a1eec3" x="24.4" y="488" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#90e5dd" x="341.6" y="488" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#7fdde5" x="646.6" y="488" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="951.6" y="488" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="512.39996" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#a1eec3" x="24.4" y="512.39996" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#90e5dd" x="329.4" y="512.39996" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#7fdde5" x="634.39996" y="512.39996" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#a1eec3" x="24.4" y="512.39996" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#90e5dd" x="341.6" y="512.39996" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#7fdde5" x="646.6" y="512.39996" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="951.6" y="512.39996" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="536.8" width="24.4" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#a1eec3" x="24.4" y="536.8" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#90e5dd" x="329.4" y="536.8" width="305" height="24.4" shape-rendering="crispEdges"/>
-    <rect fill="#7fdde5" x="634.39996" y="536.8" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#a1eec3" x="24.4" y="536.8" width="317.19998" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#90e5dd" x="341.6" y="536.8" width="305" height="24.4" shape-rendering="crispEdges"/>
+    <rect fill="#7fdde5" x="646.6" y="536.8" width="305" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="951.6" y="536.8" width="24.4" height="24.4" shape-rendering="crispEdges"/>
     <rect fill="#121212" x="0" y="561.2" width="976" height="24.4" shape-rendering="crispEdges"/>
     <g class="terminal-matrix">
     <text class="terminal-default" x="0" y="93.6" textLength="109.799995" clip-path="url(#terminal-line-3)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
     <text class="terminal-r1" x="109.799995" y="93.6" textLength="134.2" clip-path="url(#terminal-line-3)">Placeholder</text>
-    <text class="terminal-default" x="244" y="93.6" textLength="170.8" clip-path="url(#terminal-line-3)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
-    <text class="terminal-r1" x="414.8" y="93.6" textLength="134.2" clip-path="url(#terminal-line-3)">Placeholder</text>
-    <text class="terminal-default" x="549" y="93.6" textLength="170.8" clip-path="url(#terminal-line-3)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
-    <text class="terminal-r1" x="719.8" y="93.6" textLength="134.2" clip-path="url(#terminal-line-3)">Placeholder</text>
+    <text class="terminal-default" x="244" y="93.6" textLength="183" clip-path="url(#terminal-line-3)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
+    <text class="terminal-r2" x="427" y="93.6" textLength="134.2" clip-path="url(#terminal-line-3)">Placeholder</text>
+    <text class="terminal-default" x="561.2" y="93.6" textLength="170.8" clip-path="url(#terminal-line-3)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
+    <text class="terminal-r3" x="732" y="93.6" textLength="134.2" clip-path="url(#terminal-line-3)">Placeholder</text>
     <text class="terminal-default" x="0" y="484" textLength="109.799995" clip-path="url(#terminal-line-19)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
-    <text class="terminal-r1" x="109.799995" y="484" textLength="134.2" clip-path="url(#terminal-line-19)">Placeholder</text>
-    <text class="terminal-default" x="244" y="484" textLength="170.8" clip-path="url(#terminal-line-19)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
-    <text class="terminal-r1" x="414.8" y="484" textLength="134.2" clip-path="url(#terminal-line-19)">Placeholder</text>
-    <text class="terminal-default" x="549" y="484" textLength="170.8" clip-path="url(#terminal-line-19)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
-    <text class="terminal-r1" x="719.8" y="484" textLength="134.2" clip-path="url(#terminal-line-19)">Placeholder</text>
+    <text class="terminal-r4" x="109.799995" y="484" textLength="134.2" clip-path="url(#terminal-line-19)">Placeholder</text>
+    <text class="terminal-default" x="244" y="484" textLength="183" clip-path="url(#terminal-line-19)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
+    <text class="terminal-r5" x="427" y="484" textLength="134.2" clip-path="url(#terminal-line-19)">Placeholder</text>
+    <text class="terminal-default" x="561.2" y="484" textLength="170.8" clip-path="url(#terminal-line-19)">&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;</text>
+    <text class="terminal-r6" x="732" y="484" textLength="134.2" clip-path="url(#terminal-line-19)">Placeholder</text>
     </g>
     </g>
 </svg>
