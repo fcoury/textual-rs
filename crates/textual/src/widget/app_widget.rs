@@ -166,8 +166,12 @@ App {
 
     fn on_mouse(&mut self, event: MouseEvent, region: Region) -> Option<M> {
         for child in self.children.iter_mut().rev() {
+            let blocks_mouse = child.blocks_mouse_events();
             if let Some(msg) = child.on_mouse(event, region) {
                 return Some(msg);
+            }
+            if blocks_mouse {
+                return None;
             }
         }
         None
@@ -179,8 +183,12 @@ App {
         region: Region,
     ) -> Option<(M, crate::widget::SenderInfo)> {
         for child in self.children.iter_mut().rev() {
+            let blocks_mouse = child.blocks_mouse_events();
             if let Some(result) = child.on_mouse_with_sender(event, region) {
                 return Some(result);
+            }
+            if blocks_mouse {
+                return None;
             }
         }
         None

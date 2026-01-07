@@ -287,6 +287,14 @@ pub trait Widget<M> {
             .map(|msg| (msg, self.sender_info()))
     }
 
+    /// Returns true if this widget should block mouse events from reaching widgets behind it.
+    ///
+    /// This is intended for modal overlays (e.g., command palette) that should capture
+    /// all mouse interaction even when they don't emit a message.
+    fn blocks_mouse_events(&self) -> bool {
+        false
+    }
+
     /// Sets the hover state on this widget and clears hover from all other widgets.
     ///
     /// Returns true if this widget's hover state changed.

@@ -1809,6 +1809,10 @@ CommandPalette LoadingIndicator.--visible {
         result
     }
 
+    fn blocks_mouse_events(&self) -> bool {
+        self.visible
+    }
+
     fn take_pending_action(&self) -> Option<String> {
         self.pending_action.borrow_mut().take()
     }

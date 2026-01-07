@@ -973,9 +973,24 @@ pub trait App {
                                 // NOTE: Mouse events use hit-testing, not focus path.
                                 // Full mouse bubbling would require on_mouse to track the hit path.
                                 // For now, messages go directly to App without parent interception.
-                                if let Some((msg, sender)) =
+                                let palette_open = tree
+                                    .query_one_as::<CommandPalette<Self::Message>, _, _>(
+                                        "CommandPalette",
+                                        |palette| palette.is_open(),
+                                    )
+                                    .unwrap_or(false);
+
+                                let mouse_result = if palette_open {
+                                    tree.query_one_as::<CommandPalette<Self::Message>, _, _>(
+                                        "CommandPalette",
+                                        |palette| palette.on_mouse_with_sender(mouse_event, region),
+                                    )
+                                    .flatten()
+                                } else {
                                     tree.root_mut().on_mouse_with_sender(mouse_event, region)
-                                {
+                                };
+
+                                if let Some((msg, sender)) = mouse_result {
                                     let envelope =
                                         MessageEnvelope::new(msg, sender.id.as_deref(), sender.type_name);
                                     let event_ctx =
